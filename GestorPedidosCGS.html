@@ -2890,19 +2890,23 @@ function driveConnect() {
 }
 
 function driveHandleRedirect() {
-  // Capturar token si Google nos redirigió de vuelta
   const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    const params = new URLSearchParams(hash.replace('#',''));
+  const search = window.location.search;
+  // Google puede devolver el token en hash o en query string
+  const source = hash.includes('access_token') ? hash : search.includes('access_token') ? search : null;
+  if (source) {
+    const params = new URLSearchParams(source.replace('#','').replace('?',''));
     const token = params.get('access_token');
     if (token) {
       _driveToken = token;
       localStorage.setItem('gpgt_drive_token', token);
-      // Limpiar la URL
       history.replaceState(null, '', window.location.pathname);
-      toast('✅ Google Drive conectado','#10b981');
-      renderDriveStatus();
-      driveSaveBackup(false);
+      setTimeout(() => {
+        toast('✅ Google Drive conectado','#10b981');
+        renderDriveStatus();
+        driveSaveBackup(false);
+        goTab('backup');
+      }, 500);
     }
   }
 }
