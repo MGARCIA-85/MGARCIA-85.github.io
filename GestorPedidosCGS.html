@@ -465,6 +465,22 @@ Selecciona un cliente para continuar.<br><br>
 // ═══════════════════════════════════════════════════════
 //  ESTADO Y PERSISTENCIA
 // ═══════════════════════════════════════════════════════
+// Capturar token de Google Drive inmediatamente al cargar
+(function() {
+  const h = window.location.hash || '';
+  const s = window.location.search || '';
+  const src = h.includes('access_token') ? h : s.includes('access_token') ? s : '';
+  if (src) {
+    const p = new URLSearchParams(src.replace(/^[#?]/,''));
+    const tok = p.get('access_token');
+    if (tok) {
+      localStorage.setItem('gpgt_drive_token', tok);
+      localStorage.setItem('gpgt_drive_pending', '1');
+      history.replaceState(null,'', window.location.pathname);
+    }
+  }
+})();
+
 const LS = 'gpgt_v3';
 
 let S = {
@@ -2885,7 +2901,9 @@ function driveConnect() {
     'client_id=' + encodeURIComponent(DRIVE_CLIENT_ID) +
     '&redirect_uri=' + encodeURIComponent(DRIVE_REDIRECT) +
     '&response_type=token' +
-    '&scope=' + encodeURIComponent(DRIVE_SCOPE);
+    '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
+    '&prompt=consent' +
+    '&include_granted_scopes=true';
   window.location.href = authUrl;
 }
 
@@ -2995,8 +3013,18 @@ function renderDriveStatus() {
 function initDrive() {
   const tok = localStorage.getItem('gpgt_drive_token');
   const fid = localStorage.getItem('gpgt_drive_file_id');
+  const pending = localStorage.getItem('gpgt_drive_pending');
   if (tok) { _driveToken = tok; }
   if (fid) { _driveFileId = fid; }
+  if (pending) {
+    localStorage.removeItem('gpgt_drive_pending');
+    setTimeout(() => {
+      toast('✅ Google Drive conectado','#10b981');
+      renderDriveStatus();
+      driveSaveBackup(false);
+      goTab('backup');
+    }, 800);
+  }
   renderDriveStatus();
 }
 
