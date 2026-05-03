@@ -2947,32 +2947,33 @@ async function driveRestoreBackup() {
   _confirmCb = async () => {
     try {
       toast('⏳ Buscando respaldo en Drive...','#f59e0b');
-      const fileId = _driveFileId || localStorage.getItem('gpgt_drive_file_id');
-      let fid = fileId;
-      if (!fid) {
-        const search = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'+and+trashed=false&fields=files(id)`,
-          { headers: { Authorization: 'Bearer '+_driveToken } }
-        );
-        const found = await search.json();
-        if (found.files && found.files.length) {
-          fid = found.files[0].id;
-          _driveFileId = fid;
-          localStorage.setItem('gpgt_drive_file_id', fid);
-        }
+      // Buscar archivo — siempre buscar de nuevo para asegurar
+      const search = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'+and+trashed=false&fields=files(id,name,modifiedTime)&orderBy=modifiedTime+desc`,
+        { headers: { Authorization: 'Bearer '+_driveToken } }
+      );
+      if (!search.ok) {
+        const err = await search.json();
+        if (err.error?.code === 401) { _driveToken=null; localStorage.removeItem('gpgt_drive_token'); renderDriveStatus(); return toast('Token expirado. Vuelve a conectar Drive.','#ef4444'); }
+        return toast('⚠️ Error: '+JSON.stringify(err.error?.message),'#ef4444');
       }
-      if (!fid) return toast('⚠️ No se encontró respaldo en Drive','#ef4444');
+      const found = await search.json();
+      if (!found.files || !found.files.length) return toast('⚠️ No se encontró respaldo en Drive','#ef4444');
+      const fid = found.files[0].id;
+      _driveFileId = fid;
+      localStorage.setItem('gpgt_drive_file_id', fid);
+      toast('⏳ Descargando datos...','#f59e0b');
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fid}?alt=media`,
         { headers: { Authorization: 'Bearer '+_driveToken } }
       );
-      if (!res.ok) return toast('⚠️ Error al descargar el respaldo','#ef4444');
+      if (!res.ok) return toast('⚠️ Error al descargar','#ef4444');
       const data = await res.json();
-      S = data;
-      save();
-      toast('✅ Datos restaurados desde Drive','#10b981');
-      renderClients(); renderList(); renderProducts(); renderRoutes(); renderBackup();
-    } catch(e) { toast('⚠️ Error al restaurar: '+e.message,'#ef4444'); }
+      if (!data || !data.clients) return toast('⚠️ El archivo de Drive no tiene datos válidos','#ef4444');
+      localStorage.setItem(LS, JSON.stringify(data));
+      toast('✅ Datos restaurados. Recargando...','#10b981');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch(e) { toast('⚠️ Error: '+e.message,'#ef4444'); }
   };
 }
 
