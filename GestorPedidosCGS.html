@@ -165,7 +165,7 @@ table.rep th{background:#f0f0f0!important}
     <div id="confirm-sub" style="font-size:12px;color:#94a3b8;margin-bottom:18px"></div>
     <div style="display:flex;gap:10px">
       <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:14px">Cancelar</button>
-      <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;font-size:14px">Eliminar</button>
+      <button id="confirm-ok-btn" onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;font-size:14px">Eliminar</button>
     </div>
   </div>
 </div>
@@ -1432,9 +1432,11 @@ save(); renderList();
 //  MODAL DE CONFIRMACIÓN
 // ═══════════════════════════════════════════════════════
 let _confirmCb = null;
-function askConfirm(msg, sub, cb) {
+function askConfirm(msg, sub, cb, btnText) {
   document.getElementById('confirm-msg').textContent = msg;
   document.getElementById('confirm-sub').textContent = sub || '';
+  const btn = document.getElementById('confirm-ok-btn');
+  if (btn) btn.textContent = btnText || 'Eliminar';
   const m = document.getElementById('confirm-modal');
   m.style.display = 'flex';
   _confirmCb = cb;
@@ -2931,7 +2933,18 @@ function driveHandleRedirect() {
 
 async function driveRestoreBackup() {
   if (!_driveToken) return toast('Primero conecta Google Drive','#f59e0b');
-  askConfirm('¿Restaurar datos desde Drive?', 'Esto reemplazará todos los datos actuales.', async () => {
+  const modal = document.getElementById('confirm-modal');
+  const inner = modal.querySelector('div');
+  inner.innerHTML = `
+    <div style="font-size:28px;margin-bottom:8px">☁️</div>
+    <div id="confirm-msg" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">¿Restaurar datos desde Drive?</div>
+    <div id="confirm-sub" style="font-size:12px;color:#94a3b8;margin-bottom:18px">Esto reemplazará todos los datos actuales.</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:14px">Cancelar</button>
+      <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer;font-size:14px">✅ Restaurar</button>
+    </div>`;
+  modal.style.display = 'flex';
+  _confirmCb = async () => {
     try {
       toast('⏳ Buscando respaldo en Drive...','#f59e0b');
       const fileId = _driveFileId || localStorage.getItem('gpgt_drive_file_id');
@@ -2960,7 +2973,7 @@ async function driveRestoreBackup() {
       toast('✅ Datos restaurados desde Drive','#10b981');
       renderClients(); renderList(); renderProducts(); renderRoutes(); renderBackup();
     } catch(e) { toast('⚠️ Error al restaurar: '+e.message,'#ef4444'); }
-  });
+  };
 }
 
 function driveDisconnect() {
