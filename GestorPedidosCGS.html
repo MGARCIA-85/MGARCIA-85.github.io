@@ -399,6 +399,7 @@ Selecciona un cliente para continuar.<br><br>
 <div id="drive-status" style="font-size:12px;margin-bottom:10px;color:#94a3b8">Estado: no conectado</div>
 <button id="drive-connect-btn" class="bg" style="width:100%;max-width:280px;margin:0 auto;padding:10px;margin-bottom:8px" onclick="driveConnect()">🔗 Conectar Google Drive</button>
 <button id="drive-sync-btn" class="bs" style="width:100%;max-width:280px;margin:0 auto;padding:10px;display:none" onclick="driveSaveBackup(true)">☁️ Guardar en Drive ahora</button>
+<button id="drive-restore-btn" class="bp" style="width:100%;max-width:280px;margin:0 auto;padding:10px;margin-top:6px;display:none" onclick="driveRestoreBackup()">⬇️ Restaurar desde Drive</button>
 <button id="drive-disconnect-btn" class="br" style="width:100%;max-width:280px;margin:0 auto;padding:8px;margin-top:6px;display:none;font-size:12px" onclick="driveDisconnect()">Desconectar Drive</button>
 </div>
 
@@ -2928,6 +2929,40 @@ function driveHandleRedirect() {
   }
 }
 
+async function driveRestoreBackup() {
+  if (!_driveToken) return toast('Primero conecta Google Drive','#f59e0b');
+  askConfirm('¿Restaurar datos desde Drive?', 'Esto reemplazará todos los datos actuales.', async () => {
+    try {
+      toast('⏳ Buscando respaldo en Drive...','#f59e0b');
+      const fileId = _driveFileId || localStorage.getItem('gpgt_drive_file_id');
+      let fid = fileId;
+      if (!fid) {
+        const search = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'+and+trashed=false&fields=files(id)`,
+          { headers: { Authorization: 'Bearer '+_driveToken } }
+        );
+        const found = await search.json();
+        if (found.files && found.files.length) {
+          fid = found.files[0].id;
+          _driveFileId = fid;
+          localStorage.setItem('gpgt_drive_file_id', fid);
+        }
+      }
+      if (!fid) return toast('⚠️ No se encontró respaldo en Drive','#ef4444');
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fid}?alt=media`,
+        { headers: { Authorization: 'Bearer '+_driveToken } }
+      );
+      if (!res.ok) return toast('⚠️ Error al descargar el respaldo','#ef4444');
+      const data = await res.json();
+      S = data;
+      save();
+      toast('✅ Datos restaurados desde Drive','#10b981');
+      renderClients(); renderList(); renderProducts(); renderRoutes(); renderBackup();
+    } catch(e) { toast('⚠️ Error al restaurar: '+e.message,'#ef4444'); }
+  });
+}
+
 function driveDisconnect() {
   _driveToken = null;
   _driveFileId = null;
@@ -2996,15 +3031,18 @@ function renderDriveStatus() {
   const sb  = document.getElementById('drive-sync-btn');
   const db  = document.getElementById('drive-disconnect-btn');
   if (!st) return;
+  const rb  = document.getElementById('drive-restore-btn');
   if (_driveToken) {
     st.innerHTML  = `<span style="color:#10b981">✅ Conectado</span>${S.lastDriveBk?' · Último sync: '+S.lastDriveBk:''}`;
     if (cb) cb.style.display = 'none';
     if (sb) sb.style.display = '';
+    if (rb) rb.style.display = '';
     if (db) db.style.display = '';
   } else {
     st.textContent = 'Estado: no conectado';
     if (cb) cb.style.display = '';
     if (sb) sb.style.display = 'none';
+    if (rb) rb.style.display = 'none';
     if (db) db.style.display = 'none';
   }
 }
