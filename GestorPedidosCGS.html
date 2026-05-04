@@ -1764,7 +1764,15 @@ const body = [
 ].filter(l => l !== null && l !== undefined && !(l === '' && !prodLines)).join('\n');
 
 const subject = `${ord.quote||''} ${ord.clientName}`.trim();
-window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+// Web Share API — muestra selector de apps en Android
+if (navigator.share) {
+  navigator.share({ title: subject, text: body })
+    .catch(() => {});
+} else {
+  // Fallback para desktop
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
 }
 
 function shareQuote() {
