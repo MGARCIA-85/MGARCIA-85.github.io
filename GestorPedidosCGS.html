@@ -2931,23 +2931,11 @@ function driveHandleRedirect() {
   }
 }
 
-async function driveRestoreBackup() {
+async function driveRestoreBackup(skipConfirm = false) {
   if (!_driveToken) return toast('Primero conecta Google Drive','#f59e0b');
-  const modal = document.getElementById('confirm-modal');
-  const inner = modal.querySelector('div');
-  inner.innerHTML = `
-    <div style="font-size:28px;margin-bottom:8px">☁️</div>
-    <div id="confirm-msg" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">¿Importar datos desde Drive?</div>
-    <div id="confirm-sub" style="font-size:12px;color:#94a3b8;margin-bottom:18px">Esto reemplazará todos los datos actuales con el último respaldo guardado en Drive.</div>
-    <div style="display:flex;gap:10px">
-      <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:14px">Cancelar</button>
-      <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer;font-size:14px">✅ Restaurar</button>
-    </div>`;
-  modal.style.display = 'flex';
-  _confirmCb = async () => {
+  const doRestore = async () => {
     try {
       toast('⏳ Buscando respaldo en Drive...','#f59e0b');
-      // Buscar archivo — siempre buscar de nuevo para asegurar
       const search = await fetch(
         `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'&fields=files(id,name,modifiedTime)&orderBy=modifiedTime+desc`,
         { headers: { Authorization: 'Bearer '+_driveToken } }
@@ -2971,10 +2959,25 @@ async function driveRestoreBackup() {
       const data = await res.json();
       if (!data || !data.clients) return toast('⚠️ El archivo de Drive no tiene datos válidos','#ef4444');
       localStorage.setItem(LS, JSON.stringify(data));
-      toast('✅ Datos restaurados. Recargando...','#10b981');
+      toast('✅ Datos importados. Recargando...','#10b981');
       setTimeout(() => window.location.reload(), 1500);
     } catch(e) { toast('⚠️ Error: '+e.message,'#ef4444'); }
   };
+
+  if (skipConfirm) { doRestore(); return; }
+
+  const modal = document.getElementById('confirm-modal');
+  const inner = modal.querySelector('div');
+  inner.innerHTML = `
+    <div style="font-size:28px;margin-bottom:8px">☁️</div>
+    <div id="confirm-msg" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">¿Importar datos desde Drive?</div>
+    <div id="confirm-sub" style="font-size:12px;color:#94a3b8;margin-bottom:18px">Esto reemplazará todos los datos actuales con el último respaldo guardado en Drive.</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:14px">Cancelar</button>
+      <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer;font-size:14px">📥 Importar</button>
+    </div>`;
+  modal.style.display = 'flex';
+  _confirmCb = doRestore;
 }
 
 function driveDisconnect() {
@@ -3069,10 +3072,39 @@ function initDrive() {
   if (fid) { _driveFileId = fid; }
   if (pending) {
     localStorage.removeItem('gpgt_drive_pending');
-    setTimeout(() => {
-      toast('✅ Google Drive conectado','#10b981');
+    setTimeout(async () => {
+      // Verificar si hay respaldo existente en Drive
+      try {
+        const search = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'&fields=files(id,modifiedTime)&orderBy=modifiedTime+desc`,
+          { headers: { Authorization: 'Bearer '+_driveToken } }
+        );
+        const found = await search.json();
+        if (found.files && found.files.length) {
+          // Hay respaldo — preguntar si importar
+          _driveFileId = found.files[0].id;
+          localStorage.setItem('gpgt_drive_file_id', _driveFileId);
+          const modal = document.getElementById('confirm-modal');
+          const inner = modal.querySelector('div');
+          inner.innerHTML = `
+            <div style="font-size:28px;margin-bottom:8px">☁️</div>
+            <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">Drive conectado</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:18px">Se encontró un respaldo existente en Drive.<br>¿Deseas importar esos datos?</div>
+            <div style="display:flex;gap:10px">
+              <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">No, continuar vacío</button>
+              <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer;font-size:13px">📥 Importar</button>
+            </div>`;
+          modal.style.display = 'flex';
+          _confirmCb = () => driveRestoreBackup(true);
+        } else {
+          // No hay respaldo — guardar el actual
+          toast('✅ Google Drive conectado','#10b981');
+          driveSaveBackup(false);
+        }
+      } catch(e) {
+        toast('✅ Google Drive conectado','#10b981');
+      }
       renderDriveStatus();
-      driveSaveBackup(false);
       goTab('backup');
     }, 800);
   }
