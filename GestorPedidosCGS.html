@@ -267,7 +267,23 @@ Selecciona un cliente para continuar.<br><br>
 <div id="page-list" class="page">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
   <div class="sec" id="lt" style="margin-bottom:0;border:none;padding-bottom:0">Pedidos (0)</div>
-  <button class="bp" style="padding:8px 14px;font-size:13px;font-weight:800;white-space:nowrap" onclick="goTab('order')">🛒 + Nuevo Pedido</button>
+  <div style="display:flex;gap:6px;align-items:center">
+    <button id="btn-ord-sort" class="bs" style="padding:6px 10px;font-size:12px" onclick="toggleOrderSort()">🕐 Recientes</button>
+    <button class="bp" style="padding:8px 14px;font-size:13px;font-weight:800;white-space:nowrap" onclick="goTab('order')">🛒 + Nuevo</button>
+  </div>
+</div>
+<!-- Filtros -->
+<div class="card" style="margin-bottom:10px;padding:10px">
+  <div style="position:relative;margin-bottom:6px">
+    <input class="inp" id="f-cli-report" autocomplete="off" placeholder="🔍 Buscar cliente..." style="margin-bottom:0;font-size:12px" oninput="filterReportCli()" onfocus="filterReportCli()" onblur="setTimeout(()=>document.getElementById('f-cli-drop').style.display='none',200)"/>
+    <div id="f-cli-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #2a3050;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px #0006"></div>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <input type="date" id="f-date-from" class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
+    <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
+    <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
+    <button class="bb" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="generateOrderReport()">📄 PDF</button>
+  </div>
 </div>
 <!-- Pestañas de estado -->
 <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto">
@@ -302,6 +318,7 @@ Selecciona un cliente para continuar.<br><br>
 <div style="display:flex;gap:6px">
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('alpha')">A→Z</button>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('manual')">⇅ Mover</button>
+<button id="btn-cli-sort" class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('recent')">🕐 Recientes</button>
 </div>
 </div>
 <div class="hint" id="cli-drag-hint" style="display:none;text-align:center">Mantén presionado ≡ para arrastrar y reordenar</div>
@@ -354,6 +371,7 @@ Selecciona un cliente para continuar.<br><br>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortProds('alpha')">A→Z</button>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortProds('alphaDesc')">Z→A</button>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortProds('family')">Categoría</button>
+<button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortProds('recent')">🕐 Recientes</button>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortProds('manual')">⇅ Mover</button>
 </div>
 </div>
@@ -363,7 +381,10 @@ Selecciona un cliente para continuar.<br><br>
 
 <!-- ══════════════════════ RUTAS ══════════════════════ -->
 <div id="page-routes" class="page">
-<div class="sec">Gestión de Rutas</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  <div class="sec" style="margin-bottom:0;border:none;padding-bottom:0">Gestión de Rutas</div>
+  <button id="btn-route-sort" class="bs" style="padding:6px 10px;font-size:12px" onclick="toggleRouteSort()">🕐 Recientes</button>
+</div>
 
 <div class="card">
 <div style="font-weight:700;color:#f59e0b;margin-bottom:10px">➕ Nueva Ruta</div>
@@ -1362,7 +1383,7 @@ quote:      orig.quote || '',
 oc:         orig.oc    || '',
 applyIva:      orig.applyIva,
 pricesIncIva:  orig.pricesIncIva,
-status:     'Confirmado',
+status:     'Cotización',
 date:       new Date().toLocaleString('es-GT'),
 duplicatedFrom: id
 };
@@ -1372,6 +1393,155 @@ toast('📋 Pedido duplicado como #' + copy.id);
 renderList();
 }
 let _orderTab = 'all';
+let _orderAsc = false; // false = recientes primero (default)
+
+function filterReportCli() {
+  const inp  = document.getElementById('f-cli-report');
+  const drop = document.getElementById('f-cli-drop');
+  if (!inp || !drop) return;
+  const q = inp.value.trim().toLowerCase();
+  const names = [...new Set(S.orders.map(o=>o.clientName))].sort((a,b)=>a.localeCompare(b,'es'));
+  const matches = q ? names.filter(n=>n.toLowerCase().includes(q)) : names;
+  if (!matches.length) { drop.style.display='none'; renderList(); return; }
+  drop.innerHTML = matches.slice(0,12).map(n =>
+    `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #2a3050;color:#f1f5f9" onmousedown="selectReportCli('${n.replace(/'/g,"\\'")}')">${n}</div>`
+  ).join('');
+  drop.style.display = 'block';
+  renderList();
+}
+
+function selectReportCli(name) {
+  const inp = document.getElementById('f-cli-report');
+  if (inp) inp.value = name;
+  const drop = document.getElementById('f-cli-drop');
+  if (drop) drop.style.display = 'none';
+  renderList();
+}
+
+function clearReportFilters() {
+  const f = document.getElementById('f-cli-report');
+  const d1 = document.getElementById('f-date-from');
+  const d2 = document.getElementById('f-date-to');
+  if (f)  f.value  = '';
+  if (d1) d1.value = '';
+  if (d2) d2.value = '';
+  renderList();
+}
+
+function getReportFiltered() {
+  const ords = S.orders;
+  const base = _orderAsc ? [...ords].filter(o=>!o.routeId) : [...ords].reverse().filter(o=>!o.routeId);
+  let filtered = _orderTab === 'all' ? base : base.filter(o=>o.status===_orderTab);
+  const fCli  = (document.getElementById('f-cli-report')?.value||'').trim();
+  const fFrom = document.getElementById('f-date-from')?.value;
+  const fTo   = document.getElementById('f-date-to')?.value;
+  if (fCli) filtered = filtered.filter(o=>o.clientName.toLowerCase().includes(fCli.toLowerCase()));
+  if (fFrom||fTo) {
+    filtered = filtered.filter(o=>{
+      const parts=(o.date||'').split('/');
+      if(parts.length<3) return true;
+      const d=parseInt(parts[0]),m=parseInt(parts[1]),y=parseInt(parts[2]);
+      const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if(fFrom&&ds<fFrom) return false;
+      if(fTo&&ds>fTo) return false;
+      return true;
+    });
+  }
+  return filtered;
+}
+
+function generateOrderReport() {
+  const filtered = getReportFiltered();
+  if (!filtered.length) return toast('Sin pedidos para el filtro seleccionado','#f59e0b');
+  const b = S.biz;
+  const fCli  = (document.getElementById('f-cli-report')?.value||'').trim();
+  const fFrom = document.getElementById('f-date-from')?.value;
+  const fTo   = document.getElementById('f-date-to')?.value;
+  const title = fCli ? `Informe: ${fCli}` : 'Informe de Pedidos';
+  const periodo = (fFrom||fTo) ? `${fFrom||'inicio'} → ${fTo||'hoy'}` : new Date().toLocaleDateString('es-GT');
+  const tot = filtered.reduce((s,o)=>{const t=orderTotal(o.items,o.clientId);return s+(o.applyIva?t*1.12:t);},0);
+
+  // Resumen de productos
+  const prodTotals = {};
+  filtered.forEach(o => o.items.forEach(it=>{
+    const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+    const key=(p?p.name:'—')+' ('+(p?.presentation||'—')+')';
+    prodTotals[key]=(prodTotals[key]||0)+Number(it.qty);
+  }));
+  const prodSummaryRows = Object.entries(prodTotals).sort((a,b)=>a[0].localeCompare(b[0],'es'))
+    .map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${k}</span><strong>${v}</strong></div>`).join('');
+
+  // Filas de pedidos
+  const rows = filtered.map((o,i)=>{
+    const oTot = orderTotal(o.items,o.clientId);
+    const oDisp = o.applyIva?oTot*1.12:oTot;
+    const prods = o.items.map(it=>{
+      const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+      const pr=(it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
+      const ul=p?.unitLabel||'unidad';
+      return `<tr><td style="padding:4px 8px">${p?p.name:'—'}<br><span style="font-size:11px;color:#6b7280">${p?.presentation||''}</span></td>
+        <td style="padding:4px 8px;text-align:center">${it.qty}</td>
+        <td style="padding:4px 8px;text-align:right">${Q(pr)}/${ul}</td>
+        <td style="padding:4px 8px;text-align:right;font-weight:700">${Q(pr*it.qty*(Number(p?.unitSize)||1))}</td></tr>`;
+    }).join('');
+    const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
+    const stColor = o.status==='Concluido'?'#15803d':o.status==='Confirmado'?'#c2410c':'#1d4ed8';
+    return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;overflow:hidden;page-break-inside:avoid">
+      <div style="background:#f9fafb;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+        <div><strong style="font-size:13px">#${i+1} ${o.clientName}</strong>
+          ${o.quote?`<span style="font-size:11px;color:#6b7280;margin-left:6px">Cot: ${o.quote}</span>`:''}
+          <div style="font-size:11px;color:#6b7280">${o.date.split(',')[0]}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px">${o.status}</span>
+      </div>
+      ${cmts.length?`<div style="padding:4px 12px;font-size:11px;color:#374151;background:#fffbeb">${cmts.map(c=>`• ${c}`).join('<br>')}</div>`:''}
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#f3f4f6"><th style="padding:4px 8px;text-align:left">Producto</th><th style="padding:4px 8px">Cant.</th><th style="padding:4px 8px">P/Unidad</th><th style="padding:4px 8px">Subtotal</th></tr></thead>
+        <tbody>${prods}</tbody>
+      </table>
+      <div style="text-align:right;padding:6px 12px;font-weight:800;font-size:13px;border-top:2px solid #111">TOTAL: ${Q(oDisp)}</div>
+    </div>`;
+  }).join('');
+
+  const logoHtml = b.logoData ? `<img src="${b.logoData}" style="width:50px;height:50px;border-radius:8px;object-fit:cover"/>` : `<div style="font-size:28px">${b.emoji||'📦'}</div>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:16px;color:#111;background:#fff}@media print{body{padding:8px}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb">
+    <div style="display:flex;gap:12px;align-items:center">${logoHtml}<div>
+      <div style="font-size:18px;font-weight:900">${b.name||'Mi Negocio'}</div>
+      ${b.exec?`<div style="font-size:13px;color:#374151">${b.exec}</div>`:''}
+      ${b.phone?`<div style="font-size:12px;color:#6b7280">📞 ${b.phone}</div>`:''}
+    </div></div>
+    <div style="text-align:right">
+      <div style="font-size:15px;font-weight:800">${title}</div>
+      <div style="font-size:11px;color:#6b7280">${periodo}</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="background:#f3f4f6;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:18px;font-weight:800">${filtered.length}</div><div style="font-size:10px;color:#6b7280">Pedidos</div></div>
+    <div style="background:#f3f4f6;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:14px;font-weight:800;color:#15803d">${Q(tot)}</div><div style="font-size:10px;color:#6b7280">Total</div></div>
+  </div>
+  <div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+    <div style="background:#1e3a8a;color:#fff;padding:7px 12px;font-weight:800;font-size:13px">📦 Resumen de Productos</div>
+    <div style="column-count:3;column-gap:0;column-rule:1px solid #e5e7eb">${prodSummaryRows}</div>
+  </div>
+  ${rows}
+  <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / PDF</button>
+  </body></html>`;
+
+  const w = window.open('','_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download=`${title}.html`; a.click(); }
+}
+
+function toggleOrderSort() {
+  _orderAsc = !_orderAsc;
+  const btn = document.getElementById('btn-ord-sort');
+  if (btn) btn.textContent = _orderAsc ? '🕐 Antiguos' : '🕐 Recientes';
+  renderList();
+}
+
 function setOrderTab(tab) {
   _orderTab = tab;
   ['all','Cotización','Confirmado','Concluido'].forEach(t => {
@@ -1384,12 +1554,32 @@ function setOrderTab(tab) {
 
 function renderList() {
 const ords = S.orders;
+// Poblar clientes ya no es necesario con autocompletado
 ['Cotización','Confirmado','Concluido'].forEach(st => {
   const el = document.getElementById('cnt-'+st);
   if (el) el.textContent = '('+ords.filter(o=>o.status===st&&!o.routeId).length+')';
 });
-const base = [...ords].reverse().filter(o => !o.routeId);
-const filtered = _orderTab === 'all' ? base : base.filter(o => o.status === _orderTab);
+const base = _orderAsc
+  ? [...ords].filter(o => !o.routeId)
+  : [...ords].reverse().filter(o => !o.routeId);
+let filtered = _orderTab === 'all' ? base : base.filter(o => o.status === _orderTab);
+// Filtro por cliente
+const fCli = (document.getElementById('f-cli-report')?.value||'').trim();
+if (fCli) filtered = filtered.filter(o => o.clientName.toLowerCase().includes(fCli.toLowerCase()));
+// Filtro por fecha
+const fFrom = document.getElementById('f-date-from')?.value;
+const fTo   = document.getElementById('f-date-to')?.value;
+if (fFrom || fTo) {
+  filtered = filtered.filter(o => {
+    const parts = (o.date||'').split('/');
+    if (parts.length < 3) return true;
+    const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (fFrom && dateStr < fFrom) return false;
+    if (fTo   && dateStr > fTo)   return false;
+    return true;
+  });
+}
 document.getElementById('lt').textContent = `Pedidos (${filtered.length})`;
 const body = document.getElementById('lst-body');
 if (!filtered.length) { body.innerHTML='<div style="text-align:center;color:#64748b;padding:40px">Sin pedidos sin ruta.</div>'; return; }
@@ -1517,6 +1707,8 @@ function askConfirm(msg, sub, cb, btnText) {
 }
 function confirmDel(yes) {
   document.getElementById('confirm-modal').style.display = 'none';
+  const btn = document.getElementById('confirm-ok-btn');
+  if (btn) { btn.style.background='#ef4444'; btn.textContent='Eliminar'; }
   if (yes && _confirmCb) _confirmCb();
   _confirmCb = null;
 }
@@ -1825,7 +2017,8 @@ let clientSortMode = 'order';
 
 function sortClients(mode) {
 clientSortMode = mode;
-if (mode==='alpha') S.clients.sort((a,b) => a.name.localeCompare(b.name,'es'));
+if (mode==='alpha')  S.clients.sort((a,b) => a.name.localeCompare(b.name,'es'));
+if (mode==='recent') S.clients.reverse();
 document.getElementById('cli-drag-hint').style.display = mode==='manual' ? 'block' : 'none';
 save(); renderClients();
 }
@@ -2348,6 +2541,7 @@ prodSortMode = mode;
 if (mode==='alpha')      S.products.sort((a,b) => (a.name+a.presentation).localeCompare(b.name+b.presentation,'es'));
 if (mode==='alphaDesc')  S.products.sort((a,b) => (b.name+b.presentation).localeCompare(a.name+a.presentation,'es'));
 if (mode==='family')     S.products.sort((a,b) => (a.family||'').localeCompare(b.family||'','es') || (a.name+a.presentation).localeCompare(b.name+b.presentation,'es'));
+if (mode==='recent')     S.products.reverse();
 document.getElementById('prod-drag-hint').style.display = mode==='manual' ? 'block' : 'none';
 save(); renderProducts();
 }
@@ -2796,19 +2990,34 @@ function renderRoutes() {
 
   // Pinned primero, luego el resto más reciente primero
   const pinned    = S.routes.filter(r => S.pinnedRoutes.includes(r.id));
-  const unpinned  = [...S.routes.filter(r => !S.pinnedRoutes.includes(r.id))].reverse();
-  const sorted    = [...pinned, ...unpinned];
+  const unpinned  = S.routes.filter(r => !S.pinnedRoutes.includes(r.id));
+  const unpinnedSorted = _routeAsc ? [...unpinned] : [...unpinned].reverse();
+  const sorted    = [...pinned, ...unpinnedSorted];
 
   wrap.innerHTML = sorted.map(r => {
     if (!r.orders) r.orders = [];
     const orders = r.orders.map(id => S.orders.find(o=>o.id===id)).filter(Boolean);
+    // Ordenar pedidos de la ruta según configuración
+    if (!window._routeOrdSort) window._routeOrdSort = {};
+    const rSort = window._routeOrdSort[r.id] || 'default';
+    const orderedOrders = [...orders].sort((a,b) => {
+      if (rSort==='alpha')  return a.clientName.localeCompare(b.clientName,'es');
+      if (rSort==='addr') {
+        const ca = (S.clients.find(x=>x.id===a.clientId)||{}).address||'';
+        const cb = (S.clients.find(x=>x.id===b.clientId)||{}).address||'';
+        return ca.localeCompare(cb,'es');
+      }
+      if (rSort==='recent') return b.id - a.id;
+      if (rSort==='old')    return a.id - b.id;
+      return 0;
+    });
     const pend   = orders.filter(o=>o.status==='Confirmado').length;
     const fact   = orders.filter(o=>o.status==='Concluido').length;
     const tot    = orders.reduce((s,o)=>{const b=orderTotal(o.items,o.clientId);return s+(o.applyIva?b*1.12:b);},0);
     const isOpen   = !!window._routeOpen[r.id];
     const isPinned = (S.pinnedRoutes||[]).includes(r.id);
 
-    const ordRows = orders.length ? orders.map((o, rIdx) => {
+    const ordRows = orderedOrders.length ? orderedOrders.map((o, rIdx) => {
       const oTot = orderTotal(o.items,o.clientId);
       const oDisp = o.applyIva ? oTot*1.12 : oTot;
       const statusColor = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
@@ -2842,7 +3051,7 @@ function renderRoutes() {
           <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">
             <span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:1px 7px;border-radius:8px">${orders.length} pedidos</span>
             ${pend?`<span style="font-size:10px;background:#422006;color:#fb923c;padding:1px 7px;border-radius:8px">${pend} pend.</span>`:''}
-            ${fact?`<span style="font-size:10px;background:#052e16;color:#4ade80;padding:1px 7px;border-radius:8px">${fact} fact.</span>`:''}
+            ${fact?`<span style="font-size:10px;background:#052e16;color:#4ade80;padding:1px 7px;border-radius:8px">${fact} concl.</span>`:''}
             <span style="font-size:10px;font-weight:700;color:#f59e0b">Total: ${Q(tot)}</span>
             <span style="font-size:11px;color:#64748b;margin-left:2px">${isOpen?'▲':'▼'}</span>
           </div>
@@ -2864,10 +3073,34 @@ function renderRoutes() {
           <button class="bg" style="padding:9px 12px;white-space:nowrap" onclick="saveRouteName(${r.id})">✔ Guardar</button>
         </div>
         <!-- Pedidos -->
-        <div style="margin-top:10px" id="route-orders-${r.id}">${ordRows}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="font-size:10px;color:#64748b">Ordenar:</span>
+          <select onchange="setRouteOrdSort(${r.id},this.value)" style="font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
+            <option value="default" ${rSort==='default'?'selected':''}>Como se agregaron</option>
+            <option value="alpha"   ${rSort==='alpha'?'selected':''}>A→Z Cliente</option>
+            <option value="addr"    ${rSort==='addr'?'selected':''}>Dirección</option>
+            <option value="recent"  ${rSort==='recent'?'selected':''}>Más recientes</option>
+            <option value="old"     ${rSort==='old'?'selected':''}>Más antiguos</option>
+          </select>
+        </div>
+        <div style="margin-top:0" id="route-orders-${r.id}">${ordRows}</div>
       </div>
     </div>`;
   }).join('');
+}
+
+let _routeAsc = false;
+function setRouteOrdSort(rid, mode) {
+  if (!window._routeOrdSort) window._routeOrdSort = {};
+  window._routeOrdSort[rid] = mode;
+  renderRoutes();
+}
+
+function toggleRouteSort() {
+  _routeAsc = !_routeAsc;
+  const btn = document.getElementById('btn-route-sort');
+  if (btn) btn.textContent = _routeAsc ? '🕐 Antiguos' : '🕐 Recientes';
+  renderRoutes();
 }
 
 function togglePinRoute(rid) {
@@ -2915,11 +3148,14 @@ function markRouteConcluido(rid) {
   const r = S.routes.find(x=>x.id===rid); if(!r) return;
   if (!r.orders) r.orders = [];
   const pend = r.orders.map(id=>S.orders.find(o=>o.id===id)).filter(o=>o&&o.status!=='Concluido');
-  if (!pend.length) { toast('Todos los pedidos ya están facturados','#10b981'); return; }
-  askConfirm('¿Facturar '+pend.length+' pedido(s)?', 'Se marcarán como Concluido.', () => {
+  if (!pend.length) { toast('Todos los pedidos ya están concluidos','#10b981'); return; }
+  askConfirm('¿Concluir '+pend.length+' pedido(s)?', 'Se marcarán como Concluido.', () => {
     pend.forEach(o=>o.status='Concluido');
-    save(); renderRoutes(); renderList(); toast('✔ '+pend.length+' pedidos facturados');
-  });
+    save(); renderRoutes(); renderList(); toast('✔ '+pend.length+' pedidos concluidos');
+  }, '✔ Confirmar');
+  // Cambiar color del botón a verde
+  const btn = document.getElementById('confirm-ok-btn');
+  if (btn) { btn.style.background='#10b981'; btn.style.color='#fff'; }
 }
 
 // ── Informe de ruta (ventana nueva) ──────────────────
