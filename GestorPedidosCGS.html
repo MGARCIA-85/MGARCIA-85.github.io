@@ -44,9 +44,9 @@ textarea.inp{resize:vertical;min-height:60px}
 /* MISC */
 .ir{background:#161929;border:1px solid #2a3050;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 .tag{display:inline-block;background:#161929;border:1px solid #2a3050;border-radius:5px;padding:1px 7px;font-size:10px;color:#94a3b8}
-.bp-pend{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:800;background:#431407;color:#f59e0b}
+.bp-pend{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:800;background:#1e3a5f;color:#60a5fa}
 .bp-fact{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:800;background:#064e3b;color:#10b981}
-.bp-quot{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:800;background:#1e3a5f;color:#60a5fa}
+.bp-quot{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:800;background:#2a3050;color:#94a3b8}
 .stats{display:flex;gap:6px;margin-bottom:12px}
 .stat{flex:1;background:#1e2236;border:1px solid #2a3050;border-radius:10px;padding:9px 6px;text-align:center}
 .comment-item{display:flex;gap:6px;align-items:flex-start;margin-bottom:6px}
@@ -169,6 +169,13 @@ table.rep th{background:#f0f0f0!important}
   </div>
 </div>
 
+<!-- Modal de bonificaciones -->
+<div id="bonus-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:950;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
+  <div style="background:#1e2236;border:1px solid #f59e0b;border-radius:14px;padding:20px;max-width:380px;width:100%;margin:auto">
+    <div id="bonus-modal-body"></div>
+  </div>
+</div>
+
 <!-- ══════════════════════ PEDIDO ══════════════════════ -->
 <div id="page-order" class="page">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #2a3050">
@@ -202,6 +209,8 @@ table.rep th{background:#f0f0f0!important}
 <input class="inp" id="ord-quote" placeholder="Ej: COT-001"/>
 <label class="lbl">Orden de Compra (OC)</label>
 <input class="inp" id="ord-oc" placeholder="Ej: OC-4587"/>
+<label class="lbl">Comentario de cotización (aparece en cotización e informes)</label>
+<input class="inp" id="ord-quote-note" placeholder="Ej: Válido por 5 días"/>
 </div>
 <label class="lbl">Comentarios</label>
 <div id="ord-comments-list"></div>
@@ -252,9 +261,20 @@ table.rep th{background:#f0f0f0!important}
 <div id="ord-total-val" style="font-size:22px;font-weight:900;color:#f59e0b">Q0.00</div>
 </div>
 </div>
+<!-- Sección de bonificaciones del pedido -->
+<div id="ord-bonus-section" style="display:none;margin-top:4px">
+<div class="card" style="padding:10px;border:1px solid #10b98133">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="font-size:12px;font-weight:700;color:#10b981">🎁 BONIFICACIONES</div>
+    <button onclick="addOrdBonusRow()" style="background:#052e16;border:1px dashed #10b981;border-radius:6px;color:#10b981;padding:3px 10px;font-size:11px;cursor:pointer">+ Agregar</button>
+  </div>
+  <div id="ord-bonus-rows"></div>
+</div>
+</div>
 <div style="display:flex;gap:8px;margin-top:4px">
 <button class="bp" style="flex:2" id="btn-submit" onclick="submitOrder(false)">✅ Registrar Pedido</button>
 <button class="bb" style="flex:1;border-radius:9px;padding:12px;font-weight:800;font-size:13px" onclick="submitOrder(true)">📄 Cotizar</button>
+<button class="bg" style="padding:12px 14px;border-radius:9px;font-size:16px" onclick="addOrdBonusRow()" title="Agregar bonificación">🎁</button>
 </div>
 </div>
 <div id="ord-ph" style="text-align:center;color:#64748b;padding:28px 16px">
@@ -264,16 +284,20 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 
 <!-- ══════════════════════ LISTA PEDIDOS ══════════════════════ -->
-<div id="page-list" class="page">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-  <div class="sec" id="lt" style="margin-bottom:0;border:none;padding-bottom:0">Pedidos (0)</div>
-  <div style="display:flex;gap:6px;align-items:center">
-    <button id="btn-ord-sort" class="bs" style="padding:6px 10px;font-size:12px" onclick="toggleOrderSort()">🕐 Recientes</button>
-    <button class="bp" style="padding:8px 14px;font-size:13px;font-weight:800;white-space:nowrap" onclick="goTab('order')">🛒 + Nuevo</button>
+<div id="page-list" class="page" style="padding-top:0">
+<!-- Barra de acciones fija -->
+<div style="position:sticky;top:var(--nav-bottom,110px);z-index:190;background:#0d0f18;padding:10px 13px 8px;margin:0 -13px;border-bottom:1px solid #2a3050">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="sec" id="lt" style="margin-bottom:0;border:none;padding-bottom:0">Pedidos (0)</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="btn-ord-sort" class="bs" style="padding:6px 10px;font-size:12px" onclick="toggleOrderSort()">🕐 Recientes</button>
+      <button class="bs" style="padding:6px 10px;line-height:1" onclick="toggleOrderFilters()" title="Filtros"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18l-7 9v7l-4-2V13L3 4z"/></svg></button>
+      <button class="bp" style="padding:8px 14px;font-size:13px;font-weight:800;white-space:nowrap;color:#000" onclick="goTab('order')">🛒 + Nuevo</button>
+    </div>
   </div>
 </div>
-<!-- Filtros -->
-<div class="card" style="margin-bottom:10px;padding:10px">
+<!-- Filtros colapsables -->
+<div id="order-filters-panel" style="display:none;background:#161929;border-radius:10px;padding:10px;margin-top:8px;border:1px solid #2a3050">
   <div style="position:relative;margin-bottom:6px">
     <input class="inp" id="f-cli-report" autocomplete="off" placeholder="🔍 Buscar cliente..." style="margin-bottom:0;font-size:12px" oninput="filterReportCli()" onfocus="filterReportCli()" onblur="setTimeout(()=>document.getElementById('f-cli-drop').style.display='none',200)"/>
     <div id="f-cli-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #2a3050;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px #0006"></div>
@@ -288,9 +312,9 @@ Selecciona un cliente para continuar.<br><br>
 <!-- Pestañas de estado -->
 <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto">
   <button id="tab-all"   onclick="setOrderTab('all')"   style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#2a3050;color:#f1f5f9">Todos</button>
-  <button id="tab-Cotización" onclick="setOrderTab('Cotización')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#60a5fa">📄 Cotización <span id="cnt-Cotización" style="font-size:10px"></span></button>
-  <button id="tab-Confirmado" onclick="setOrderTab('Confirmado')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#422006;color:#fb923c">✅ Confirmado <span id="cnt-Confirmado" style="font-size:10px"></span></button>
-  <button id="tab-Concluido"  onclick="setOrderTab('Concluido')"  style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#052e16;color:#4ade80">✔ Concluido <span id="cnt-Concluido" style="font-size:10px"></span></button>
+  <button id="tab-Cotización" onclick="setOrderTab('Cotización')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#2a3050;color:#94a3b8">📄 Cotización <span id="cnt-Cotización" style="font-size:10px"></span></button>
+  <button id="tab-Confirmado" onclick="setOrderTab('Confirmado')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#60a5fa">✅ Confirmado <span id="cnt-Confirmado" style="font-size:10px"></span></button>
+  <button id="tab-Concluido"  onclick="setOrderTab('Concluido')"  style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#052e16;color:#10b981">✔ Concluido <span id="cnt-Concluido" style="font-size:10px"></span></button>
 </div>
 <div id="lst-body"></div>
 </div>
@@ -387,9 +411,15 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 
 <div class="card">
-<div style="font-weight:700;color:#f59e0b;margin-bottom:10px">➕ Nueva Ruta</div>
+<div class="card" style="padding:0;margin-bottom:10px">
+<div onclick="toggleFormPanel('route-form-body',this)" style="cursor:pointer;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+  <div style="font-weight:700;color:#f59e0b">➕ Nueva Ruta</div>
+  <span style="color:#64748b">▼</span>
+</div>
+<div id="route-form-body" style="display:none;padding:0 16px 16px">
 <input class="inp" id="route-name" placeholder="Ej: Ruta Escuintla"/>
 <button class="bp" onclick="createRoute()">Crear Ruta</button>
+</div>
 </div>
 
 <div id="routes-list"></div>
@@ -549,9 +579,10 @@ nextOid: 1,
 lastBk: null,
 };
 
-let ordItems   = [{ pid:'', qty:1, price:null }];
-let ordComments = [''];  // array de comentarios del pedido en edición
-let editingOid = null;
+let ordItems    = [{ pid:'', qty:1, price:null }];
+let ordComments = [''];
+let editingOid  = null;
+let ordBonusLines = []; // bonificaciones del pedido en edición
 
 function load() {
 try {
@@ -901,6 +932,13 @@ if (editingOid === null) {
       });
     });
     ordItems = Object.values(seen);
+    // Precargar última bonificación del cliente
+    const lastWithBonus = facturados.find(o => o.bonusLines && o.bonusLines.length);
+    if (lastWithBonus) {
+      ordBonusLines = lastWithBonus.bonusLines.map(bl => ({...bl}));
+    } else {
+      ordBonusLines = [];
+    }
     const prodNames = ordItems.map(it=>{
       const p = S.products.find(x=>String(x.id)===String(it.pid));
       return p ? p.name : '—';
@@ -916,11 +954,42 @@ if (editingOid === null) {
   if (clientPinned.length) ordComments = [...clientPinned, ''];
 }
 renderItems();
+renderOrdBonusRows();
 renderCommentFields();
 // Activar visualmente el toggle "Los precios ya incluyen IVA" por defecto
 const ivaIncChkInit = document.getElementById('ord-iva-inc');
 if (ivaIncChkInit && !editingOid) { ivaIncChkInit.checked = true; }
 refreshTotalWithIVA();
+}
+
+function renderOrdBonusRows() {
+  const section = document.getElementById('ord-bonus-section');
+  const wrap    = document.getElementById('ord-bonus-rows');
+  if (!section || !wrap) return;
+  if (!ordBonusLines.length) { section.style.display='none'; return; }
+  section.style.display = 'block';
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  wrap.innerHTML = ordBonusLines.map((bl,i) => {
+    const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bl.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    return `<div style="background:#0d0f18;padding:6px;border-radius:7px;margin-bottom:5px">
+      <div style="display:grid;grid-template-columns:1fr 45px 65px 28px;gap:4px;align-items:center;margin-bottom:4px">
+        <select onchange="ordBonusLines[${i}].productId=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
+        <input type="number" value="${bl.qty||1}" min="1" onchange="ordBonusLines[${i}].qty=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <input type="number" value="${bl.price||0}" min="0" step="0.01" onchange="ordBonusLines[${i}].price=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <button onclick="ordBonusLines.splice(${i},1);renderOrdBonusRows()" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">✕</button>
+      </div>
+      <input value="${bl.ruleName&&bl.ruleName!=='Manual'?bl.ruleName:''}" placeholder="Comentario (ej: Por consumo Trim. Q2)" onchange="ordBonusLines[${i}].ruleName=this.value||'Manual'" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;font-size:11px"/>
+    </div>`;
+  }).join('');
+}
+
+function addOrdBonusRow() {
+  const section = document.getElementById('ord-bonus-section');
+  if (section) section.style.display='block';
+  const pid = S.products[0]?.id || 0;
+  const pr  = cliPrice(Number(document.getElementById('ord-cli').value), pid, S.products[0]?.basePrice||0);
+  ordBonusLines.push({ productId: pid, qty:1, price:pr, ruleName:'Manual' });
+  renderOrdBonusRows();
 }
 
 function renderItems() {
@@ -1098,6 +1167,7 @@ const cli  = S.clients.find(c => c.id===cid);
 const comments = getComments();
 const note = comments.join(' | ');  // backward compat field
 const quote = document.getElementById('ord-quote')?.value.trim() || '';
+const quoteNote = document.getElementById('ord-quote-note')?.value.trim() || '';
 const oc = document.getElementById('ord-oc')?.value.trim() || '';
 const applyIva       = document.getElementById('ord-iva')?.checked || false;
 const pricesIncIva   = document.getElementById('ord-iva-inc')?.checked || false;
@@ -1116,16 +1186,23 @@ if (ord) {
 ord.clientId   = cli.id;
 ord.clientName = cli.name;
 ord.items        = items;
+ord.bonusLines   = ordBonusLines.length ? ordBonusLines.map(bl=>({...bl})) : [];
 ord.note         = note;
 ord.comments     = comments;
 ord.quote        = quote;
+ord.quoteNote    = quoteNote;
 ord.oc           = oc;
 ord.applyIva     = applyIva;
 ord.pricesIncIva = pricesIncIva;
 ord.editedAt     = new Date().toLocaleString('es-GT');
 }
 save(); toast('💾 Pedido actualizado');
-editingOid = null; ordItems = [{pid:'',qty:1}];
+// Verificar bonificaciones al editar
+const editedOrd2 = S.orders.find(o=>o.id===editingOid);
+if (editedOrd2) {
+  checkBonusAlert(editedOrd2.clientId, editedOrd2.id, null, editedOrd2);
+}
+editingOid = null; ordItems = [{pid:'',qty:1}]; ordBonusLines = [];
 document.getElementById('ord-cli').value = ''; document.getElementById('ord-cli-txt').value = '';
 ordComments = [''];
 document.getElementById('ord-iva').checked = false;
@@ -1152,40 +1229,47 @@ return;
 }
 
 // Nuevo pedido
-S.orders.push({
-id:S.nextOid++, clientId:cli.id, clientName:cli.name,
-note, comments, quote, oc, applyIva, pricesIncIva, items, date:new Date().toLocaleString('es-GT'), status:'Cotización'
-});
-// Auto-asignar a ruta si viene de + Pedido en rutas
-const _pendRid = sessionStorage.getItem('pendingRouteId') || localStorage.getItem('currentRouteId');
-if (_pendRid) {
-  const _route = S.routes ? S.routes.find(r => r.id == _pendRid) : null;
-  if (_route) {
-    const newOid = S.nextOid - 1;
-    if (!_route.orders) _route.orders = [];
-    if (!_route.orders.includes(newOid)) _route.orders.push(newOid);
-    const newOrd = S.orders.find(o=>o.id===newOid);
-    if (newOrd) newOrd.routeId = _route.id;
+const newOrd = {
+  id:S.nextOid++, clientId:cli.id, clientName:cli.name,
+  note, comments, quote, quoteNote, oc, applyIva, pricesIncIva, items,
+  bonusLines: ordBonusLines.length ? ordBonusLines.map(bl=>({...bl})) : undefined,
+  date:new Date().toLocaleString('es-GT'), status:'Cotización'
+};
+S.orders.push(newOrd);
+
+// Función para finalizar después de resolver bonificaciones
+function finishSave() {
+  const _pendRid = sessionStorage.getItem('pendingRouteId') || localStorage.getItem('currentRouteId');
+  if (_pendRid) {
+    const _route = S.routes ? S.routes.find(r => r.id == _pendRid) : null;
+    if (_route) {
+      if (!_route.orders) _route.orders = [];
+      if (!_route.orders.includes(newOrd.id)) _route.orders.push(newOrd.id);
+      newOrd.routeId = _route.id;
+    }
+    sessionStorage.removeItem('pendingRouteId');
+    localStorage.removeItem('currentRouteId');
+    save(); toast('✅ Pedido agregado a la ruta');
+    if (_route) { setTimeout(()=>{ goTab('routes'); }, 300); }
+  } else {
+    save(); toast('✅ Pedido registrado');
   }
-  sessionStorage.removeItem('pendingRouteId');
-  localStorage.removeItem('currentRouteId');
-  save(); toast('✅ Pedido agregado a la ruta');
-  if (_route) { setTimeout(()=>{ goTab('routes'); }, 300); }
-} else {
-  save(); toast('✅ Pedido registrado');
+  editingOid = null;
+  document.getElementById('ord-quote').value='';
+  document.getElementById('ord-oc').value='';
+  document.getElementById('ord-cli').value = ''; document.getElementById('ord-cli-txt').value = '';
+  ordComments = [''];
+  document.getElementById('ord-iva').checked = false;
+  document.getElementById('ord-iva-inc').checked = true;
+  refreshTotalWithIVA();
+  ordItems = [{pid:'',qty:1}]; onCliChange();
+  if (_cameFromRoute) { _cameFromRoute = false; goTab('routes'); }
+  else { goTab('list'); }
 }
-editingOid = null;
-document.getElementById('ord-quote').value='';
-document.getElementById('ord-oc').value='';
-document.getElementById('ord-cli').value = ''; document.getElementById('ord-cli-txt').value = '';
-ordComments = [''];
-document.getElementById('ord-iva').checked = false;
-document.getElementById('ord-iva-inc').checked = true;
-refreshTotalWithIVA();
-ordItems = [{pid:'',qty:1}]; onCliChange();
-// Siempre regresar a donde vino
-if (_cameFromRoute) { _cameFromRoute = false; goTab('routes'); }
-else { goTab('list'); }
+
+// Verificar bonificaciones antes de finalizar
+const bonusTriggered = checkBonusAlert(cid, newOrd.id, finishSave, newOrd);
+if (!bonusTriggered) finishSave();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1196,6 +1280,7 @@ const ord = S.orders.find(x => x.id===id); if (!ord) return;
 _listScrollY = window.scrollY;
 editingOid = id;
 ordItems   = ord.items.map(it => ({ pid:String(it.productId), qty:it.qty, price: it.customPrice != null ? it.customPrice : null, priceIncludesIva: !!it.priceIncludesIva }));
+ordBonusLines = (ord.bonusLines||[]).map(bl => ({...bl}));
 goTab('order');
 setTimeout(() => {
 document.getElementById('ord-cli').value  = ord.clientId;
@@ -1213,6 +1298,8 @@ const ivaIncChk = document.getElementById('ord-iva-inc');
 if (ivaIncChk) ivaIncChk.checked = !!ord.pricesIncIva;
 const quoteInp = document.getElementById('ord-quote');
 if (quoteInp) quoteInp.value = ord.quote || '';
+const quoteNoteInp = document.getElementById('ord-quote-note');
+if (quoteNoteInp) quoteNoteInp.value = ord.quoteNote || '';
 const ocInp = document.getElementById('ord-oc');
 if (ocInp) ocInp.value = ord.oc || '';
 onCliChange();
@@ -1220,9 +1307,10 @@ onCliChange();
 }
 
 function cancelEdit() {
-editingOid = null; ordItems = [{pid:'',qty:1}];
+editingOid = null; ordItems = [{pid:'',qty:1}]; ordBonusLines = [];
 document.getElementById('ord-cli').value = ''; document.getElementById('ord-cli-txt').value = '';
 const _qInp = document.getElementById('ord-quote'); if (_qInp) _qInp.value = '';
+const _qnInp = document.getElementById('ord-quote-note'); if (_qnInp) _qnInp.value = '';
 const _oInp = document.getElementById('ord-oc');    if (_oInp) _oInp.value = '';
 ordComments = [''];
 renderCommentFields();
@@ -1479,25 +1567,43 @@ function generateOrderReport() {
       const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
       const pr=(it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
       const ul=p?.unitLabel||'unidad';
-      return `<tr><td style="padding:4px 8px">${p?p.name:'—'}<br><span style="font-size:11px;color:#6b7280">${p?.presentation||''}</span></td>
+      return `<tr><td style="padding:4px 8px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
         <td style="padding:4px 8px;text-align:center">${it.qty}</td>
         <td style="padding:4px 8px;text-align:right">${Q(pr)}/${ul}</td>
         <td style="padding:4px 8px;text-align:right;font-weight:700">${Q(pr*it.qty*(Number(p?.unitSize)||1))}</td></tr>`;
     }).join('');
+    // Bonificaciones
+    const bonusRowsHtml = (o.bonusLines||[]).map(bl=>{
+      const p=S.products.find(x=>x.id===Number(bl.productId));
+      const ul=p?.unitLabel||'unidad';
+      const sub=(bl.price||0)*bl.qty*(Number(p?.unitSize)||1);
+      return `<tr style="background:#f0fdf4"><td style="padding:4px 8px;color:#15803d"><strong>**BONIFICACIÓN**</strong><br><span style="font-size:11px">${p?p.name+' ('+(p.presentation||'')+')'  :'—'}</span>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><span style="font-size:10px;color:#6b7280">${bl.ruleName}</span>`:''}</td>
+        <td style="padding:4px 8px;text-align:center;color:#15803d">${bl.qty}</td>
+        <td style="padding:4px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
+        <td style="padding:4px 8px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td></tr>`;
+    }).join('');
     const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
-    const stColor = o.status==='Concluido'?'#15803d':o.status==='Confirmado'?'#c2410c':'#1d4ed8';
+    const stColor = o.status==='Concluido'?'#15803d':o.status==='Confirmado'?'#1d4ed8':'#64748b';
+    const metaLine = [o.quote?`<strong>📋 Cot: ${o.quote}</strong>`:'', o.oc?`<strong>📄 OC: ${o.oc}</strong>`:''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    const cmtsHtml = cmts.length ? `<div style="padding:5px 12px;font-size:11px;background:#fffbeb;border-top:1px solid #fde68a">` +
+      cmts.map((c,ci) => ci===0
+        ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
+        : `<span style="color:#374151;font-weight:600">💬 ${c}</span>`
+      ).join('<br>') + '</div>' : '';
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;overflow:hidden;page-break-inside:avoid">
-      <div style="background:#f9fafb;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
-        <div><strong style="font-size:13px">#${i+1} ${o.clientName}</strong>
-          ${o.quote?`<span style="font-size:11px;color:#6b7280;margin-left:6px">Cot: ${o.quote}</span>`:''}
-          <div style="font-size:11px;color:#6b7280">${o.date.split(',')[0]}</div>
+      <div style="background:#f9fafb;padding:8px 12px;display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:16px;font-weight:900;color:#1e3a8a">#${i+1} ${o.clientName}</div>
+          ${metaLine?`<div style="font-size:13px;color:#111;margin-top:3px">${metaLine}</div>`:''}
+          ${o.quoteNote?`<div style="font-size:11px;color:#374151;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">${o.date.split(',')[0]}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px">${o.status}</span>
+        <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px;white-space:nowrap">${o.status}</span>
       </div>
-      ${cmts.length?`<div style="padding:4px 12px;font-size:11px;color:#374151;background:#fffbeb">${cmts.map(c=>`• ${c}`).join('<br>')}</div>`:''}
+      ${cmtsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:#f3f4f6"><th style="padding:4px 8px;text-align:left">Producto</th><th style="padding:4px 8px">Cant.</th><th style="padding:4px 8px">P/Unidad</th><th style="padding:4px 8px">Subtotal</th></tr></thead>
-        <tbody>${prods}</tbody>
+        <tbody>${prods}${bonusRowsHtml}</tbody>
       </table>
       <div style="text-align:right;padding:6px 12px;font-weight:800;font-size:13px;border-top:2px solid #111">TOTAL: ${Q(oDisp)}</div>
     </div>`;
@@ -1533,6 +1639,11 @@ function generateOrderReport() {
   const w = window.open('','_blank');
   if (w) { w.document.write(html); w.document.close(); }
   else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download=`${title}.html`; a.click(); }
+}
+
+function toggleOrderFilters() {
+  const p = document.getElementById('order-filters-panel');
+  if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
 }
 
 function toggleOrderSort() {
@@ -1611,8 +1722,12 @@ card.innerHTML = `
 <div>
 <div style="font-weight:800;font-size:15px">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
+${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}
 </div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
 <span class="${sCls}">${o.status}</span>
+${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 7px;border-radius:8px;font-weight:700">🎁 Bonif.</span>`:''}
+</div>
 </div>
 ${lines}
 ${(()=>{
@@ -1636,7 +1751,28 @@ ${o.routeId ? '<option value="__remove__">✕ Quitar de ruta</option>' : ''}
 </select>
 </div>
 <div class="two">
-<button class="${o.status==='Concluido'?'bg':o.status==='Confirmado'?'bs':'bb'}" style="flex:1" onclick="togStatus(${o.id})">${o.status==='Cotización'?'📄 Cotización':o.status==='Confirmado'?'✅ Confirmado':'✔ Concluido'}</button>
+<div style="display:flex;align-items:center;gap:10px;flex:1;background:#161929;border-radius:9px;padding:8px 12px;border:1px solid #2a3050">
+  ${(()=>{
+    const isConf = o.status==='Confirmado'||o.status==='Concluido';
+    const isConc = o.status==='Concluido';
+    return `
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer" title="Confirmado">
+      <div style="position:relative;width:36px;height:20px">
+        <input type="checkbox" ${isConf?'checked':''} onchange="setOrderStatus(${o.id},this.checked,'switch')" style="opacity:0;width:0;height:0;position:absolute"/>
+        <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;border-radius:10px;background:${isConf?'#3b82f6':'#2a3050'};transition:background .2s;cursor:pointer"></span>
+        <span onclick="this.previousElementSibling.previousElementSibling.click()" style="position:absolute;top:3px;left:${isConf?'19px':'3px'};width:14px;height:14px;background:#fff;border-radius:50%;transition:left .2s;pointer-events:none"></span>
+      </div>
+      <span style="font-size:11px;color:${isConf?'#60a5fa':'#64748b'};font-weight:700">${isConf?'Confirmado':'Cotización'}</span>
+    </label>
+    <div style="width:1px;height:20px;background:#2a3050"></div>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer" title="Concluido">
+      <div onclick="setOrderStatus(${o.id},null,'check')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${isConc?'#10b981':'#475569'};background:${isConc?'#10b981':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s">
+        ${isConc?'<span style="color:#fff;font-size:12px;font-weight:900">✓</span>':''}
+      </div>
+      <span style="font-size:11px;color:${isConc?'#10b981':'#64748b'};font-weight:700">${isConc?'Concluido':''}</span>
+    </label>`;
+  })()}
+</div>
 <button class="bs"  onclick="startEditOrder(${o.id})">✏️ Editar</button>
 <button class="bv"  onclick="duplicateOrder(${o.id})" title="Duplicar pedido">📋 Duplicar</button>
 <button class="bb"  onclick="showQuoteFromOrder(${o.id})">📄 Cotizar</button>
@@ -1667,25 +1803,48 @@ function assignOrderToRoute(oid, sel) {
     save(); renderList(); toast('✔ Pedido asignado a: '+r.name);
   }
 }
+function setOrderStatus(id, checked, type) {
+  const o = S.orders.find(x=>x.id===id); if (!o) return;
+  if (type==='switch') {
+    // Switch: alterna entre Cotización y Confirmado (si ya es Concluido no baja)
+    if (o.status==='Concluido') return; // no deshacer Concluido con el switch
+    o.status = (o.status==='Confirmado') ? 'Cotización' : 'Confirmado';
+    if (o.status==='Confirmado') {
+      save();
+      const triggered = checkBonusAlert(o.clientId, o.id, ()=>{ renderList(); renderRoutes(); }, o);
+      if (!triggered) { renderList(); renderRoutes(); }
+      return;
+    }
+  } else if (type==='check') {
+    // Check: alterna entre Concluido y Confirmado
+    o.status = (o.status==='Concluido') ? 'Confirmado' : 'Concluido';
+  }
+  save(); renderList(); renderRoutes();
+}
+
 function togStatus(id) {
 const o = S.orders.find(x=>x.id===id); if (!o) return;
 const cycle = {'Cotización':'Confirmado','Confirmado':'Concluido','Concluido':'Cotización'};
-o.status = cycle[o.status] || 'Cotización';
+const newStatus = cycle[o.status] || 'Cotización';
+// Si va a Confirmado, verificar bonificaciones primero
+if (newStatus === 'Confirmado') {
+  o.status = 'Confirmado';
+  save();
+  const triggered = checkBonusAlert(o.clientId, o.id, () => {
+    renderList(); renderRoutes();
+  }, o);
+  if (!triggered) {
+    renderList(); renderRoutes();
+  }
+  return;
+}
+o.status = newStatus;
 save();
-// Actualizar solo el card afectado sin redirigir
 const card = document.querySelector(`[data-id="${id}"]`);
 if (card) {
-  const sCls = o.status==='Concluido'?'bp-fact':o.status==='Cotización'?'bp-quot':'bp-pend';
   const btn = card.querySelector('[onclick^="togStatus"]');
-  if (btn) {
-    btn.className = o.status==='Concluido'?'bg':o.status==='Confirmado'?'bs':'bb';
-    btn.style.flex='1';
-    btn.textContent = o.status==='Cotización'?'📄 Cotización':o.status==='Confirmado'?'✅ Confirmado':'✔ Concluido';
-  }
-  const badge = card.querySelector('.bp-fact,.bp-quot,.bp-pend');
-  if (badge) { badge.className = sCls; badge.textContent = o.status; }
+  if (btn) btn.textContent = newStatus==='Cotización'?'📄 Cotización':newStatus==='Confirmado'?'✅ Confirmado':'✔ Concluido';
 }
-// Actualizar contadores de pestañas
 ['Cotización','Confirmado','Concluido'].forEach(st => {
   const el = document.getElementById('cnt-'+st);
   if (el) el.textContent = '('+S.orders.filter(x=>x.status===st&&!x.routeId).length+')';
@@ -1697,20 +1856,36 @@ if (card) {
 // ═══════════════════════════════════════════════════════
 let _confirmCb = null;
 function askConfirm(msg, sub, cb, btnText) {
+  // Restaurar estructura estándar del modal por si fue modificada
+  const inner = document.querySelector('#confirm-modal > div');
+  if (inner && !document.getElementById('confirm-msg')) {
+    inner.innerHTML = `
+      <div style="font-size:28px;margin-bottom:8px">🗑</div>
+      <div id="confirm-msg" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px"></div>
+      <div id="confirm-sub" style="font-size:12px;color:#94a3b8;margin-bottom:18px"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:14px">Cancelar</button>
+        <button id="confirm-ok-btn" onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;font-size:14px">Eliminar</button>
+      </div>`;
+  }
   document.getElementById('confirm-msg').textContent = msg;
   document.getElementById('confirm-sub').textContent = sub || '';
   const btn = document.getElementById('confirm-ok-btn');
-  if (btn) btn.textContent = btnText || 'Eliminar';
+  if (btn) { btn.textContent = btnText || 'Eliminar'; btn.style.background = '#ef4444'; }
   const m = document.getElementById('confirm-modal');
   m.style.display = 'flex';
   _confirmCb = cb;
 }
+function bonusAlertConfirm() { if (window._bonusAlertConfirmCb) window._bonusAlertConfirmCb(); window._bonusAlertConfirmCb=null; window._bonusAlertCancelCb=null; }
+function bonusAlertCancel()  { if (window._bonusAlertCancelCb)  window._bonusAlertCancelCb();  window._bonusAlertConfirmCb=null; window._bonusAlertCancelCb=null; }
+
 function confirmDel(yes) {
   document.getElementById('confirm-modal').style.display = 'none';
   const btn = document.getElementById('confirm-ok-btn');
   if (btn) { btn.style.background='#ef4444'; btn.textContent='Eliminar'; }
   if (yes && _confirmCb) _confirmCb();
   _confirmCb = null;
+  window._bonusOnCancel = null;
 }
 
 function delOrder(id) {
@@ -1802,17 +1977,32 @@ const us    = Number(p?.unitSize)||1;
 const ul    = p?.unitLabel||'unidad';
 const units = Number(it.qty)*us;
 const sub   = pr*units;
-const conv  = us>1 ? `<div style="font-size:10px;color:#6b7280">${it.qty} ${p?.presentation||''} = ${units} ${ul}s</div>` : '';
-// Cuando "Agregar IVA" está activo → mostrar base + IVA por línea
-// Cuando "Precio ya incluye IVA" → desglosar contenido
-const ivaIncRow = '';
 const ivaBadge = ord.applyIva
 ? `<div style="font-size:9px;color:#2563eb;font-weight:600;margin-top:2px">+ IVA 12%: ${Q(pr*0.12)}/${ul}</div>` : '';
 return `<tr>
-<td style="padding:7px 6px">${p?p.name:'—'}${p?.presentation?`<div style="font-size:10px;color:#6b7280">${p.presentation}</div>`:''}${''}</td>
-<td style="padding:7px 6px;text-align:center">${it.qty}${conv}</td>
+<td style="padding:7px 6px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
+<td style="padding:7px 6px;text-align:center">${it.qty}</td>
 <td style="padding:7px 6px;text-align:right">${Q(pr)}/${ul}${ivaBadge}</td>
-<td style="padding:7px 6px;text-align:right;font-weight:700">${ord.applyIva?Q(sub*1.12):Q(sub)}${ivaIncRow}</td>
+<td style="padding:7px 6px;text-align:right;font-weight:700">${ord.applyIva?Q(sub*1.12):Q(sub)}</td>
+</tr>`;
+}).join('');
+
+// Líneas de bonificación
+const bonusRows = (ord.bonusLines||[]).map(bl => {
+const p  = S.products.find(x=>x.id===Number(bl.productId));
+const pr = bl.price||0;
+const ul = p?.unitLabel||'unidad';
+const us = Number(p?.unitSize)||1;
+const sub = pr * bl.qty * us;
+return `<tr style="background:#f0fdf4">
+<td style="padding:7px 6px;color:#15803d">
+  <strong>**BONIFICACIÓN**</strong>
+  <div style="font-size:10px;color:#15803d">${p?p.name:'—'}${p?.presentation?' ('+p.presentation+')':''}</div>
+  ${bl.ruleName&&bl.ruleName!=='Manual'?`<div style="font-size:10px;color:#6b7280">${bl.ruleName}</div>`:''}
+</td>
+<td style="padding:7px 6px;text-align:center;color:#15803d">${bl.qty}</td>
+<td style="padding:7px 6px;text-align:right;color:#15803d">${Q(pr)}/${ul}</td>
+<td style="padding:7px 6px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td>
 </tr>`;
 }).join('');
 return `<div class="qt">
@@ -1824,6 +2014,7 @@ return `<div class="qt">
 <div style="font-size:16px;font-weight:900;margin-bottom:4px;color:#111">N° ${qNum}</div>
 <div style="font-size:12px;color:#6b7280;margin-bottom:2px">Fecha: ${ord.date}</div>
 <div style="font-size:13px;margin-top:2px">Cliente: <strong>${ord.clientName}</strong></div>
+${ord.quoteNote?`<div style="font-size:12px;color:#374151;margin-top:4px;padding:5px 8px;background:#f9fafb;border-left:3px solid #f59e0b;border-radius:3px">${ord.quoteNote}</div>`:''}
 ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="color:#6b7280;margin-left:6px">${cliInfo}</span></div>`:''}
 <table class="qt-tbl">
 <thead><tr>
@@ -1832,7 +2023,7 @@ ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="co
 <th style="text-align:right">P/Unidad</th>
 <th style="text-align:right">Subtotal</th>
 </tr></thead>
-<tbody>${rows}</tbody>
+<tbody>${rows}${bonusRows}</tbody>
 </table>
 <div class="qt-total">TOTAL: <span style="color:#b45309">${Q(ord.pricesIncIva ? tot : ord.applyIva ? tot*1.12 : tot)}</span></div>
 ${(()=>{
@@ -1928,39 +2119,49 @@ function shareOrderEmail() {
 if (!currentQuote) return;
 const ord = currentQuote;
 
+// Productos con guion y precio
 const prodLines = ord.items.map(it => {
   const p  = S.products.find(x => x.id===(it.productId||Number(it.pid)));
   const pr = (it.customPrice != null) ? it.customPrice : cliPrice(ord.clientId, it.productId||it.pid, p?.basePrice||0);
   const ul = p?.unitLabel||'unidad';
   const ivaText = ord.applyIva ? ' + IVA' : '';
-  return `${it.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
-}).join('\n\n');
+  return `- ${it.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
+}).join('\n');
+
+// Bonificaciones
+const bonusLines = (ord.bonusLines||[]).map(bl => {
+  const p  = S.products.find(x => x.id===Number(bl.productId));
+  const ul = p?.unitLabel||'unidad';
+  return `${bl.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(bl.price||0)}/${ul}`;
+}).join('\n');
+const bonusBlock = bonusLines ? `\n***BONIFICACIÓN***\n${bonusLines}` : '';
 
 const tot = orderTotal(ord.items, ord.clientId);
 const totalFinal = ord.applyIva ? tot*1.12 : tot;
 
+// Comentarios con ** al inicio
 const cmts = (ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : [])).filter(c=>c&&c.trim());
-const comentariosTexto = cmts.map(c => `• ${c}`).join('\n');
+const comentariosTexto = cmts.map(c => `**${c}`).join('\n');
 
 const ocLine = ord.oc ? `Pedido: ${ord.oc}` : '';
 
-const body = [
+const parts = [
   'Buen día, por favor facturar:',
   '',
   ocLine,
   comentariosTexto,
   '',
   prodLines,
+  bonusBlock,
   '',
-  `*** TOTAL: ${Q(totalFinal)} ***`
-].filter(l => l !== null && l !== undefined && !(l === '' && !prodLines)).join('\n');
+  `TOTAL: ${Q(totalFinal)}`
+].filter(l => l !== null && l !== undefined);
 
+const body = parts.join('\n');
 const subject = `${ord.quote||''} ${ord.clientName}`.trim();
 
-// Web Share API — muestra selector de apps en Android
 if (navigator.share) {
-  navigator.share({ title: subject, text: body })
-    .catch(() => {});
+  navigator.share({ title: subject, text: body }).catch(() => {});
 } else {
   // Fallback para desktop
   window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -2031,6 +2232,15 @@ function toggleFormPanel(id, header) {
   if (arrow) arrow.textContent = open ? '▲' : '▼';
 }
 
+function collapseForm(bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.style.display = 'none';
+  // Actualizar flecha del header
+  const header = body.previousElementSibling;
+  if (header) { const arrow = header.querySelector('span'); if (arrow) arrow.textContent = '▼'; }
+}
+
 function addClient() {
 const name = document.getElementById('nc-n').value.trim();
 if (!name) return alert('Ingresa el nombre del cliente.');
@@ -2042,6 +2252,7 @@ const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
 S.cp[id] = init;
 save();
 ['nc-n','nc-p','nc-a'].forEach(i => document.getElementById(i).value='');
+collapseForm('cli-form-body');
 toast('👥 Cliente agregado'); renderClients();
 }
 
@@ -2086,6 +2297,7 @@ ${c.address ? `<div style="font-size:12px;color:#64748b">📍 ${c.address}</div>
 </div>
 </div>
 <div style="display:flex;gap:6px;flex-shrink:0;align-items:center" onclick="event.stopPropagation()">
+<button class="bg" style="font-size:11px;padding:4px 10px" onclick="newOrderForClient(${c.id})">🛒 Pedido</button>
 <button class="bs" onclick="editCliForm(${c.id})">✏️</button>
 <button class="br" onclick="delClient(${c.id})">🗑</button>
 <span style="font-size:13px;color:#64748b;margin-left:2px">${isCliOpen?'▲':'▼'}</span>
@@ -2134,6 +2346,83 @@ ${(()=>{
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
     <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">ÚLTIMOS PEDIDOS</div>
     ${rows}
+  </div>`;
+})()}
+${(()=>{
+  if (!S.bonuses) S.bonuses = {};
+  const rules = S.bonuses[c.id] || [];
+  if (!rules.length) return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">🎁 BONIFICACIONES</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:6px">Sin reglas configuradas.</div>
+    <button class="bg" style="font-size:11px;padding:5px 12px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
+  </div>`;
+  const rulesHtml = rules.map((r,ri) => {
+    const progress = calcBonusProgress(c.id, r);
+    const complete = isBonusComplete(c.id, r);
+    const readyBadge = complete ? `<span style="font-size:10px;background:#052e16;color:#10b981;padding:2px 7px;border-radius:8px;font-weight:700">🎁 Lista!</span>` : '';
+    // Descripción de productos a acumular
+    let accumDesc = '';
+    if (r.ruleType==='pool') {
+      accumDesc = (r.poolProds||[]).map(pid=>{const p2=S.products.find(x=>x.id===Number(pid));return p2?p2.name:''}).filter(Boolean).join(' / ');
+    } else {
+      accumDesc = (r.targets||[]).map(t=>{const p2=S.products.find(x=>x.id===Number(t.productId));return p2?p2.name+' ×'+t.threshold:''}).filter(Boolean).join(' + ');
+    }
+    const bonusDesc = (r.bonusItems||[]).map(bi=>{const p2=S.products.find(x=>x.id===Number(bi.productId));return `${bi.qty} ${p2?p2.name:'—'}`;}).join(' + ');
+    // Barras de progreso con campo manual por línea
+    const bars = progress.map((pg, pgi) => {
+      const tot = pg.app + pg.manual;
+      const pct = Math.min(100, Math.round(tot/pg.threshold*100));
+      const col = pct>=100?'#10b981':pct>=70?'#f59e0b':'#60a5fa';
+      const tidx = pg.isPool ? 'pool' : (pg.ti !== undefined ? pg.ti : pgi);
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:2px">
+          <span>${pg.label}</span>
+          <span style="font-weight:700;color:${col}">${tot}/${pg.threshold}</span>
+        </div>
+        <div style="background:#2a3050;border-radius:4px;height:7px;overflow:hidden;margin-bottom:2px">
+          <div style="height:100%;background:${col};width:${pct}%;border-radius:4px"></div>
+        </div>
+        <div style="font-size:10px;color:#64748b;margin-bottom:4px">App: ${pg.app} · Manual: ${pg.manual}</div>
+        <div style="display:flex;gap:5px">
+          <input type="number" min="0" step="1" placeholder="+ externas" id="bm-${c.id}-${ri}-${tidx}" style="flex:1;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;color:#f1f5f9;font-size:11px"/>
+          <button onclick="addBonusManual(${c.id},${ri},'${tidx}',1)" style="background:#1e3a5f;border:none;border-radius:6px;color:#60a5fa;padding:4px 10px;font-size:11px;cursor:pointer">+</button>
+          <button onclick="addBonusManual(${c.id},${ri},'${tidx}',-1)" style="background:#2d0f0f;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:4px 10px;font-size:11px;cursor:pointer">−</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="background:#161929;border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:#f1f5f9">${r.name||accumDesc}</div>
+          <div style="font-size:10px;color:#10b981;margin-top:1px">🎁 ${bonusDesc}</div>
+          ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Vence: ${r.deadline}</div>`:''}
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;margin-left:6px">
+          ${readyBadge}
+          <button onclick="editBonusRule(${c.id},${ri})" style="background:none;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:2px 6px;font-size:11px;cursor:pointer">✏️</button>
+          <button onclick="delBonusRule(${c.id},${ri})" style="background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:2px 6px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      ${bars}
+      ${complete?`<button onclick="deliverBonus(${c.id},${ri})" style="width:100%;background:#052e16;border:none;border-radius:6px;color:#10b981;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">✓ Entregar bonificación</button>`:''}
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;color:#94a3b8;font-weight:700">🎁 BONIFICACIONES</div>
+      <button class="bg" style="font-size:11px;padding:4px 10px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
+    </div>
+    ${rulesHtml}
+  </div>`;
+})()}
+
+${(()=>{
+  const notes = (S.clientNotes && S.clientNotes[c.id]) || '';
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">📝 NOTAS</div>
+    <textarea id="cli-notes-${c.id}" placeholder="Escribe notas relevantes del cliente..." rows="3"
+      style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;color:#f1f5f9;font-size:12px;resize:vertical;line-height:1.5"
+      oninput="saveCliNotes(${c.id},this.value)">${notes}</textarea>
   </div>`;
 })()}
 </div>`;
@@ -2282,6 +2571,351 @@ function editPriceList(id) {
   };
 }
 
+// ═══════════════════════════════════════════════════════
+//  BONIFICACIONES
+// ═══════════════════════════════════════════════════════
+
+// Calcula unidades acumuladas de una regla para un cliente
+function calcBonusProgress(cid, r, extraOrd) {
+  // Si hay resetTs usar timestamp exacto, sino usar startDate
+  const resetTs = r.resetTs ? new Date(r.resetTs).getTime() : null;
+  const startDateStr = r.startDate || '2000-01-01';
+
+  let orders = S.orders.filter(o =>
+    Number(o.clientId)===Number(cid) &&
+    (o.status==='Confirmado'||o.status==='Concluido')
+  );
+  if (extraOrd && !orders.find(o=>o.id===extraOrd.id)) {
+    orders = [...orders, extraOrd];
+  }
+
+  // Convierte fecha del pedido a timestamp usando el ID del pedido como proxy de orden
+  // El ID es autoincremental, así que pedidos más nuevos tienen ID mayor
+  function orderPassesFilter(o) {
+    if (resetTs) {
+      const resetDateStr = typeof resetTs === 'string' ? resetTs.split('T')[0] : new Date(resetTs).toISOString().split('T')[0];
+      const parts = (o.date||'').split('/');
+      if (parts.length < 3) return false;
+      const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+      const oDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if (oDateStr > resetDateStr) return true;
+      if (oDateStr === resetDateStr) return o.id > (r._resetOid||0);
+      return false;
+    }
+    const parts = (o.date||'').split('/');
+    if (parts.length < 3) return true;
+    const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+    const oDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    return oDateStr >= startDateStr;
+  }
+
+  if (r.ruleType === 'pool') {
+    let appUnits = 0;
+    orders.forEach(o => {
+      if (!orderPassesFilter(o)) return;
+      o.items.forEach(it => {
+        const pid = Number(it.productId||it.pid);
+        if ((r.poolProds||[]).includes(pid)) appUnits += Number(it.qty);
+      });
+    });
+    return [{ label: r.poolLabel||'Total', app: appUnits, manual: Number(r.manualUnits)||0, threshold: r.threshold, isPool: true }];
+
+  } else {
+    return (r.targets||[]).map((t,ti) => {
+      let appUnits = 0;
+      orders.forEach(o => {
+        if (!orderPassesFilter(o)) return;
+        o.items.forEach(it => {
+          if (Number(it.productId||it.pid) === Number(t.productId)) appUnits += Number(it.qty);
+        });
+      });
+      const p = S.products.find(x=>x.id===Number(t.productId));
+      return { label: p ? p.name+' ('+(p.presentation||'')+')'  : '—', app: appUnits, manual: Number(t.manualUnits)||0, threshold: t.threshold, ti };
+    });
+  }
+}
+
+// Retorna true si TODOS los contadores de la regla están cumplidos
+function isBonusComplete(cid, r, extraOrd) {
+  const progress = calcBonusProgress(cid, r, extraOrd);
+  return progress.every(p => (p.app + p.manual) >= p.threshold);
+}
+
+function closeBonusModal() {
+  document.getElementById('bonus-modal').style.display = 'none';
+}
+
+function openBonusModal(cid, ri) {
+  if (!S.bonuses) S.bonuses = {};
+  if (!S.bonuses[cid]) S.bonuses[cid] = [];
+  const isEdit = ri !== null && ri !== undefined;
+  const r = isEdit ? S.bonuses[cid][ri] : { ruleType:'individual', name:'', targets:[], bonusItems:[], deadline:'', startDate: new Date().toISOString().split('T')[0] };
+
+  const prodOpts = () => S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const isPool = r.ruleType === 'pool';
+
+  const targetsHtml = (targets) => (targets||[]).map((t,i)=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(t.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    return `<div class="br-target-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-tpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <input type="number" class="br-tqty" value="${t.threshold||''}" placeholder="Umbral" min="1" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-target-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
+  const poolHtml = (r2) => (r2.poolProds||[]).map(pid=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    return `<div class="br-pool-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-ppid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <button onclick="this.closest('.br-pool-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
+  const bonusItemsHtml = (items) => (items||[]).map(bi=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(bi.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    return `<div class="br-bonus-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-bpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <input type="number" class="br-bqty" value="${bi.qty||1}" min="1" style="width:55px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-bonus-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('bonus-modal-body').innerHTML = `
+    <div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:12px;text-align:center">${isEdit?'EDITAR':'NUEVA'} REGLA DE BONIFICACION</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">NOMBRE:</div>
+    <input id="br-name" value="${r.name||''}" placeholder="Ej: Bonif. Q2 Laca" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">TIPO:</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="btn-type-ind" onclick="setBonusType('individual')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${!isPool?'#f59e0b':'#2a3050'};background:${!isPool?'#2a1f00':'transparent'};color:${!isPool?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Umbrales independientes</button>
+      <button id="btn-type-pool" onclick="setBonusType('pool')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${isPool?'#f59e0b':'#2a3050'};background:${isPool?'#2a1f00':'transparent'};color:${isPool?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Pool compartido</button>
+    </div>
+    <div id="br-individual-section" style="display:${!isPool?'block':'none'}">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:5px">PRODUCTOS Y UMBRALES (todos deben cumplirse):</div>
+      <div id="br-target-rows">${targetsHtml(r.targets)}</div>
+      <button onclick="addTargetRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto con umbral</button>
+    </div>
+    <div id="br-pool-section" style="display:${isPool?'block':'none'}">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:5px">PRODUCTOS DEL POOL (cualquier combo suma):</div>
+      <div id="br-pool-rows">${poolHtml(r)}</div>
+      <button onclick="addPoolRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto al pool</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL:</div>
+      <input type="number" id="br-pool-threshold" value="${r.threshold||''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+    </div>
+    <div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:5px">BONIFICACION A ENTREGAR:</div>
+    <div id="br-bonus-rows">${bonusItemsHtml(r.bonusItems)}</div>
+    <button onclick="addBonusItemRow()" style="width:100%;background:#052e16;border:1px dashed #10b981;border-radius:7px;color:#10b981;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto de bonif.</button>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1"><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Fecha inicio:</div>
+        <input type="date" id="br-start" value="${r.startDate||new Date().toISOString().split('T')[0]}" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:6px;font-size:12px"/></div>
+      <div style="flex:1"><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Fecha limite:</div>
+        <input type="date" id="br-deadline" value="${r.deadline||''}" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:6px;font-size:12px"/></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeBonusModal()" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="saveBonusRule(${cid},${isEdit?ri:'null'})" style="flex:1;padding:10px;border-radius:9px;border:none;background:#f59e0b;color:#000;font-weight:800;cursor:pointer">Guardar</button>
+    </div>`;
+
+  document.getElementById('bonus-modal').style.display = 'flex';
+}
+
+function setBonusType(type) {
+  document.getElementById('br-individual-section').style.display = type==='individual'?'block':'none';
+  document.getElementById('br-pool-section').style.display = type==='pool'?'block':'none';
+  const btnInd = document.getElementById('btn-type-ind');
+  const btnPool = document.getElementById('btn-type-pool');
+  if(btnInd){btnInd.style.borderColor=type==='individual'?'#f59e0b':'#2a3050';btnInd.style.color=type==='individual'?'#f59e0b':'#94a3b8';btnInd.style.background=type==='individual'?'#2a1f00':'transparent';}
+  if(btnPool){btnPool.style.borderColor=type==='pool'?'#f59e0b':'#2a3050';btnPool.style.color=type==='pool'?'#f59e0b':'#94a3b8';btnPool.style.background=type==='pool'?'#2a1f00':'transparent';}
+}
+
+function addTargetRow() {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const div = document.createElement('div');
+  div.className='br-target-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  div.innerHTML=`<select class="br-tpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="br-tqty" placeholder="Umbral" min="1" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.br-target-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-target-rows').appendChild(div);
+}
+
+function addPoolRow() {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const div = document.createElement('div');
+  div.className='br-pool-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  div.innerHTML=`<select class="br-ppid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <button onclick="this.closest('.br-pool-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-pool-rows').appendChild(div);
+}
+
+function addBonusItemRow() {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const div = document.createElement('div');
+  div.className='br-bonus-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  div.innerHTML=`<select class="br-bpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="br-bqty" value="1" min="1" style="width:55px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.br-bonus-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-bonus-rows').appendChild(div);
+}
+
+function saveBonusRule(cid, ri) {
+  const name = document.getElementById('br-name').value.trim();
+  const startDate = document.getElementById('br-start').value;
+  const deadline  = document.getElementById('br-deadline').value;
+  const isPool = document.getElementById('br-pool-section').style.display !== 'none';
+  const bonusRows = document.querySelectorAll('.br-bonus-row');
+  const bonusItems = [];
+  bonusRows.forEach(row => {
+    const pid = row.querySelector('.br-bpid')?.value;
+    const qty = Number(row.querySelector('.br-bqty')?.value)||1;
+    if (pid) bonusItems.push({ productId: Number(pid), qty });
+  });
+  if (!bonusItems.length) return toast('Agrega al menos un producto de bonificacion','#f59e0b');
+  let rule;
+  if (isPool) {
+    const poolRows = document.querySelectorAll('.br-pool-row');
+    const poolProds = [];
+    poolRows.forEach(row => { const pid = row.querySelector('.br-ppid')?.value; if(pid) poolProds.push(Number(pid)); });
+    const threshold = Number(document.getElementById('br-pool-threshold').value);
+    if (!poolProds.length) return toast('Agrega productos al pool','#f59e0b');
+    if (!threshold) return toast('Ingresa el umbral total','#f59e0b');
+    rule = { ruleType:'pool', name, poolProds, threshold, bonusItems, startDate, deadline, manualUnits:0 };
+  } else {
+    const targetRows = document.querySelectorAll('.br-target-row');
+    const targets = [];
+    targetRows.forEach(row => {
+      const pid = row.querySelector('.br-tpid')?.value;
+      const thr = Number(row.querySelector('.br-tqty')?.value);
+      if (pid && thr) targets.push({ productId:Number(pid), threshold:thr, manualUnits:0 });
+    });
+    if (!targets.length) return toast('Agrega al menos un producto con umbral','#f59e0b');
+    rule = { ruleType:'individual', name, targets, bonusItems, startDate, deadline };
+  }
+  if (!S.bonuses) S.bonuses = {};
+  if (!S.bonuses[cid]) S.bonuses[cid] = [];
+  if (ri !== null && ri !== 'null' && ri !== undefined) {
+    const old = S.bonuses[cid][ri];
+    if (old && rule.ruleType==='individual' && old.ruleType==='individual') {
+      rule.targets.forEach(t => { const ot=(old.targets||[]).find(x=>x.productId===t.productId); if(ot) t.manualUnits=ot.manualUnits||0; });
+    }
+    if (old && rule.ruleType==='pool') rule.manualUnits=old.manualUnits||0;
+    S.bonuses[cid][ri] = rule;
+  } else {
+    S.bonuses[cid].push(rule);
+  }
+  closeBonusModal();
+  save(); toast('Regla guardada','#10b981');
+  window._cliOpen[cid]=true; renderClients();
+}
+
+function addBonusRule(cid)      { openBonusModal(cid, null); }
+function editBonusRule(cid, ri) { openBonusModal(cid, ri); }
+
+function delBonusRule(cid, ri) {
+  askConfirm('Eliminar esta regla?', 'Se perdera el progreso acumulado.', () => {
+    if (S.bonuses && S.bonuses[cid]) S.bonuses[cid].splice(ri,1);
+    save(); window._cliOpen[cid]=true; renderClients();
+  });
+}
+
+function addBonusManual(cid, ri, tidx, sign=1) {
+  const inp = document.getElementById(`bm-${cid}-${ri}-${tidx}`);
+  const val = Number(inp?.value);
+  if (!val||val<=0) return toast('Ingresa una cantidad válida','#f59e0b');
+  const r = S.bonuses?.[cid]?.[ri]; if (!r) return;
+  const delta = val * sign;
+  if (tidx === 'pool' || r.ruleType==='pool') {
+    r.manualUnits = Math.max(0, (Number(r.manualUnits)||0)+delta);
+  } else {
+    const ti = Number(tidx);
+    if (r.targets && r.targets[ti]) r.targets[ti].manualUnits = Math.max(0, (Number(r.targets[ti].manualUnits)||0)+delta);
+  }
+  inp.value='';
+  save(); toast(sign>0?'✅ Unidades agregadas':'✅ Unidades quitadas','#10b981');
+  window._cliOpen[cid]=true; renderClients();
+}
+
+function deliverBonus(cid, ri) {
+  askConfirm('¿Marcar bonificación como entregada?', 'El contador reiniciará desde cero.', () => {
+    const r = S.bonuses?.[cid]?.[ri]; if (!r) return;
+    const resetTs = new Date().toISOString();
+    r.manualUnits=0; r.startDate=new Date().toISOString().split('T')[0]; r.resetTs=resetTs;
+    if (r.targets) r.targets.forEach(t=>t.manualUnits=0);
+    save(); toast('🎁 Bonificación entregada — contador reiniciado','#10b981');
+    window._cliOpen[cid]=true; renderClients();
+  }, 'Confirmar');
+  const btn = document.getElementById('confirm-ok-btn');
+  if (btn) btn.style.background='#10b981';
+}
+function checkBonusAlert(cid, oid, onDone, extraOrd) {
+  if (!S.bonuses || !S.bonuses[cid]) return false;
+  const rules = S.bonuses[cid];
+  const triggered = rules.map((r,ri)=>({r,ri})).filter(({r})=>isBonusComplete(cid, r, extraOrd));
+  if (!triggered.length) return false;
+
+  const { r, ri } = triggered[0];
+
+  // Construir filas editables de bonificación
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const bonusRowsHtml = (r.bonusItems||[]).map((bi,i) => {
+    const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bi.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    const pr = cliPrice(cid, bi.productId, S.products.find(x=>x.id===Number(bi.productId))?.basePrice||0);
+    return `<div class="ba-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <select class="ba-pid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${pOpts}</select>
+      <input type="number" class="ba-qty" value="${bi.qty}" min="1" style="width:55px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <span style="font-size:11px;color:#94a3b8">${Q(pr)}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('bonus-modal-body').innerHTML = `
+    <div style="font-size:24px;margin-bottom:6px;text-align:center">🎁</div>
+    <div style="font-size:14px;font-weight:800;color:#10b981;margin-bottom:4px;text-align:center">¡Corresponde bonificación!</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;text-align:center">${r.name||'Regla de bonificación'}</div>
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:5px">PRODUCTOS A AGREGAR (editable):</div>
+    <div id="ba-rows">${bonusRowsHtml}</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="bonusAlertCancel()" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">No agregar</button>
+      <button onclick="bonusAlertConfirm()" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer;font-size:13px">✓ Agregar</button>
+    </div>`;
+  document.getElementById('bonus-modal').style.display = 'flex';
+
+  window._bonusAlertConfirmCb = () => {
+    const ord = S.orders.find(o=>o.id===oid); if (!ord) return;
+    const rows = document.querySelectorAll('.ba-row');
+    if (!ord.bonusLines) ord.bonusLines = [];
+    rows.forEach(row => {
+      const pid = Number(row.querySelector('.ba-pid')?.value);
+      const qty = Number(row.querySelector('.ba-qty')?.value)||1;
+      const p   = S.products.find(x=>x.id===pid);
+      const pr  = cliPrice(cid, pid, p?.basePrice||0);
+      ord.bonusLines.push({ productId:pid, qty, price:pr, ruleName:r.name||'' });
+    });
+    ord.status = 'Confirmado';
+    const resetTs = new Date().toISOString();
+    if (r.ruleType==='pool') {
+      r.manualUnits = 0; r.startDate = new Date().toISOString().split('T')[0];
+      r.resetTs = resetTs; r._resetOid = oid;
+    } else {
+      if (r.targets) r.targets.forEach(t => t.manualUnits=0);
+      r.startDate = new Date().toISOString().split('T')[0];
+      r.resetTs = resetTs; r._resetOid = oid;
+    }
+    document.getElementById('bonus-modal').style.display = 'none';
+    save(); toast('🎁 Bonificación agregada — pedido confirmado','#10b981');
+    if (onDone) onDone();
+  };
+
+  window._bonusAlertCancelCb = () => {
+    document.getElementById('bonus-modal').style.display = 'none';
+    if (onDone) onDone();
+  };
+  return true;
+}
+
+function saveCliNotes(cid, text) {
+  if (!S.clientNotes) S.clientNotes = {};
+  S.clientNotes[cid] = text;
+  save();
+}
+
 function addCliComment(cid) {
   const inp = document.getElementById('new-cli-com-'+cid);
   const txt = inp ? inp.value.trim() : '';
@@ -2302,6 +2936,72 @@ function removeCliComment(cid, idx) {
   arr.splice(idx, 1);
   S.savedComments[cid] = arr;
   save(); renderClients();
+}
+
+function newOrderForClient(cid) {
+  // Ir a Pedido nuevo con el cliente preseleccionado
+  editingOid = null;
+  ordItems = [{pid:'',qty:1}];
+  ordComments = [''];
+  goTab('order');
+  setTimeout(() => {
+    document.getElementById('ord-cli').value = cid;
+    document.getElementById('ord-iva-inc').checked = true;
+    document.getElementById('ord-iva').checked = false;
+    onCliChange();
+    refreshTotalWithIVA();
+  }, 100);
+}
+
+function addManualBonusToOrder(oid) {
+  const ord = S.orders.find(o=>o.id===oid); if (!ord) return;
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  document.getElementById('bonus-modal-body').innerHTML = `
+    <div style="font-size:15px;font-weight:800;color:#10b981;margin-bottom:12px;text-align:center">🎁 Agregar Bonificación Manual</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Cliente: <strong style="color:#f1f5f9">${ord.clientName}</strong></div>
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-top:10px;margin-bottom:6px">PRODUCTOS A BONIFICAR:</div>
+    <div id="mb-rows">
+      <div class="mb-row" style="display:flex;gap:5px;align-items:center;margin-bottom:6px">
+        <select class="mb-pid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+        <input type="number" class="mb-qty" value="1" min="1" placeholder="Cant" style="width:50px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+        <input type="number" class="mb-price" value="0" min="0" step="0.01" placeholder="Precio" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      </div>
+    </div>
+    <button onclick="addManualBonusRow()" style="width:100%;background:#052e16;border:1px dashed #10b981;border-radius:7px;color:#10b981;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Otra línea</button>
+    <input id="mb-note" placeholder="Nota (ej: Por consumo Trim. Q2)" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:12px;font-size:12px"/>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeBonusModal()" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="saveManualBonus(${oid})" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer">✓ Agregar</button>
+    </div>`;
+  document.getElementById('bonus-modal').style.display = 'flex';
+}
+
+function addManualBonusRow() {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'mb-row';
+  div.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:6px';
+  div.innerHTML = `<select class="mb-pid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="mb-qty" value="1" min="1" placeholder="Cant" style="width:50px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <input type="number" class="mb-price" value="0" min="0" step="0.01" placeholder="Precio" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.mb-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">✕</button>`;
+  document.getElementById('mb-rows').appendChild(div);
+}
+
+function saveManualBonus(oid) {
+  const ord = S.orders.find(o=>o.id===oid); if (!ord) return;
+  const note = document.getElementById('mb-note')?.value.trim() || 'Bonificación manual';
+  const rows = document.querySelectorAll('.mb-row');
+  if (!ord.bonusLines) ord.bonusLines = [];
+  rows.forEach(row => {
+    const pid   = Number(row.querySelector('.mb-pid')?.value);
+    const qty   = Number(row.querySelector('.mb-qty')?.value)||1;
+    const price = Number(row.querySelector('.mb-price')?.value)||0;
+    if (pid) ord.bonusLines.push({ productId:pid, qty, price, ruleName:note });
+  });
+  closeBonusModal();
+  save(); toast('🎁 Bonificación agregada','#10b981');
+  renderList(); renderRoutes();
 }
 
 function toggleCli(cid) {
@@ -2585,7 +3285,8 @@ S.clients.forEach(c => { S.cp[c.id] = { ...S.cp[c.id], [id]: pr }; });
 save();
 ['np-n','np-fam','np-pres','np-ul','np-us','np-pr'].forEach(i => document.getElementById(i).value='');
 document.getElementById('np-preview').style.display = 'none';
-toast('🏷️ Producto agregado'); renderProducts();
+collapseForm('prod-form-body');
+toast('🏷️ Producto agregado'); renderProducts(); renderPriceLists();
 }
 
 function renderProducts() {
@@ -2934,7 +3635,9 @@ driveHandleRedirect();
 goTab('list');
 // Ajustar top del nav según altura real del header
 const _hdr = document.getElementById('header');
+const _nav = document.getElementById('nav');
 if (_hdr) document.documentElement.style.setProperty('--header-h', _hdr.offsetHeight+'px');
+if (_hdr && _nav) document.documentElement.style.setProperty('--nav-bottom', (_hdr.offsetHeight + _nav.offsetHeight)+'px');
 
 // ═══════════════════════════════════════════════════════
 //  RUTAS
@@ -2949,6 +3652,7 @@ function createRoute() {
   if (!name) { toast('Escribe un nombre para la ruta','#ef4444'); return; }
   S.routes.push({ id: S.nextRid++, name, orders: [] });
   document.getElementById('route-name').value = '';
+  collapseForm('route-form-body');
   save(); renderRoutes(); toast('✔ Ruta creada');
 }
 
@@ -3020,21 +3724,38 @@ function renderRoutes() {
     const ordRows = orderedOrders.length ? orderedOrders.map((o, rIdx) => {
       const oTot = orderTotal(o.items,o.clientId);
       const oDisp = o.applyIva ? oTot*1.12 : oTot;
-      const statusColor = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
+      const statusColor = o.status==='Concluido'?'#10b981':o.status==='Cotización'?'#94a3b8':'#60a5fa';
       const items = o.items.map(it=>{
         const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
         return `<span style="font-size:11px;color:#94a3b8">• ${p?p.name:'—'} ×${it.qty}</span>`;
       }).join(' ');
-      return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:6px;border-left:3px solid ${statusColor}">
+      return `<div data-oid="${o.id}" data-rid="${r.id}" style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:6px;border-left:3px solid ${statusColor};${rSort==='manual'?'cursor:grab':''}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} ${o.clientName}</div>
+            ${rSort==='manual'?`<span class="route-drag-handle" style="color:#64748b;font-size:16px;margin-right:6px;cursor:grab;user-select:none;touch-action:none">≡</span>`:''}
+            <span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} ${o.clientName}</span>
+            <div style="font-size:10px;color:#64748b;margin-top:1px">${o.date.split(',')[0]}${(o.quote||o.oc)?` · ${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}`:''}</div>
             <div style="margin-top:3px;line-height:1.8">${items}</div>
-            <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-top:3px">${Q(oDisp)}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+              <span style="font-size:12px;font-weight:700;color:#f59e0b">${Q(oDisp)}</span>
+              ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
             <span style="font-size:10px;color:${statusColor};font-weight:700">${o.status}</span>
-            <button class="bg" style="font-size:10px;padding:3px 7px" onclick="togRouteOrdStatus(${o.id},${r.id})">${o.status==='Confirmado'?'✔ Fact.':'↩ Pend.'}</button>
+            ${(()=>{
+              const isConf = o.status==='Confirmado'||o.status==='Concluido';
+              const isConc = o.status==='Concluido';
+              return `<div style="display:flex;align-items:center;gap:6px;background:#0d0f18;border-radius:7px;padding:4px 8px;border:1px solid #2a3050">
+                <div style="position:relative;width:32px;height:18px;cursor:pointer" onclick="setOrderStatus(${o.id},null,'switch');renderRoutes()">
+                  <span style="position:absolute;inset:0;border-radius:9px;background:${isConf?'#3b82f6':'#2a3050'}"></span>
+                  <span style="position:absolute;top:2px;left:${isConf?'16px':'2px'};width:14px;height:14px;background:#fff;border-radius:50%;transition:left .2s"></span>
+                </div>
+                <div onclick="setOrderStatus(${o.id},null,'check');renderRoutes()" style="width:18px;height:18px;border-radius:50%;border:2px solid ${isConc?'#10b981':'#475569'};background:${isConc?'#10b981':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer">
+                  ${isConc?'<span style="color:#fff;font-size:10px;font-weight:900">✓</span>':''}
+                </div>
+              </div>`;
+            })()}
             <button class="bs" style="font-size:10px;padding:3px 7px" onclick="editOrderFromRoute(${o.id})">✏️ Editar</button>
             <button class="bb" style="font-size:10px;padding:3px 7px" onclick="showQuoteFromOrder(${o.id})">📄 Cot.</button>
             <button class="br" style="font-size:10px;padding:3px 7px" onclick="removeOrderFromRoute(${o.id},${r.id})">✕</button>
@@ -3081,8 +3802,10 @@ function renderRoutes() {
             <option value="addr"    ${rSort==='addr'?'selected':''}>Dirección</option>
             <option value="recent"  ${rSort==='recent'?'selected':''}>Más recientes</option>
             <option value="old"     ${rSort==='old'?'selected':''}>Más antiguos</option>
+            <option value="manual"  ${rSort==='manual'?'selected':''}>⇅ Manual</option>
           </select>
         </div>
+        ${rSort==='manual'?`<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-align:center">Mantén presionado ≡ para arrastrar y reordenar</div>`:''}
         <div style="margin-top:0" id="route-orders-${r.id}">${ordRows}</div>
       </div>
     </div>`;
@@ -3094,6 +3817,67 @@ function setRouteOrdSort(rid, mode) {
   if (!window._routeOrdSort) window._routeOrdSort = {};
   window._routeOrdSort[rid] = mode;
   renderRoutes();
+  if (mode === 'manual') {
+    setTimeout(() => initRouteOrderDrag(rid), 100);
+  }
+}
+
+function initRouteOrderDrag(rid) {
+  const container = document.getElementById('route-orders-'+rid);
+  if (!container) return;
+  let dragging = null;
+  container.querySelectorAll('[data-oid]').forEach(card => {
+    const handle = card.querySelector('.route-drag-handle');
+    if (!handle) return;
+    handle.addEventListener('touchstart', e => {
+      dragging = card;
+      card.style.opacity = '0.5';
+      e.preventDefault();
+    }, { passive: false });
+    handle.addEventListener('mousedown', e => {
+      dragging = card;
+      card.style.opacity = '0.5';
+    });
+  });
+  container.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const els = container.querySelectorAll('[data-oid]');
+    els.forEach(el => {
+      if (el === dragging) return;
+      const rect = el.getBoundingClientRect();
+      if (touch.clientY > rect.top && touch.clientY < rect.bottom) {
+        if (touch.clientY < rect.top + rect.height/2) container.insertBefore(dragging, el);
+        else el.after(dragging);
+      }
+    });
+  }, { passive: false });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging.style.opacity = '1';
+    // Guardar nuevo orden en r.orders
+    const r = S.routes.find(x=>x.id===rid); if (!r) { dragging=null; return; }
+    const newOrder = [...container.querySelectorAll('[data-oid]')].map(el=>Number(el.dataset.oid));
+    r.orders = newOrder;
+    dragging = null;
+    save(); renderRoutes();
+    setTimeout(()=>initRouteOrderDrag(rid),100);
+  };
+  container.addEventListener('touchend', endDrag);
+  document.addEventListener('mouseup', endDrag);
+  container.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const els = container.querySelectorAll('[data-oid]');
+    els.forEach(el => {
+      if (el === dragging) return;
+      const rect = el.getBoundingClientRect();
+      if (e.clientY > rect.top && e.clientY < rect.bottom) {
+        if (e.clientY < rect.top + rect.height/2) container.insertBefore(dragging, el);
+        else el.after(dragging);
+      }
+    });
+  });
 }
 
 function toggleRouteSort() {
@@ -3179,29 +3963,48 @@ function generateRouteReport(rid) {
       const ul = p?.unitLabel||'unidad';
       const sub = pr*us*Number(it.qty);
       return `<tr>
-        <td style="padding:5px 8px">${p?p.name:'—'}${p?.presentation?'<br><small style="color:#9ca3af">'+p.presentation+'</small>':''}</td>
+        <td style="padding:5px 8px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
         <td style="padding:5px 8px;text-align:center">${it.qty}</td>
         <td style="padding:5px 8px;text-align:right">${Q(pr)}/${ul}${o.applyIva?'<br><small style="color:#2563eb">+IVA: '+Q(pr*0.12)+'/'+ul+'</small>':''}</td>
         <td style="padding:5px 8px;text-align:right;font-weight:700">${Q(o.applyIva?sub*1.12:sub)}</td>
       </tr>`;
     }).join('');
     const cmts = (o.comments&&o.comments.length)?o.comments:(o.note?[o.note]:[]);
-    const sc = o.status==='Concluido'?'#15803d':o.status==='Cotización'?'#1d4ed8':'#b45309';
-    // Cotización y OC si existen
+    const sc = o.status==='Concluido'?'#15803d':o.status==='Cotización'?'#64748b':'#1d4ed8';
     const metaExtra = [
-      o.quote ? `<span style="font-weight:700;color:#111">📋 Cot: <strong>${o.quote}</strong></span>` : '',
-      o.oc    ? `<span style="font-weight:700;color:#111">📄 OC: <strong>${o.oc}</strong></span>`    : ''
+      o.quote ? `<span style="font-size:13px;font-weight:800;color:#111">📋 Cot: <strong>${o.quote}</strong></span>` : '',
+      o.oc    ? `<span style="font-size:13px;font-weight:800;color:#111">📄 OC: <strong>${o.oc}</strong></span>`    : ''
     ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    // Bonificaciones
+    const bonusRows = (o.bonusLines||[]).map(bl => {
+      const p  = S.products.find(x=>x.id===Number(bl.productId));
+      const ul = p?.unitLabel||'unidad';
+      const us = Number(p?.unitSize)||1;
+      const sub = (bl.price||0)*bl.qty*us;
+      return `<tr style="background:#f0fdf4">
+        <td style="padding:5px 8px;color:#15803d"><strong>**BONIFICACIÓN**</strong><br><small>${p?p.name+' ('+p.presentation+')':'—'}</small>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><small style="color:#6b7280">${bl.ruleName}</small>`:''}</td>
+        <td style="padding:5px 8px;text-align:center;color:#15803d">${bl.qty}</td>
+        <td style="padding:5px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
+        <td style="padding:5px 8px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td>
+      </tr>`;
+    }).join('');
+    // Comentarios — primero amarillo, resto azul oscuro
+    const cmtsHtml = cmts.length ? `<div style="padding:6px 12px;font-size:11px;background:#fffbeb;border-top:1px solid #fde68a;border-bottom:1px solid #fde68a">` +
+      cmts.map((c,ci) => ci===0
+        ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
+        : `<span style="color:#374151;font-weight:600">💬 ${c}</span>`
+      ).join('<br>') + '</div>' : '';
     return `<div style="break-inside:avoid;margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
-      <div style="background:#f9fafb;padding:7px 12px;border-bottom:1px solid #e5e7eb">
+      <div style="background:#f9fafb;padding:8px 12px;border-bottom:1px solid #e5e7eb">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <span style="font-size:12px;color:#6b7280;font-weight:600">#${rIdx+1} &nbsp;</span><span style="font-weight:900;font-size:14px;color:#1e3a8a">${o.clientName}</span>
+            <span style="font-size:12px;color:#6b7280;font-weight:600">#${rIdx+1} &nbsp;</span><span style="font-weight:900;font-size:16px;color:#1e3a8a">${o.clientName}</span>
             <span style="font-size:11px;color:#6b7280;margin-left:8px">${o.date}</span>
           </div>
           <span style="font-size:11px;font-weight:700;color:${sc};border:1px solid ${sc};padding:1px 8px;border-radius:10px">${o.status}</span>
         </div>
-        ${metaExtra ? `<div style="margin-top:4px;font-size:11px;color:#374151">${metaExtra}</div>` : ''}
+        ${metaExtra ? `<div style="margin-top:5px">${metaExtra}</div>` : ''}
+        ${o.quoteNote?`<div style="font-size:11px;color:#374151;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:#f3f4f6">
@@ -3210,9 +4013,9 @@ function generateRouteReport(rid) {
           <th style="padding:5px 8px;text-align:right">P/Unidad</th>
           <th style="padding:5px 8px;text-align:right">Subtotal</th>
         </tr></thead>
-        <tbody>${items}</tbody>
+        <tbody>${items}${bonusRows}</tbody>
       </table>
-      ${cmts.length?'<div style="padding:6px 12px;font-size:11px;background:#fffbeb;border-top:1px solid #fde68a;border-bottom:1px solid #fde68a">'+cmts.map(c=>'<span style="color:#92400e;font-weight:600">💬 '+c+'</span>').join('<br>')+'</div>':''}
+      ${cmtsHtml}
       <div style="padding:5px 12px;text-align:right;font-weight:800;font-size:13px;border-top:1px solid #e5e7eb;background:#fafafa">
         TOTAL: ${Q(disp)}${o.applyIva?'<span style="font-size:10px;font-weight:400;color:#6b7280;margin-left:5px">(IVA incl.)</span>':''}
       </div>
