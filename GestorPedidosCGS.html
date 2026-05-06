@@ -411,15 +411,9 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 
 <div class="card">
-<div class="card" style="padding:0;margin-bottom:10px">
-<div onclick="toggleFormPanel('route-form-body',this)" style="cursor:pointer;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
-  <div style="font-weight:700;color:#f59e0b">➕ Nueva Ruta</div>
-  <span style="color:#64748b">▼</span>
-</div>
-<div id="route-form-body" style="display:none;padding:0 16px 16px">
+<div style="font-weight:700;color:#f59e0b;margin-bottom:10px">➕ Nueva Ruta</div>
 <input class="inp" id="route-name" placeholder="Ej: Ruta Escuintla"/>
 <button class="bp" onclick="createRoute()">Crear Ruta</button>
-</div>
 </div>
 
 <div id="routes-list"></div>
@@ -2232,15 +2226,6 @@ function toggleFormPanel(id, header) {
   if (arrow) arrow.textContent = open ? '▲' : '▼';
 }
 
-function collapseForm(bodyId) {
-  const body = document.getElementById(bodyId);
-  if (!body) return;
-  body.style.display = 'none';
-  // Actualizar flecha del header
-  const header = body.previousElementSibling;
-  if (header) { const arrow = header.querySelector('span'); if (arrow) arrow.textContent = '▼'; }
-}
-
 function addClient() {
 const name = document.getElementById('nc-n').value.trim();
 if (!name) return alert('Ingresa el nombre del cliente.');
@@ -2252,7 +2237,6 @@ const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
 S.cp[id] = init;
 save();
 ['nc-n','nc-p','nc-a'].forEach(i => document.getElementById(i).value='');
-collapseForm('cli-form-body');
 toast('👥 Cliente agregado'); renderClients();
 }
 
@@ -3285,8 +3269,7 @@ S.clients.forEach(c => { S.cp[c.id] = { ...S.cp[c.id], [id]: pr }; });
 save();
 ['np-n','np-fam','np-pres','np-ul','np-us','np-pr'].forEach(i => document.getElementById(i).value='');
 document.getElementById('np-preview').style.display = 'none';
-collapseForm('prod-form-body');
-toast('🏷️ Producto agregado'); renderProducts(); renderPriceLists();
+toast('🏷️ Producto agregado'); renderProducts();
 }
 
 function renderProducts() {
@@ -3652,7 +3635,6 @@ function createRoute() {
   if (!name) { toast('Escribe un nombre para la ruta','#ef4444'); return; }
   S.routes.push({ id: S.nextRid++, name, orders: [] });
   document.getElementById('route-name').value = '';
-  collapseForm('route-form-body');
   save(); renderRoutes(); toast('✔ Ruta creada');
 }
 
