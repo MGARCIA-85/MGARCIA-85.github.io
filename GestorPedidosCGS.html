@@ -322,27 +322,69 @@ Selecciona un cliente para continuar.<br><br>
 <!-- ══════════════════════ CLIENTES ══════════════════════ -->
 <div id="page-clients" class="page">
 <div class="sec">Gestión de Clientes</div>
-<div class="card" style="padding:0;overflow:hidden">
-<div onclick="toggleFormPanel('cli-form-body',this)" style="cursor:pointer;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
-  <div style="font-weight:700;color:#f59e0b">➕ Nuevo Cliente</div>
-  <span id="cli-form-arrow" style="color:#f59e0b;font-size:18px">▼</span>
+
+<!-- Fila de botones colapsables -->
+<div style="display:flex;gap:8px;margin-bottom:10px">
+
+  <!-- Botón Departamentos -->
+  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#60a5fa;border-color:#1e3a5f"
+    onclick="(function(){var b=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),c=document.getElementById('cli-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){m.style.display='none';c.style.display='none';renderDeptList();}})()">
+    🏛️ Departamentos
+  </button>
+
+  <!-- Botón Municipios -->
+  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#a78bfa;border-color:#2e1a5f"
+    onclick="(function(){var m=document.getElementById('mun-form-body'),b=document.getElementById('dept-form-body'),c=document.getElementById('cli-form-body');var open=m.style.display!=='none';m.style.display=open?'none':'block';if(!open){b.style.display='none';c.style.display='none';renderMunList();}})()">
+    🏘️ Municipios
+  </button>
+
+  <!-- Botón Nuevo Cliente -->
+  <button class="bp" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
+    onclick="(function(){var b=document.getElementById('cli-form-body'),d=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){d.style.display='none';m.style.display='none';}})()">
+    ➕ Nuevo Cliente
+  </button>
+
 </div>
-<div id="cli-form-body" style="display:none;padding:0 16px 16px">
-<label class="lbl">Nombre *</label>
-<input class="inp" id="nc-n" placeholder="Ej: Carlos Martínez"/>
-<label class="lbl">Teléfono</label>
-<input class="inp" id="nc-p" placeholder="Ej: 5000-0000"/>
-<label class="lbl">Dirección</label>
-<input class="inp" id="nc-a" placeholder="Ej: Zona 5, Xela" style="margin-bottom:12px"/>
-<button class="bp" onclick="addClient()">Agregar Cliente</button>
+
+<!-- Panel Departamentos (colapsado) -->
+<div id="dept-form-body" style="display:none;background:#0d1525;border:1px solid #1e3a5f;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <input id="new-dept-name" placeholder="Nombre del departamento (ej: Escuintla, Chimaltenango...)"
+    style="display:block;width:100%;box-sizing:border-box;background:#1e2640;color:#f1f5f9;border:1px solid #3b82f6;border-radius:8px;padding:12px 14px;font-size:14px;outline:none;margin-bottom:8px"/>
+  <button class="bp" style="width:100%;padding:11px;font-size:14px;font-weight:700" onclick="addDept()">+ Agregar departamento</button>
+  <div id="dept-list" style="margin-top:10px"></div>
 </div>
+
+<!-- Panel Municipios (colapsado) -->
+<div id="mun-form-body" style="display:none;background:#0d1525;border:1px solid #2e1a5f;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <input id="new-mun-name" placeholder="Nombre del municipio (ej: Palín, Escuintla, Siquinalá...)"
+    style="display:block;width:100%;box-sizing:border-box;background:#1e2040;color:#f1f5f9;border:1px solid #7c3aed;border-radius:8px;padding:12px 14px;font-size:14px;outline:none;margin-bottom:8px"/>
+  <button style="width:100%;padding:11px;font-size:14px;font-weight:700;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer" onclick="addMun()">+ Agregar municipio</button>
+  <div id="mun-list" style="margin-top:10px"></div>
 </div>
+
+<!-- Panel Nuevo Cliente (colapsado) -->
+<div id="cli-form-body" style="display:none;background:#0d1525;border:1px solid #2a3050;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <label class="lbl">Nombre *</label>
+  <input class="inp" id="nc-n" placeholder="Ej: Carlos Martínez"/>
+  <label class="lbl">Teléfono</label>
+  <input class="inp" id="nc-p" placeholder="Ej: 5000-0000"/>
+  <label class="lbl">Dirección</label>
+  <input class="inp" id="nc-a" placeholder="Ej: Zona 5, Xela" style="margin-bottom:12px"/>
+  <button class="bp" onclick="addClient()">Agregar Cliente</button>
+</div>
+
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <div class="sec" id="cli-title" style="margin-bottom:0;border:none">Clientes (0)</div>
-<div style="display:flex;gap:6px">
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+<select id="cli-dept-filter" class="sel" style="font-size:11px;padding:4px 7px;margin:0;height:auto" onchange="renderClients()">
+  <option value="">🏛️ Todos</option>
+</select>
+<select id="cli-mun-filter" class="sel" style="font-size:11px;padding:4px 7px;margin:0;height:auto" onchange="renderClients()">
+  <option value="">🏘️ Todos</option>
+</select>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('alpha')">A→Z</button>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('manual')">⇅ Mover</button>
-<button id="btn-cli-sort" class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('recent')">🕐 Recientes</button>
+<button id="btn-cli-sort" class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('recent')">🕐</button>
 </div>
 </div>
 <div class="hint" id="cli-drag-hint" style="display:none;text-align:center">Mantén presionado ≡ para arrastrar y reordenar</div>
@@ -411,12 +453,45 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 
 <div class="card">
-<div style="font-weight:700;color:#f59e0b;margin-bottom:10px">➕ Nueva Ruta</div>
-<input class="inp" id="route-name" placeholder="Ej: Ruta Escuintla"/>
-<button class="bp" onclick="createRoute()">Crear Ruta</button>
+
+<!-- Fila de botones colapsables -->
+<div style="display:flex;gap:8px;margin-bottom:10px">
+  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
+    onclick="(function(){var b=document.getElementById('route-form-body'),g=document.getElementById('gen-route-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open)g.style.display='none';})()">
+    ➕ Nueva Ruta
+  </button>
+  <button class="bg" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
+    onclick="(function(){var g=document.getElementById('gen-route-body'),b=document.getElementById('route-form-body');var open=g.style.display!=='none';g.style.display=open?'none':'block';if(!open){b.style.display='none';renderRoutes();}})()">
+    🚀 Generar Pedidos
+  </button>
+</div>
+
+<!-- Panel Nueva Ruta (colapsado) -->
+<div id="route-form-body" style="display:none;background:#0d1525;border:1px solid #2a3050;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <input class="inp" id="route-name" placeholder="Ej: Ruta Escuintla"/>
+  <button class="bp" onclick="createRoute()">Crear Ruta</button>
+</div>
+
+<!-- Panel Generar Pedidos (colapsado) -->
+<div id="gen-route-body" style="display:none;background:#0d1f0d;border:1px solid #1a3a1a;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <label class="lbl">Nombre de la nueva ruta</label>
+  <input class="inp" id="gen-route-name" placeholder="Ej: Escuintla Mayo 2026"/>
+
+  <label class="lbl">🏛️ Departamentos <span style="color:#64748b;font-size:10px">(vacío = todos)</span></label>
+  <input id="gen-dept-search" placeholder="Buscar departamento..." oninput="filterGenChips('dept')"
+    style="display:block;width:100%;box-sizing:border-box;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;margin-bottom:6px"/>
+  <div id="gen-dept-checks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+
+  <label class="lbl">🏘️ Municipios <span style="color:#64748b;font-size:10px">(vacío = todos)</span></label>
+  <input id="gen-mun-search" placeholder="Buscar municipio..." oninput="filterGenChips('mun')"
+    style="display:block;width:100%;box-sizing:border-box;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;margin-bottom:6px"/>
+  <div id="gen-mun-checks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+
+  <button class="bg" style="width:100%;padding:12px;font-size:14px;font-weight:800" onclick="generateRouteOrdersFromPanel()">🚀 Generar Pedidos</button>
 </div>
 
 <div id="routes-list"></div>
+</div>
 </div>
 
 <!-- ══════════════════════ NEGOCIO ══════════════════════ -->
@@ -570,6 +645,10 @@ cp: {
 },
 orders: [],
 nextOid: 1,
+categories: [],
+nextDeptId: 1,
+municipios: [],
+nextMunId: 1,
 lastBk: null,
 };
 
@@ -598,6 +677,12 @@ if (!S.biz.logoData) S.biz.logoData = '';
 if (!S.biz.footer)   S.biz.footer   = 'Cotización válida por 15 días.';
 if (!S.cp)           S.cp           = {};
 if (!S.nextOid)      S.nextOid      = (S.orders ? S.orders.length : 0) + 1;
+if (!S.depts)   S.depts   = [];
+if (!S.nextDeptId)    S.nextDeptId    = (S.depts.length ? Math.max(...S.depts.map(c=>c.id)) + 1 : 1);
+if (!S.municipios)    S.municipios    = [];
+if (!S.nextMunId)     S.nextMunId     = (S.municipios.length ? Math.max(...S.municipios.map(m=>m.id)) + 1 : 1);
+// Migrar routeId de clientes a deptId si existía antes
+if (S.clients) S.clients.forEach(c => { if (c.routeId && !c.deptId) { c.deptId = c.routeId; delete c.routeId; } });
 if (S.products) S.products.forEach(p => {
 if (!p.unitLabel) p.unitLabel = 'unidad';
 if (!p.unitSize)  p.unitSize  = 1;
@@ -661,7 +746,7 @@ if (idx >= 0) {
 }
 if (name==='order')    renderOrderPage();
 if (name==='list')     renderList();
-if (name==='clients')  renderClients();
+if (name==='clients')  { renderClients(); renderDeptList(); renderMunList(); }
 if (name==='products') { renderProducts(); renderPriceLists(); }
 if (name==='bizinfo')  loadBizForm();
 if (name==='backup')   renderBackup();
@@ -926,8 +1011,10 @@ if (editingOid === null) {
       });
     });
     ordItems = Object.values(seen);
-    // Precargar última bonificación del cliente
-    const lastWithBonus = facturados.find(o => o.bonusLines && o.bonusLines.length);
+    // Precargar última bonificación SOLO del cliente actual
+    const lastWithBonus = facturados.find(o =>
+      Number(o.clientId) === cid && o.bonusLines && o.bonusLines.length
+    );
     if (lastWithBonus) {
       ordBonusLines = lastWithBonus.bonusLines.map(bl => ({...bl}));
     } else {
@@ -940,6 +1027,7 @@ if (editingOid === null) {
     toast('📦 '+ordItems.length+' producto(s) precargados: '+prodNames);
   } else {
     ordItems = [{ pid:'', qty:1 }];
+    ordBonusLines = [];
   }
   ordComments = [''];
   // Precargar comentarios predefinidos del cliente
@@ -980,8 +1068,35 @@ function renderOrdBonusRows() {
 function addOrdBonusRow() {
   const section = document.getElementById('ord-bonus-section');
   if (section) section.style.display='block';
-  const pid = S.products[0]?.id || 0;
-  const pr  = cliPrice(Number(document.getElementById('ord-cli').value), pid, S.products[0]?.basePrice||0);
+  const cid = Number(document.getElementById('ord-cli').value);
+
+  // Si ya hay bonificaciones en el formulario actual, copiar la última
+  let pid, pr;
+  if (ordBonusLines.length > 0) {
+    const last = ordBonusLines[ordBonusLines.length - 1];
+    pid = last.productId;
+    pr  = last.price != null ? last.price : cliPrice(cid, pid, (S.products.find(p=>p.id===pid)||{}).basePrice||0);
+  } else {
+    // Buscar la última bonificación guardada de este cliente
+    const facturados = [...(S.orders||[])]
+      .filter(o => Number(o.clientId) === cid && o.bonusLines && o.bonusLines.length)
+      .sort((a,b) => b.id - a.id);
+    if (facturados.length) {
+      const lastBl = facturados[0].bonusLines[facturados[0].bonusLines.length - 1];
+      pid = lastBl.productId;
+      pr  = lastBl.price != null ? lastBl.price : cliPrice(cid, pid, (S.products.find(p=>p.id===Number(pid))||{}).basePrice||0);
+    } else {
+      // Sin historial: usar primer producto de la lista del cliente o el primero global
+      const cp = S.cp[cid] || S.cp[String(cid)] || {};
+      const vis = cp._visible;
+      const firstProd = (vis && vis.length)
+        ? S.products.find(p => vis.includes(p.id) || vis.includes(String(p.id)))
+        : S.products[0];
+      pid = firstProd?.id || 0;
+      pr  = cliPrice(cid, pid, firstProd?.basePrice || 0);
+    }
+  }
+
   ordBonusLines.push({ productId: pid, qty:1, price:pr, ruleName:'Manual' });
   renderOrdBonusRows();
 }
@@ -998,14 +1113,14 @@ let opts = '<option value="">-- Seleccionar producto --</option>';
 const families = [];
 const famMap   = {};
 S.products.forEach(p => {
-const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin categoría —';
+const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
 if (!famMap[fam]) { famMap[fam] = []; families.push(fam); }
 famMap[fam].push(p);
 });
 // Ordenar familias (Sin categoría al final)
 families.sort((a,b) => {
-if(a==='— Sin categoría —') return 1;
-if(b==='— Sin categoría —') return -1;
+if(a==='— Sin departamento —') return 1;
+if(b==='— Sin departamento —') return -1;
 return a.localeCompare(b,'es');
 });
 families.forEach(fam => {
@@ -1459,6 +1574,7 @@ id: S.nextOid++,
 clientId:   orig.clientId,
 clientName: orig.clientName,
 items:      orig.items.map(it => ({ ...it })),
+bonusLines: orig.bonusLines ? orig.bonusLines.map(bl=>({...bl})) : [],
 comments:   orig.comments ? [...orig.comments] : (orig.note ? [orig.note] : []),
 note:       orig.note || '',
 quote:      orig.quote || '',
@@ -1469,6 +1585,12 @@ status:     'Cotización',
 date:       new Date().toLocaleString('es-GT'),
 duplicatedFrom: id
 };
+// Si el original pertenece a una ruta, el duplicado también entra en esa ruta
+if (orig.routeId) {
+  copy.routeId = orig.routeId;
+  const route = S.routes.find(r => r.id === orig.routeId);
+  if (route) { if (!route.orders) route.orders = []; route.orders.push(copy.id); }
+}
 S.orders.push(copy);
 save();
 toast('📋 Pedido duplicado como #' + copy.id);
@@ -1737,13 +1859,6 @@ return '';
 <div style="font-weight:800;font-size:15px;color:#f59e0b">Total: ${Q(o.pricesIncIva ? tot : o.applyIva ? tot*1.12 : tot)}
 ${(o.pricesIncIva||o.applyIva) ? '<span style=\"font-size:10px;font-weight:600;color:#60a5fa;background:#1e3a5f;padding:1px 6px;border-radius:4px;margin-left:4px\">IVA incl.</span>' : ''}</div>
 </div>
-<div style="margin-top:8px">
-<select class="sel" style="margin:0;width:100%;font-size:12px" onchange="assignOrderToRoute(${o.id},this)">
-<option value="">🗺️ ${o.routeId ? '✔ '+( S.routes.find(r=>r.id===o.routeId)||{name:'Ruta'}).name : 'Asignar a ruta...'}</option>
-${S.routes.slice().reverse().map(r=>`<option value="${r.id}" ${o.routeId===r.id?'selected':''}>${r.name}</option>`).join('')}
-${o.routeId ? '<option value="__remove__">✕ Quitar de ruta</option>' : ''}
-</select>
-</div>
 <div class="two">
 <div style="display:flex;align-items:center;gap:10px;flex:1;background:#161929;border-radius:9px;padding:8px 12px;border:1px solid #2a3050">
   ${(()=>{
@@ -1767,10 +1882,17 @@ ${o.routeId ? '<option value="__remove__">✕ Quitar de ruta</option>' : ''}
     </label>`;
   })()}
 </div>
-<button class="bs"  onclick="startEditOrder(${o.id})">✏️ Editar</button>
-<button class="bv"  onclick="duplicateOrder(${o.id})" title="Duplicar pedido">📋 Duplicar</button>
-<button class="bb"  onclick="showQuoteFromOrder(${o.id})">📄 Cotizar</button>
-<button class="br"  onclick="delOrder(${o.id})">🗑</button>
+<select class="sel" style="margin:0;flex:1;font-size:12px" onchange="assignOrderToRoute(${o.id},this)">
+<option value="">🗺️ ${o.routeId ? '✔ '+(S.routes.find(r=>r.id===o.routeId)||{name:'Ruta'}).name : 'Asignar a ruta...'}</option>
+${S.routes.slice().reverse().map(r=>`<option value="${r.id}" ${o.routeId===r.id?'selected':''}>${r.name}</option>`).join('')}
+${o.routeId ? '<option value="__remove__">✕ Quitar de ruta</option>' : ''}
+</select>
+</div>
+<div style="display:flex;gap:6px;margin-top:6px">
+<button class="bv" style="flex:1" onclick="duplicateOrder(${o.id})" title="Duplicar pedido">📋 Duplicar</button>
+<button class="bb" style="flex:1" onclick="showQuoteFromOrder(${o.id})">📄 Cotizar</button>
+<button class="bs" style="flex:1" onclick="startEditOrder(${o.id})">✏️ Editar</button>
+<button class="br" style="flex:0" onclick="delOrder(${o.id})">🗑</button>
 </div>`;
 body.appendChild(card);
 });
@@ -1910,6 +2032,188 @@ function delProd(id) {
     S.products = S.products.filter(p => Number(p.id)!==id);
     Object.keys(S.cp).forEach(cid => { if (S.cp[cid]) delete S.cp[cid][id]; });
     save(); toast('🗑 Producto eliminado'); renderProducts(); renderList();
+  });
+}
+
+// ── Generar pedidos en Cotización para clientes de la ruta ───────────────
+function renderGenChips(type) {
+  const wrap = document.getElementById('gen-'+type+'-checks');
+  if (!wrap) return;
+  const q    = (document.getElementById('gen-'+type+'-search')?.value||'').toLowerCase();
+  const list = type==='dept' ? (S.depts||[]) : (S.municipios||[]);
+  const cls  = 'gen-'+type+'-cb';
+  const col  = type==='dept' ? '#10b981' : '#7c3aed';
+  const bg   = type==='dept' ? '#0d1f0d' : '#0d0d1f';
+  const bdr  = type==='dept' ? '#1a3a1a' : '#1a1a3a';
+  if (!list.length) { wrap.innerHTML='<span style="font-size:11px;color:#64748b">Sin '+(type==='dept'?'departamentos':'municipios')+' creados</span>'; return; }
+  // Mantener estado de checks existentes antes de re-render
+  const checked = new Set([...document.querySelectorAll('.'+cls+':checked')].map(cb=>cb.value));
+  const filtered = q ? list.filter(x=>x.name.toLowerCase().includes(q)) : list;
+  wrap.innerHTML = filtered.map(x=>
+    `<label style="display:flex;align-items:center;gap:5px;background:${checked.has(String(x.id))?col+'33':bg};border:1px solid ${checked.has(String(x.id))?col:bdr};border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:#f1f5f9;transition:all .15s" onclick="this.querySelector('input').checked=!this.querySelector('input').checked;this.style.background=this.querySelector('input').checked?'${col}33':'${bg}';this.style.borderColor=this.querySelector('input').checked?'${col}':'${bdr}'">
+      <input type="checkbox" class="${cls}" value="${x.id}" ${checked.has(String(x.id))?'checked':''} style="width:15px;height:15px;accent-color:${col};pointer-events:none"/> ${x.name}
+    </label>`
+  ).join('');
+}
+
+function filterGenChips(type) { renderGenChips(type); }
+
+function generateRouteOrdersFromPanel() {
+  const routeName = document.getElementById('gen-route-name')?.value.trim();
+  // Leer checks directamente del DOM antes de cualquier re-render
+  const selDepts = [...document.querySelectorAll('.gen-dept-cb:checked')].map(cb => Number(cb.value));
+  const selMuns  = [...document.querySelectorAll('.gen-mun-cb:checked')].map(cb => Number(cb.value));
+
+  if (!routeName) { toast('Escribe el nombre de la nueva ruta', '#f59e0b'); return; }
+
+  if (!S.routes) S.routes = [];
+  if (!S.nextRid) S.nextRid = (S.routes.length ? Math.max(...S.routes.map(r=>r.id)) + 1 : 1);
+  const newRoute = { id: S.nextRid++, name: routeName, orders: [] };
+  S.routes.push(newRoute);
+
+  generateRouteOrders(newRoute.id, routeName, selDepts, selMuns);
+  document.getElementById('gen-route-name').value = '';
+}
+
+// ── Gestión de Categorías ─────────────────────────────
+function addDept() {
+  const inp = document.getElementById('new-dept-name');
+  const name = inp.value.trim();
+  if (!name) { toast('Escribe el nombre del departamento', '#ef4444'); return; }
+  if (!S.depts) S.depts = [];
+  S.depts.push({ id: S.nextDeptId++, name });
+  inp.value = '';
+  save(); renderDeptList(); renderClients();
+  toast('🏛️ Departamento agregado');
+}
+
+function renderDeptList() {
+  const wrap = document.getElementById('dept-list');
+  if (!wrap) return;
+  if (!S.depts || !S.depts.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin departamentos. Agrega uno arriba.</div>';
+    return;
+  }
+  wrap.innerHTML = S.depts.map(cat => {
+    const count = S.clients.filter(c => c.deptId === cat.id).length;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteDept(${cat.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteDept(id) {
+  const cat = (S.depts||[]).find(c=>c.id===id);
+  if (!cat) return;
+  const count = S.clients.filter(c=>c.deptId===id).length;
+  const msg = count
+    ? `Esto quitará el departamento "${cat.name}" de ${count} cliente(s). ¿Continuar?`
+    : `¿Eliminar el departamento "${cat.name}"?`;
+  askConfirm('🗑 Eliminar departamento', msg, () => {
+    S.clients.forEach(c => { if (c.deptId===id) c.deptId=null; });
+    S.depts = S.depts.filter(c=>c.id!==id);
+    save(); renderDeptList(); renderClients();
+    toast('Departamento eliminado');
+  });
+}
+
+// ── Gestión de Municipios ──────────────────────────────
+function addMun() {
+  const inp = document.getElementById('new-mun-name');
+  const name = inp.value.trim();
+  if (!name) { toast('Escribe el nombre del municipio', '#ef4444'); return; }
+  if (!S.municipios) S.municipios = [];
+  S.municipios.push({ id: S.nextMunId++, name });
+  inp.value = '';
+  save(); renderMunList(); renderClients();
+  toast('🏘️ Municipio agregado');
+}
+
+function renderMunList() {
+  const wrap = document.getElementById('mun-list');
+  if (!wrap) return;
+  if (!S.municipios || !S.municipios.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin municipios. Agrega uno arriba.</div>';
+    return;
+  }
+  wrap.innerHTML = S.municipios.map(m => {
+    const count = S.clients.filter(c => c.municipioId === m.id).length;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteMun(${m.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteMun(id) {
+  const m = (S.municipios||[]).find(x=>x.id===id);
+  if (!m) return;
+  const count = S.clients.filter(c=>c.municipioId===id).length;
+  const msg = count
+    ? `Esto quitará el municipio "${m.name}" de ${count} cliente(s). ¿Continuar?`
+    : `¿Eliminar el municipio "${m.name}"?`;
+  askConfirm('🗑 Eliminar municipio', msg, () => {
+    S.clients.forEach(c => { if (c.municipioId===id) c.municipioId=null; });
+    S.municipios = S.municipios.filter(x=>x.id!==id);
+    save(); renderMunList(); renderClients();
+    toast('Municipio eliminado');
+  });
+}
+
+function generateRouteOrders(rid, routeTitle, selDepts, selMuns) {
+  const r = S.routes.find(x => x.id === rid);
+  if (!r) return;
+
+  let clis = [...S.clients];
+  if (selDepts && selDepts.length) clis = clis.filter(c => selDepts.map(Number).includes(Number(c.deptId)));
+  if (selMuns  && selMuns.length)  clis = clis.filter(c => selMuns.map(Number).includes(Number(c.municipioId)));
+
+  if (!clis.length) {
+    toast("⚠️ No hay clientes que coincidan con los filtros seleccionados.", "#f59e0b");
+    return;
+  }
+
+  const msg = "Se crearán " + clis.length + " pedido(s) en Cotización para la ruta \"" + r.name + "\". ¿Continuar?";
+
+  askConfirm('🚀 Generar pedidos de ruta', msg, () => {
+    if (!r.orders) r.orders = [];
+    const now = new Date().toLocaleString('es-GT');
+
+    clis.forEach(c => {
+      // Buscar el último pedido histórico de este cliente (cualquier ruta) para precargar productos y precios
+      const lastOrd = [...S.orders]
+        .filter(o => Number(o.clientId) === c.id)
+        .sort((a, b) => b.id - a.id)[0];
+      const items = lastOrd ? lastOrd.items.map(it => ({ ...it })) : [];
+
+      const newOrd = {
+        id:         S.nextOid++,
+        clientId:   c.id,
+        clientName: c.name,
+        items,
+        bonusLines: [],
+        status:     'Cotización',
+        date:       now,
+        routeId:    rid,
+        routeTitle: routeTitle || '',
+        applyIva:   false,
+        quote:      '',
+        oc:         '',
+        comments:   []
+      };
+      S.orders.push(newOrd);
+      r.orders.push(newOrd.id);
+    });
+
+    save();
+    renderRoutes();
+    window._routeOpen[rid] = true;
+    renderRoutes();
+    const ti = document.getElementById('gen-route-title');
+    if (ti) ti.value = '';
+    collapseForm('gen-route-body');
+    toast('✅ ' + clis.length + ' pedido(s) generados en Cotización', '#10b981');
   });
 }
 
@@ -2226,6 +2530,15 @@ function toggleFormPanel(id, header) {
   if (arrow) arrow.textContent = open ? '▲' : '▼';
 }
 
+function collapseForm(bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.style.display = 'none';
+  // Actualizar flecha del header
+  const header = body.previousElementSibling;
+  if (header) { const arrow = header.querySelector('span'); if (arrow) arrow.textContent = '▼'; }
+}
+
 function addClient() {
 const name = document.getElementById('nc-n').value.trim();
 if (!name) return alert('Ingresa el nombre del cliente.');
@@ -2237,18 +2550,48 @@ const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
 S.cp[id] = init;
 save();
 ['nc-n','nc-p','nc-a'].forEach(i => document.getElementById(i).value='');
+collapseForm('cli-form-body');
 toast('👥 Cliente agregado'); renderClients();
 }
 
 function renderClients() {
 if (!window._cliOpen) window._cliOpen = {};
 document.getElementById('cli-title').textContent = `Clientes (${S.clients.length})`;
+
+// Actualizar filtros de departamento y municipio
+const rfSel = document.getElementById('cli-dept-filter');
+if (rfSel) {
+  const curVal = rfSel.value;
+  rfSel.innerHTML = '<option value="">🏛️ Todos</option>' +
+    (S.depts||[]).map(d=>`<option value="${d.id}" ${String(d.id)===curVal?'selected':''}>${d.name}</option>`).join('') +
+    `<option value="__none__" ${curVal==='__none__'?'selected':''}>— Sin departamento</option>`;
+}
+const munSel = document.getElementById('cli-mun-filter');
+if (munSel) {
+  const curMun = munSel.value;
+  munSel.innerHTML = '<option value="">🏘️ Todos</option>' +
+    (S.municipios||[]).map(m=>`<option value="${m.id}" ${String(m.id)===curMun?'selected':''}>${m.name}</option>`).join('') +
+    `<option value="__none__" ${curMun==='__none__'?'selected':''}>— Sin municipio</option>`;
+}
+const routeFilter = rfSel ? rfSel.value : '';
+const munFilter   = munSel ? munSel.value : '';
+
 const body = document.getElementById('cli-body');
 if (!S.clients.length) { body.innerHTML='<div style="text-align:center;color:#64748b;padding:20px">Sin clientes aún.</div>'; return; }
 body.innerHTML = '';
-const list = clientSortMode==='alpha'
+let list = clientSortMode==='alpha'
 ? [...S.clients].sort((a,b)=>a.name.localeCompare(b.name,'es'))
 : S.clients;
+
+// Aplicar filtros
+if (routeFilter === '__none__') list = list.filter(c => !c.deptId);
+else if (routeFilter) list = list.filter(c => String(c.deptId) === routeFilter);
+if (munFilter === '__none__') list = list.filter(c => !c.municipioId);
+else if (munFilter) list = list.filter(c => String(c.municipioId) === munFilter);
+
+document.getElementById('cli-title').textContent = (routeFilter||munFilter)
+  ? `Clientes (${list.length} de ${S.clients.length})`
+  : `Clientes (${S.clients.length})`;
 list.forEach(c => {
 const card = document.createElement('div');
 card.className = 'card sortable-item'; card.id = 'cc-'+c.id; card.dataset.id = c.id;
@@ -2276,6 +2619,8 @@ card.innerHTML = `
 <div style="display:flex;align-items:center;gap:4px">${dh}
 <div>
 <div style="font-weight:800;font-size:15px">${c.name}</div>
+${c.deptId ? (()=>{ const cat=(S.depts||[]).find(x=>x.id===c.deptId); return cat?`<div style="font-size:10px;display:inline-block;background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:8px;margin-top:2px">🏛️ ${cat.name}</div>`:''; })() : ''}
+${c.municipioId ? (()=>{ const m=(S.municipios||[]).find(x=>x.id===c.municipioId); return m?`<div style="font-size:10px;display:inline-block;background:#1e1040;color:#a78bfa;padding:1px 8px;border-radius:8px;margin-top:2px;margin-left:3px">🏘️ ${m.name}</div>`:''; })() : ''}
 ${c.phone   ? `<div style="font-size:12px;color:#64748b">📞 ${c.phone}</div>` : ''}
 ${c.address ? `<div style="font-size:12px;color:#64748b">📍 ${c.address}</div>` : ''}
 </div>
@@ -2657,10 +3002,14 @@ function openBonusModal(cid, ri) {
 
   const bonusItemsHtml = (items) => (items||[]).map(bi=>{
     const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(bi.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
-    return `<div class="br-bonus-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-      <select class="br-bpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
-      <input type="number" class="br-bqty" value="${bi.qty||1}" min="1" style="width:55px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-      <button onclick="this.closest('.br-bonus-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    return `<div class="br-bonus-row" style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px">
+      <div style="display:grid;grid-template-columns:1fr 45px 70px 28px;gap:4px;align-items:center;margin-bottom:4px">
+        <select class="br-bpid" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${sel}</select>
+        <input type="number" class="br-bqty" value="${bi.qty||1}" min="1" placeholder="Cant" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <input type="number" class="br-bprice" value="${bi.price!=null?bi.price:''}" min="0" step="0.01" placeholder="Precio" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <button onclick="this.closest('.br-bonus-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">x</button>
+      </div>
+      <input class="br-bcomment" value="${bi.comment||''}" placeholder="Comentario (ej: Por consumo Trim. Q2)" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;font-size:11px"/>
     </div>`;
   }).join('');
 
@@ -2733,10 +3082,16 @@ function addPoolRow() {
 function addBonusItemRow() {
   const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
   const div = document.createElement('div');
-  div.className='br-bonus-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px';
-  div.innerHTML=`<select class="br-bpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
-    <input type="number" class="br-bqty" value="1" min="1" style="width:55px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-    <button onclick="this.closest('.br-bonus-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  div.className = 'br-bonus-row';
+  div.style.cssText = 'background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px';
+  div.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 45px 70px 28px;gap:4px;align-items:center;margin-bottom:4px">
+      <select class="br-bpid" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${prodOpts}</select>
+      <input type="number" class="br-bqty" value="1" min="1" placeholder="Cant" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+      <input type="number" class="br-bprice" value="" min="0" step="0.01" placeholder="Precio" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+      <button onclick="this.closest('.br-bonus-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">x</button>
+    </div>
+    <input class="br-bcomment" value="" placeholder="Comentario (ej: Por consumo Trim. Q2)" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;font-size:11px"/>`;
   document.getElementById('br-bonus-rows').appendChild(div);
 }
 
@@ -2748,9 +3103,12 @@ function saveBonusRule(cid, ri) {
   const bonusRows = document.querySelectorAll('.br-bonus-row');
   const bonusItems = [];
   bonusRows.forEach(row => {
-    const pid = row.querySelector('.br-bpid')?.value;
-    const qty = Number(row.querySelector('.br-bqty')?.value)||1;
-    if (pid) bonusItems.push({ productId: Number(pid), qty });
+    const pid     = row.querySelector('.br-bpid')?.value;
+    const qty     = Number(row.querySelector('.br-bqty')?.value)||1;
+    const priceRaw = row.querySelector('.br-bprice')?.value;
+    const price   = priceRaw !== '' && priceRaw != null ? Number(priceRaw) : null;
+    const comment = row.querySelector('.br-bcomment')?.value.trim() || '';
+    if (pid) bonusItems.push({ productId: Number(pid), qty, price, comment });
   });
   if (!bonusItems.length) return toast('Agrega al menos un producto de bonificacion','#f59e0b');
   let rule;
@@ -2841,11 +3199,14 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
   const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
   const bonusRowsHtml = (r.bonusItems||[]).map((bi,i) => {
     const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bi.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
-    const pr = cliPrice(cid, bi.productId, S.products.find(x=>x.id===Number(bi.productId))?.basePrice||0);
-    return `<div class="ba-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-      <select class="ba-pid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${pOpts}</select>
-      <input type="number" class="ba-qty" value="${bi.qty}" min="1" style="width:55px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-      <span style="font-size:11px;color:#94a3b8">${Q(pr)}</span>
+    const defaultPr = bi.price != null ? bi.price : cliPrice(cid, bi.productId, S.products.find(x=>x.id===Number(bi.productId))?.basePrice||0);
+    return `<div class="ba-row" style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px">
+      <div style="display:grid;grid-template-columns:1fr 45px 70px;gap:4px;align-items:center;margin-bottom:4px">
+        <select class="ba-pid" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
+        <input type="number" class="ba-qty" value="${bi.qty}" min="1" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <input type="number" class="ba-price" value="${defaultPr}" min="0" step="0.01" placeholder="Precio" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+      </div>
+      <input class="ba-comment" value="${bi.comment||''}" placeholder="Comentario (ej: Por consumo Trim. Q2)" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;font-size:11px"/>
     </div>`;
   }).join('');
 
@@ -2866,11 +3227,13 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
     const rows = document.querySelectorAll('.ba-row');
     if (!ord.bonusLines) ord.bonusLines = [];
     rows.forEach(row => {
-      const pid = Number(row.querySelector('.ba-pid')?.value);
-      const qty = Number(row.querySelector('.ba-qty')?.value)||1;
-      const p   = S.products.find(x=>x.id===pid);
-      const pr  = cliPrice(cid, pid, p?.basePrice||0);
-      ord.bonusLines.push({ productId:pid, qty, price:pr, ruleName:r.name||'' });
+      const pid     = Number(row.querySelector('.ba-pid')?.value);
+      const qty     = Number(row.querySelector('.ba-qty')?.value)||1;
+      const priceRaw = row.querySelector('.ba-price')?.value;
+      const pr      = priceRaw !== '' && priceRaw != null ? Number(priceRaw) : cliPrice(cid, pid, S.products.find(x=>x.id===pid)?.basePrice||0);
+      const comment = row.querySelector('.ba-comment')?.value.trim() || '';
+      const ruleLabel = comment || r.name || '';
+      ord.bonusLines.push({ productId:pid, qty, price:pr, ruleName:ruleLabel });
     });
     ord.status = 'Confirmado';
     const resetTs = new Date().toISOString();
@@ -2994,22 +3357,74 @@ function toggleCli(cid) {
 }
 function editCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
-document.getElementById('cc-'+id).innerHTML = `
-<label class="lbl">Nombre</label><input class="inp" id="ecn-${id}" value="${c.name}"/>
-<label class="lbl">Teléfono</label><input class="inp" id="ecp-${id}" value="${c.phone||''}"/>
-<label class="lbl">Dirección</label><input class="inp" id="eca-${id}" value="${c.address||''}" style="margin-bottom:10px"/>
-<div class="two">
-<button class="bg" onclick="saveCliForm(${id})">✔ Guardar</button>
-<button class="bs" onclick="renderClients()">Cancelar</button>
-</div>`;
+const curDept = (S.depts||[]).find(d=>d.id===c.deptId);
+const curMun  = (S.municipios||[]).find(m=>m.id===c.municipioId);
+document.getElementById("cc-"+id).innerHTML =
+'<label class="lbl">Nombre</label><input class="inp" id="ecn-'+id+'" value="'+c.name+'"/>' +
+'<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'"/>' +
+'<label class="lbl">Dirección</label><input class="inp" id="eca-'+id+'" value="'+(c.address||"")+'"/>' +
+'<label class="lbl">🏛️ Departamento</label>' +
+'<div style="position:relative;margin-bottom:10px">' +
+'<input id="ecdl-'+id+'" class="inp" style="margin-bottom:0" placeholder="Buscar departamento..." value="'+(curDept?curDept.name:'')+'" autocomplete="off" oninput="cliFieldSearch(\'dept\','+id+',this.value)" onfocus="cliFieldSearch(\'dept\','+id+',this.value)"/>' +
+'<input type="hidden" id="ecc-'+id+'" value="'+(c.deptId||'')+'"/>' +
+'<div id="ecdrop-'+id+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #3b82f6;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>' +
+'</div>' +
+'<label class="lbl">🏘️ Municipio</label>' +
+'<div style="position:relative;margin-bottom:10px">' +
+'<input id="ecml-'+id+'" class="inp" style="margin-bottom:0" placeholder="Buscar municipio..." value="'+(curMun?curMun.name:'')+'" autocomplete="off" oninput="cliFieldSearch(\'mun\','+id+',this.value)" onfocus="cliFieldSearch(\'mun\','+id+',this.value)"/>' +
+'<input type="hidden" id="ecm-'+id+'" value="'+(c.municipioId||'')+'"/>' +
+'<div id="ecmdrop-'+id+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>' +
+'</div>' +
+'<div class="two">' +
+'<button class="bg" onclick="saveCliForm('+id+')">✔ Guardar</button>' +
+'<button class="bs" onclick="renderClients()">Cancelar</button>' +
+'</div>';
+}
+
+function cliFieldSearch(type, cid, q) {
+  const isDept = type==='dept';
+  const list   = isDept ? (S.depts||[]) : (S.municipios||[]);
+  const dropId = isDept ? 'ecdrop-'+cid : 'ecmdrop-'+cid;
+  const drop   = document.getElementById(dropId);
+  if (!drop) return;
+  const ql = q.toLowerCase();
+  const filtered = ql ? list.filter(x=>x.name.toLowerCase().includes(ql)) : list;
+  if (!filtered.length) { drop.style.display='none'; return; }
+  drop.style.display='block';
+  drop.innerHTML = filtered.map(x=>
+    `<div onclick="selectCliField('${type}',${cid},${x.id},'${x.name.replace(/'/g,"\\'")}');event.stopPropagation()"
+      style="padding:9px 12px;font-size:13px;color:#f1f5f9;cursor:pointer;border-bottom:1px solid #2a3050"
+      onmousedown="event.preventDefault()">
+      ${x.name}
+    </div>`
+  ).join('');
+  // Cerrar al hacer click fuera
+  setTimeout(()=>{ document.addEventListener('click', ()=>{ drop.style.display='none'; }, {once:true}); }, 50);
+}
+
+function selectCliField(type, cid, id, name) {
+  const isDept = type==='dept';
+  const labelId = isDept ? 'ecdl-'+cid : 'ecml-'+cid;
+  const hiddenId= isDept ? 'ecc-'+cid  : 'ecm-'+cid;
+  const dropId  = isDept ? 'ecdrop-'+cid : 'ecmdrop-'+cid;
+  const lbl = document.getElementById(labelId);
+  const hid = document.getElementById(hiddenId);
+  const drp = document.getElementById(dropId);
+  if (lbl) lbl.value = name;
+  if (hid) hid.value = id;
+  if (drp) drp.style.display='none';
 }
 
 function saveCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
-c.name    = document.getElementById('ecn-'+id).value.trim();
-c.phone   = document.getElementById('ecp-'+id).value.trim();
-c.address = document.getElementById('eca-'+id).value.trim();
-save(); toast('✔ Cliente actualizado'); renderClients();
+c.name       = document.getElementById("ecn-"+id).value.trim();
+c.phone      = document.getElementById("ecp-"+id).value.trim();
+c.address    = document.getElementById("eca-"+id).value.trim();
+const selDept = document.getElementById("ecc-"+id)?.value;
+const selMun  = document.getElementById("ecm-"+id)?.value;
+c.deptId     = selDept ? Number(selDept) : null;
+c.municipioId= selMun  ? Number(selMun)  : null;
+save(); toast("✔ Cliente actualizado"); renderClients();
 }
 
 function editCliPrices(cid) {
@@ -3026,11 +3441,11 @@ const assigned = S.products
 const unassigned = S.products.filter(p => !visible.includes(Number(p.id)));
 const famGroups = {};
 unassigned.forEach(p => {
-  const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin categoría —';
+  const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
   if (!famGroups[fam]) famGroups[fam] = [];
   famGroups[fam].push(p);
 });
-const famsSorted = Object.keys(famGroups).sort((a,b) => a==='— Sin categoría —'?1:b==='— Sin categoría —'?-1:a.localeCompare(b,'es'));
+const famsSorted = Object.keys(famGroups).sort((a,b) => a==='— Sin departamento —'?1:b==='— Sin departamento —'?-1:a.localeCompare(b,'es'));
 
 // Filas de productos asignados
 let lastFam = null;
@@ -3039,7 +3454,7 @@ const assignedRows = assigned.length ? assigned.map(p => {
   const ul   = p.unitLabel||'unidad';
   const us   = Number(p.unitSize)||1;
   const hint = us>1 ? `<span style="font-size:10px;color:#64748b;margin-left:5px">1 ${p.presentation}=${us} ${ul}s</span>` : '';
-  const fam  = p.family && p.family.trim() ? p.family.trim() : '— Sin categoría —';
+  const fam  = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
   let header = '';
   if (fam !== lastFam) { header = `<div style="font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px">${fam}</div>`; lastFam = fam; }
   return `${header}<div style="margin-bottom:8px;background:#161929;border-radius:8px;padding:10px">
@@ -3100,7 +3515,7 @@ addCliCategory(cid, fam);
 function addCliCategory(cid, fam) {
 const cp = S.cp[cid] || {};
 let visible = (cp._visible || []).map(Number);
-S.products.filter(p => (p.family&&p.family.trim()?p.family.trim():'— Sin categoría —') === fam)
+S.products.filter(p => (p.family&&p.family.trim()?p.family.trim():'— Sin departamento —') === fam)
   .forEach(p => { if (!visible.includes(Number(p.id))) visible.push(Number(p.id)); });
 cp._visible = visible;
 S.cp[cid] = cp;
@@ -3123,11 +3538,11 @@ modal.querySelector('#confirm-sub').textContent = '';
 const inner = modal.querySelector('div');
 const famGroups = {};
 unassigned.forEach(p => {
-  const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin categoría —';
+  const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
   if (!famGroups[fam]) famGroups[fam] = [];
   famGroups[fam].push(p);
 });
-const famsSorted = Object.keys(famGroups).sort((a,b)=>a==='— Sin categoría —'?1:b==='— Sin categoría —'?-1:a.localeCompare(b,'es'));
+const famsSorted = Object.keys(famGroups).sort((a,b)=>a==='— Sin departamento —'?1:b==='— Sin departamento —'?-1:a.localeCompare(b,'es'));
 const opts = famsSorted.map(fam=>
   `<optgroup label="${fam}">${famGroups[fam].map(p=>`<option value="${p.id}">${p.name} — ${p.presentation||'—'}</option>`).join('')}</optgroup>`
 ).join('');
@@ -3165,7 +3580,7 @@ setTimeout(() => {
 function addCliCategory(cid, fam) {
 const cp = S.cp[cid] || {};
 let visible = (cp._visible || []).map(Number);
-S.products.filter(p => (p.family&&p.family.trim()?p.family.trim():'— Sin categoría —') === fam)
+S.products.filter(p => (p.family&&p.family.trim()?p.family.trim():'— Sin departamento —') === fam)
   .forEach(p => { if (!visible.includes(Number(p.id))) visible.push(Number(p.id)); });
 cp._visible = visible;
 S.cp[cid] = cp;
@@ -3269,7 +3684,8 @@ S.clients.forEach(c => { S.cp[c.id] = { ...S.cp[c.id], [id]: pr }; });
 save();
 ['np-n','np-fam','np-pres','np-ul','np-us','np-pr'].forEach(i => document.getElementById(i).value='');
 document.getElementById('np-preview').style.display = 'none';
-toast('🏷️ Producto agregado'); renderProducts();
+collapseForm('prod-form-body');
+toast('🏷️ Producto agregado'); renderProducts(); renderPriceLists();
 }
 
 function renderProducts() {
@@ -3288,7 +3704,7 @@ dl.innerHTML = knownFams.map(f=>`<option value="${f}">`).join('');
 list.forEach(p => {
 // Encabezado de categoría si modo es family
 if (prodSortMode === 'family') {
-  const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin categoría —';
+  const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
   if (fam !== lastFamHeader) {
     lastFamHeader = fam;
     const h = document.createElement('div');
@@ -3635,6 +4051,7 @@ function createRoute() {
   if (!name) { toast('Escribe un nombre para la ruta','#ef4444'); return; }
   S.routes.push({ id: S.nextRid++, name, orders: [] });
   document.getElementById('route-name').value = '';
+  collapseForm('route-form-body');
   save(); renderRoutes(); toast('✔ Ruta creada');
 }
 
@@ -3666,6 +4083,11 @@ function saveRouteName(rid) {
 function renderRoutes() {
   const wrap = document.getElementById('routes-list');
   if (!wrap) return;
+
+  // Renderizar chips de departamentos y municipios en panel Generar
+  renderGenChips('dept');
+  renderGenChips('mun');
+
   if (!S.routes.length) {
     wrap.innerHTML = '<div style="text-align:center;color:#64748b;padding:24px 0">Sin rutas creadas. Agrega una arriba.</div>';
     return;
@@ -3688,10 +4110,15 @@ function renderRoutes() {
     const rSort = window._routeOrdSort[r.id] || 'default';
     const orderedOrders = [...orders].sort((a,b) => {
       if (rSort==='alpha')  return a.clientName.localeCompare(b.clientName,'es');
-      if (rSort==='addr') {
-        const ca = (S.clients.find(x=>x.id===a.clientId)||{}).address||'';
-        const cb = (S.clients.find(x=>x.id===b.clientId)||{}).address||'';
-        return ca.localeCompare(cb,'es');
+      if (rSort==='dept') {
+        const ca = (S.depts||[]).find(x=>x.id===(S.clients.find(c=>c.id===a.clientId)||{}).deptId)||{name:''};
+        const cb = (S.depts||[]).find(x=>x.id===(S.clients.find(c=>c.id===b.clientId)||{}).deptId)||{name:''};
+        return ca.name.localeCompare(cb.name,'es');
+      }
+      if (rSort==='mun') {
+        const ca = (S.municipios||[]).find(x=>x.id===(S.clients.find(c=>c.id===a.clientId)||{}).municipioId)||{name:''};
+        const cb = (S.municipios||[]).find(x=>x.id===(S.clients.find(c=>c.id===b.clientId)||{}).municipioId)||{name:''};
+        return ca.name.localeCompare(cb.name,'es');
       }
       if (rSort==='recent') return b.id - a.id;
       if (rSort==='old')    return a.id - b.id;
@@ -3712,61 +4139,63 @@ function renderRoutes() {
         return `<span style="font-size:11px;color:#94a3b8">• ${p?p.name:'—'} ×${it.qty}</span>`;
       }).join(' ');
       return `<div data-oid="${o.id}" data-rid="${r.id}" style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:6px;border-left:3px solid ${statusColor};${rSort==='manual'?'cursor:grab':''}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
-          <div style="flex:1">
-            ${rSort==='manual'?`<span class="route-drag-handle" style="color:#64748b;font-size:16px;margin-right:6px;cursor:grab;user-select:none;touch-action:none">≡</span>`:''}
+        ${rSort==='manual'?`<span class="route-drag-handle" style="color:#64748b;font-size:16px;margin-right:6px;cursor:grab;user-select:none;touch-action:none">≡</span>`:''}
+        <!-- Info del pedido -->
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} ${o.clientName}</span>
-            <div style="font-size:10px;color:#64748b;margin-top:1px">${o.date.split(',')[0]}${(o.quote||o.oc)?` · ${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}`:''}</div>
-            <div style="margin-top:3px;line-height:1.8">${items}</div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
-              <span style="font-size:12px;font-weight:700;color:#f59e0b">${Q(oDisp)}</span>
-              ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:10px;color:${statusColor};font-weight:700">${o.status}</span>
+              <div onclick="setOrderStatus(${o.id},null,'check');renderRoutes()" style="width:18px;height:18px;border-radius:50%;border:2px solid ${o.status==='Concluido'?'#10b981':'#475569'};background:${o.status==='Concluido'?'#10b981':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+                ${o.status==='Concluido'?'<span style="color:#fff;font-size:10px;font-weight:900">✓</span>':''}
+              </div>
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-            <span style="font-size:10px;color:${statusColor};font-weight:700">${o.status}</span>
-            ${(()=>{
-              const isConf = o.status==='Confirmado'||o.status==='Concluido';
-              const isConc = o.status==='Concluido';
-              return `<div style="display:flex;align-items:center;gap:6px;background:#0d0f18;border-radius:7px;padding:4px 8px;border:1px solid #2a3050">
-                <div style="position:relative;width:32px;height:18px;cursor:pointer" onclick="setOrderStatus(${o.id},null,'switch');renderRoutes()">
-                  <span style="position:absolute;inset:0;border-radius:9px;background:${isConf?'#3b82f6':'#2a3050'}"></span>
-                  <span style="position:absolute;top:2px;left:${isConf?'16px':'2px'};width:14px;height:14px;background:#fff;border-radius:50%;transition:left .2s"></span>
-                </div>
-                <div onclick="setOrderStatus(${o.id},null,'check');renderRoutes()" style="width:18px;height:18px;border-radius:50%;border:2px solid ${isConc?'#10b981':'#475569'};background:${isConc?'#10b981':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer">
-                  ${isConc?'<span style="color:#fff;font-size:10px;font-weight:900">✓</span>':''}
-                </div>
-              </div>`;
-            })()}
-            <button class="bs" style="font-size:10px;padding:3px 7px" onclick="editOrderFromRoute(${o.id})">✏️ Editar</button>
-            <button class="bb" style="font-size:10px;padding:3px 7px" onclick="showQuoteFromOrder(${o.id})">📄 Cot.</button>
-            <button class="br" style="font-size:10px;padding:3px 7px" onclick="removeOrderFromRoute(${o.id},${r.id})">✕</button>
+          <div style="font-size:10px;color:#64748b;margin-top:1px">${o.date.split(',')[0]}${(o.quote||o.oc)?` · ${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}`:''}</div>
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">${o.items.map(it=>{
+            const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+            return `<span style="font-size:11px;background:#0d0f18;color:#94a3b8;padding:1px 6px;border-radius:5px">• ${p?p.name:'—'} ×${it.qty}</span>`;
+          }).join('')}</div>
+          ${(o.comments&&o.comments.length&&o.comments[0])?`<div style="font-size:11px;color:#64748b;margin-top:3px;font-style:italic">💬 ${o.comments[0]}</div>`:''}
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+            <span style="font-size:12px;font-weight:700;color:#f59e0b">${Q(oDisp)}</span>
+            ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
           </div>
+        </div>
+        <!-- Botones en fila compacta -->
+        <div style="display:flex;gap:4px;align-items:center" onclick="event.stopPropagation()">
+          <div style="position:relative;width:32px;height:18px;cursor:pointer;flex-shrink:0" onclick="setOrderStatus(${o.id},null,'switch');renderRoutes()">
+            <span style="position:absolute;inset:0;border-radius:9px;background:${o.status==='Confirmado'||o.status==='Concluido'?'#3b82f6':'#2a3050'}"></span>
+            <span style="position:absolute;top:2px;left:${o.status==='Confirmado'||o.status==='Concluido'?'16px':'2px'};width:14px;height:14px;background:#fff;border-radius:50%;transition:left .2s"></span>
+          </div>
+          <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="editOrderFromRoute(${o.id})">✏️ Editar</button>
+          <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="showQuoteFromOrder(${o.id})">📄 Cot.</button>
+          <button class="bv" style="flex:1;font-size:11px;padding:5px 2px" onclick="duplicateOrder(${o.id});renderRoutes()">📋 Dupl.</button>
+          <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="removeOrderFromRoute(${o.id},${r.id})">✕</button>
         </div>
       </div>`;
     }).join('') : '<div style="font-size:12px;color:#64748b;padding:8px 0">Sin pedidos. Presiona <strong>🛒 + Pedido</strong>.</div>';
 
     return `<div class="card" style="margin-bottom:10px;padding-bottom:${isOpen?'12px':'4px'}">
-      <!-- Encabezado siempre visible — clic para expandir -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;cursor:pointer" onclick="toggleRoute(${r.id})">
-        <div style="flex:1">
-          <div style="font-weight:800;font-size:15px;color:#f59e0b">${isPinned?'📌 ':'🚚 '}${r.name}</div>
-          <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:1px 7px;border-radius:8px">${orders.length} pedidos</span>
-            ${pend?`<span style="font-size:10px;background:#422006;color:#fb923c;padding:1px 7px;border-radius:8px">${pend} pend.</span>`:''}
-            ${fact?`<span style="font-size:10px;background:#052e16;color:#4ade80;padding:1px 7px;border-radius:8px">${fact} concl.</span>`:''}
-            <span style="font-size:10px;font-weight:700;color:#f59e0b">Total: ${Q(tot)}</span>
-            <span style="font-size:11px;color:#64748b;margin-left:2px">${isOpen?'▲':'▼'}</span>
-          </div>
+      <!-- Encabezado: nombre completo arriba, botones abajo -->
+      <div onclick="toggleRoute(${r.id})" style="cursor:pointer;margin-bottom:6px">
+        <div style="font-weight:800;font-size:16px;color:#f59e0b;line-height:1.3">${isPinned?'📌 ':'🚚 '}${r.name}</div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:1px 7px;border-radius:8px">${orders.length} pedidos</span>
+          ${pend?`<span style="font-size:10px;background:#422006;color:#fb923c;padding:1px 7px;border-radius:8px">${pend} pend.</span>`:''}
+          ${fact?`<span style="font-size:10px;background:#052e16;color:#4ade80;padding:1px 7px;border-radius:8px">${fact} concl.</span>`:''}
+          <span style="font-size:10px;font-weight:700;color:#f59e0b">Total: ${Q(tot)}</span>
+          <span style="font-size:11px;color:#64748b">${isOpen?'▲':'▼'}</span>
         </div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap" onclick="event.stopPropagation()">
-          <button style="font-size:11px;padding:5px 9px;background:${isPinned?'#92400e':'transparent'};border:1px solid ${isPinned?'#f59e0b':'#475569'};border-radius:7px;color:${isPinned?'#f59e0b':'#475569'};cursor:pointer" onclick="togglePinRoute(${r.id})" title="${isPinned?'Desanclar':'Anclar arriba'}">📌</button>
-          <button class="bs" style="font-size:11px;padding:5px 9px" onclick="addOrderToRoute(${r.id})">🛒</button>
-          <button class="bg" style="font-size:11px;padding:5px 9px" onclick="markRouteConcluido(${r.id})">✔</button>
-          <button class="bb" style="font-size:11px;padding:5px 9px" onclick="generateRouteReport(${r.id})">📄</button>
-          <button class="bs" style="font-size:11px;padding:5px 9px" onclick="promptRenameRoute(${r.id})">✏️</button>
-          <button class="br" style="font-size:11px;padding:5px 9px" onclick="deleteRoute(${r.id})">🗑</button>
-        </div>
+      </div>
+      <!-- Botones compactos en una sola fila -->
+      <div style="display:flex;gap:4px;flex-wrap:nowrap" onclick="event.stopPropagation()">
+        <button style="flex:1;font-size:11px;padding:5px 2px;background:${isPinned?'#92400e':'transparent'};border:1px solid ${isPinned?'#f59e0b':'#475569'};border-radius:7px;color:${isPinned?'#f59e0b':'#94a3b8'};cursor:pointer" onclick="togglePinRoute(${r.id})" title="${isPinned?'Desanclar':'Anclar'}">📌</button>
+        <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="addOrderToRoute(${r.id})" title="Agregar pedido">🛒</button>
+        <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="markRouteConcluido(${r.id})" title="Concluir todos">✔</button>
+        <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReport(${r.id})" title="Informe PDF">📄</button>
+        <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="promptRenameRoute(${r.id})" title="Renombrar">✏️</button>
+        <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="deleteRoute(${r.id})" title="Eliminar ruta">🗑</button>
       </div>
       <!-- Contenido colapsable -->
       <div id="route-body-${r.id}" style="display:${isOpen?'block':'none'}">
@@ -3781,7 +4210,8 @@ function renderRoutes() {
           <select onchange="setRouteOrdSort(${r.id},this.value)" style="font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
             <option value="default" ${rSort==='default'?'selected':''}>Como se agregaron</option>
             <option value="alpha"   ${rSort==='alpha'?'selected':''}>A→Z Cliente</option>
-            <option value="addr"    ${rSort==='addr'?'selected':''}>Dirección</option>
+            <option value="dept"     ${rSort==='dept'?'selected':''}>🏛️ Departamento</option>
+            <option value="mun"      ${rSort==='mun'?'selected':''}>🏘️ Municipio</option>
             <option value="recent"  ${rSort==='recent'?'selected':''}>Más recientes</option>
             <option value="old"     ${rSort==='old'?'selected':''}>Más antiguos</option>
             <option value="manual"  ${rSort==='manual'?'selected':''}>⇅ Manual</option>
