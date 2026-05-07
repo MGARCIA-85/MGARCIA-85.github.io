@@ -369,7 +369,21 @@ Selecciona un cliente para continuar.<br><br>
   <label class="lbl">Teléfono</label>
   <input class="inp" id="nc-p" placeholder="Ej: 5000-0000"/>
   <label class="lbl">Dirección</label>
-  <input class="inp" id="nc-a" placeholder="Ej: Zona 5, Xela" style="margin-bottom:12px"/>
+  <input class="inp" id="nc-a" placeholder="Ej: Zona 5, Xela"/>
+  <label class="lbl">🏛️ Departamento</label>
+  <div style="position:relative;margin-bottom:10px">
+    <input id="nc-dept-lbl" class="inp" style="margin-bottom:0" placeholder="Buscar departamento..." autocomplete="off"
+      oninput="ncFieldSearch('dept',this.value)" onfocus="ncFieldSearch('dept',this.value)"/>
+    <input type="hidden" id="nc-dept-id"/>
+    <div id="nc-dept-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #3b82f6;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>
+  </div>
+  <label class="lbl">🏘️ Municipio</label>
+  <div style="position:relative;margin-bottom:12px">
+    <input id="nc-mun-lbl" class="inp" style="margin-bottom:0" placeholder="Buscar municipio..." autocomplete="off"
+      oninput="ncFieldSearch('mun',this.value)" onfocus="ncFieldSearch('mun',this.value)"/>
+    <input type="hidden" id="nc-mun-id"/>
+    <div id="nc-mun-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>
+  </div>
   <button class="bp" onclick="addClient()">Agregar Cliente</button>
 </div>
 
@@ -1971,8 +1985,7 @@ if (card) {
 //  MODAL DE CONFIRMACIÓN
 // ═══════════════════════════════════════════════════════
 let _confirmCb = null;
-function askConfirm(msg, sub, cb, btnText) {
-  // Restaurar estructura estándar del modal por si fue modificada
+function askConfirm(msg, sub, cb, btnText, btnColor) {
   const inner = document.querySelector('#confirm-modal > div');
   if (inner && !document.getElementById('confirm-msg')) {
     inner.innerHTML = `
@@ -1987,9 +2000,8 @@ function askConfirm(msg, sub, cb, btnText) {
   document.getElementById('confirm-msg').textContent = msg;
   document.getElementById('confirm-sub').textContent = sub || '';
   const btn = document.getElementById('confirm-ok-btn');
-  if (btn) { btn.textContent = btnText || 'Eliminar'; btn.style.background = '#ef4444'; }
-  const m = document.getElementById('confirm-modal');
-  m.style.display = 'flex';
+  if (btn) { btn.textContent = btnText || 'Eliminar'; btn.style.background = btnColor || '#ef4444'; }
+  document.getElementById('confirm-modal').style.display = 'flex';
   _confirmCb = cb;
 }
 function bonusAlertConfirm() { if (window._bonusAlertConfirmCb) window._bonusAlertConfirmCb(); window._bonusAlertConfirmCb=null; window._bonusAlertCancelCb=null; }
@@ -2214,28 +2226,64 @@ function generateRouteOrders(rid, routeTitle, selDepts, selMuns) {
     if (ti) ti.value = '';
     collapseForm('gen-route-body');
     toast('✅ ' + clis.length + ' pedido(s) generados en Cotización', '#10b981');
-  });
+  }, '🚀 Generar', '#10b981');
 }
 
 function deleteRoute(rid) {
   const r = S.routes.find(x => x.id === rid); if (!r) return;
   if (!r.orders) r.orders = [];
   const n = r.orders.length;
-  askConfirm('¿Eliminar la ruta "'+r.name+'"?', n ? 'Los '+n+' pedido(s) no se eliminan, solo se desasocian.' : 'Esta acción no se puede deshacer.', () => {
-    r.orders.forEach(oid => { const o = S.orders.find(x=>x.id===oid); if (o) delete o.routeId; });
+  const inner = document.querySelector('#confirm-modal > div');
+  if (!inner) return;
+  inner.innerHTML = `
+    <div style="font-size:28px;margin-bottom:8px">🚚</div>
+    <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">Eliminar ruta "${r.name}"</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:18px">${n} pedido(s) en esta ruta. ¿Qué hacer con ellos?</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="confirmDel(false)" style="padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="window._routeDelCb('unlink')" style="padding:10px;border-radius:9px;border:none;background:#3b82f6;color:#fff;font-weight:800;cursor:pointer;font-size:13px">🔗 Solo desvincular pedidos (los conserva)</button>
+      <button onclick="window._routeDelCb('delete')" style="padding:10px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;font-size:13px">🗑 Eliminar ruta Y pedidos</button>
+    </div>`;
+  document.getElementById('confirm-modal').style.display = 'flex';
+  window._routeDelCb = (action) => {
+    document.getElementById('confirm-modal').style.display = 'none';
+    inner.innerHTML = ''; // reset para próximo uso
+    if (action === 'unlink') {
+      r.orders.forEach(oid => { const o = S.orders.find(x=>x.id===oid); if (o) { delete o.routeId; delete o.routeTitle; } });
+    } else if (action === 'delete') {
+      r.orders.forEach(oid => { S.orders = S.orders.filter(x=>x.id!==oid); });
+    }
     S.routes = S.routes.filter(x => x.id !== rid);
     save(); renderRoutes(); toast('🗑 Ruta eliminada');
-  });
+  };
 }
 
 function removeOrderFromRoute(oid, rid) {
-  askConfirm('¿Quitar este pedido de la ruta?', 'El pedido no se elimina, solo se desvincula.', () => {
-    const r = S.routes.find(x=>x.id===rid); if (!r) return;
-    if (!r.orders) r.orders = [];
-    r.orders = r.orders.filter(x=>x!==oid);
-    const o = S.orders.find(x=>x.id===oid); if (o) delete o.routeId;
-    save(); renderRoutes(); toast('Pedido quitado de la ruta');
-  });
+  const inner = document.querySelector('#confirm-modal > div');
+  if (!inner) return;
+  inner.innerHTML = `
+    <div style="font-size:28px;margin-bottom:8px">📦</div>
+    <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">Quitar pedido de la ruta</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:18px">¿Qué deseas hacer con este pedido?</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="confirmDel(false)" style="padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="window._ordRouteCb('unlink')" style="padding:10px;border-radius:9px;border:none;background:#3b82f6;color:#fff;font-weight:800;cursor:pointer;font-size:13px">🔗 Solo desvincular (conservar pedido)</button>
+      <button onclick="window._ordRouteCb('delete')" style="padding:10px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;font-size:13px">🗑 Eliminar pedido por completo</button>
+    </div>`;
+  document.getElementById('confirm-modal').style.display = 'flex';
+  window._ordRouteCb = (action) => {
+    document.getElementById('confirm-modal').style.display = 'none';
+    inner.innerHTML = '';
+    const r = S.routes.find(x=>x.id===rid);
+    if (r) r.orders = (r.orders||[]).filter(x=>x!==oid);
+    if (action === 'unlink') {
+      const o = S.orders.find(x=>x.id===oid);
+      if (o) { delete o.routeId; delete o.routeTitle; }
+    } else if (action === 'delete') {
+      S.orders = S.orders.filter(x=>x.id!==oid);
+    }
+    save(); renderRoutes(); toast(action==='delete'?'🗑 Pedido eliminado':'Pedido desvinculado de la ruta');
+  };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2539,19 +2587,58 @@ function collapseForm(bodyId) {
   if (header) { const arrow = header.querySelector('span'); if (arrow) arrow.textContent = '▼'; }
 }
 
+function ncFieldSearch(type, q) {
+  const isDept  = type === 'dept';
+  const list    = isDept ? (S.depts||[]) : (S.municipios||[]);
+  const dropId  = isDept ? 'nc-dept-drop' : 'nc-mun-drop';
+  const hiddenId= isDept ? 'nc-dept-id'   : 'nc-mun-id';
+  const col     = isDept ? '#3b82f6' : '#7c3aed';
+  const drop    = document.getElementById(dropId);
+  if (!drop) return;
+  const ql = (q||'').toLowerCase();
+  const filtered = ql ? list.filter(x => x.name.toLowerCase().includes(ql)) : list;
+  if (!filtered.length) { drop.style.display = 'none'; return; }
+  drop.style.display = 'block';
+  drop.innerHTML = filtered.map(x =>
+    `<div onmousedown="event.preventDefault()" onclick="ncSelectField('${type}',${x.id},'${x.name.replace(/'/g,"\\'")}');event.stopPropagation()"
+      style="padding:9px 12px;font-size:13px;color:#f1f5f9;cursor:pointer;border-bottom:1px solid #2a3050">
+      ${x.name}
+    </div>`
+  ).join('');
+  setTimeout(() => { document.addEventListener('click', () => { drop.style.display = 'none'; }, { once: true }); }, 50);
+}
+
+function ncSelectField(type, id, name) {
+  const isDept = type === 'dept';
+  document.getElementById(isDept ? 'nc-dept-lbl' : 'nc-mun-lbl').value = name;
+  document.getElementById(isDept ? 'nc-dept-id'  : 'nc-mun-id').value  = id;
+  document.getElementById(isDept ? 'nc-dept-drop' : 'nc-mun-drop').style.display = 'none';
+}
+
 function addClient() {
-const name = document.getElementById('nc-n').value.trim();
-if (!name) return alert('Ingresa el nombre del cliente.');
-const dup = S.clients.find(c => c.name.toLowerCase() === name.toLowerCase());
-if (dup) { toast('⚠️ Ya existe este cliente', '#ef4444'); return; }
-const id = S.nextCid++;
-S.clients.push({ id, name, phone:document.getElementById('nc-p').value.trim(), address:document.getElementById('nc-a').value.trim() });
-const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
-S.cp[id] = init;
-save();
-['nc-n','nc-p','nc-a'].forEach(i => document.getElementById(i).value='');
-collapseForm('cli-form-body');
-toast('👥 Cliente agregado'); renderClients();
+  const name = document.getElementById('nc-n').value.trim();
+  if (!name) return alert('Ingresa el nombre del cliente.');
+  const dup = S.clients.find(c => c.name.toLowerCase() === name.toLowerCase());
+  if (dup) { toast('⚠️ Ya existe este cliente', '#ef4444'); return; }
+  const id = S.nextCid++;
+  const deptVal = document.getElementById('nc-dept-id')?.value;
+  const munVal  = document.getElementById('nc-mun-id')?.value;
+  S.clients.push({
+    id,
+    name,
+    phone:       document.getElementById('nc-p').value.trim(),
+    address:     document.getElementById('nc-a').value.trim(),
+    deptId:      deptVal  ? Number(deptVal)  : null,
+    municipioId: munVal   ? Number(munVal)   : null
+  });
+  const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
+  S.cp[id] = init;
+  save();
+  ['nc-n','nc-p','nc-a','nc-dept-lbl','nc-mun-lbl','nc-dept-id','nc-mun-id'].forEach(i => {
+    const el = document.getElementById(i); if (el) el.value = '';
+  });
+  collapseForm('cli-form-body');
+  toast('👥 Cliente agregado'); renderClients();
 }
 
 function renderClients() {
