@@ -4215,21 +4215,28 @@ function renderRoutes() {
     const orders = r.orders.map(id => S.orders.find(o=>o.id===id)).filter(Boolean);
     // Ordenar pedidos de la ruta según configuración
     if (!window._routeOrdSort) window._routeOrdSort = {};
-    const rSort = window._routeOrdSort[r.id] || 'default';
+    const rSortRaw = window._routeOrdSort[r.id] || {s1:'default',s2:'none'};
+    const rSort1 = typeof rSortRaw==='object' ? (rSortRaw.s1||'default') : rSortRaw;
+    const rSort2 = typeof rSortRaw==='object' ? (rSortRaw.s2||'none')    : 'none';
+    const rSort  = rSort1;
+    const _getSortVal = (o,key) => {
+      const cli = S.clients.find(c=>c.id===o.clientId)||{};
+      if (key==='alpha')  return (o.clientName||'');
+      if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name;
+      if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name;
+      if (key==='recent') return -o.id;
+      if (key==='old')    return  o.id;
+      return '';
+    };
     const orderedOrders = [...orders].sort((a,b) => {
-      if (rSort==='alpha')  return a.clientName.localeCompare(b.clientName,'es');
-      if (rSort==='dept') {
-        const ca = (S.depts||[]).find(x=>x.id===(S.clients.find(c=>c.id===a.clientId)||{}).deptId)||{name:''};
-        const cb = (S.depts||[]).find(x=>x.id===(S.clients.find(c=>c.id===b.clientId)||{}).deptId)||{name:''};
-        return ca.name.localeCompare(cb.name,'es');
+      if (rSort1==='default'||rSort1==='manual') return 0;
+      const v1a=_getSortVal(a,rSort1), v1b=_getSortVal(b,rSort1);
+      const c1 = typeof v1a==='string' ? v1a.localeCompare(v1b,'es') : v1a-v1b;
+      if (c1!==0) return c1;
+      if (rSort2&&rSort2!=='none') {
+        const v2a=_getSortVal(a,rSort2), v2b=_getSortVal(b,rSort2);
+        return typeof v2a==='string' ? v2a.localeCompare(v2b,'es') : v2a-v2b;
       }
-      if (rSort==='mun') {
-        const ca = (S.municipios||[]).find(x=>x.id===(S.clients.find(c=>c.id===a.clientId)||{}).municipioId)||{name:''};
-        const cb = (S.municipios||[]).find(x=>x.id===(S.clients.find(c=>c.id===b.clientId)||{}).municipioId)||{name:''};
-        return ca.name.localeCompare(cb.name,'es');
-      }
-      if (rSort==='recent') return b.id - a.id;
-      if (rSort==='old')    return a.id - b.id;
       return 0;
     });
     const pend   = orders.filter(o=>o.status==='Confirmado').length;
@@ -4330,19 +4337,32 @@ function renderRoutes() {
           <button class="bg" style="padding:9px 12px;white-space:nowrap" onclick="saveRouteName(${r.id})">✔ Guardar</button>
         </div>
         <!-- Pedidos -->
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-          <span style="font-size:10px;color:#64748b">Ordenar:</span>
-          <select onchange="setRouteOrdSort(${r.id},this.value)" style="font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
-            <option value="default" ${rSort==='default'?'selected':''}>Como se agregaron</option>
-            <option value="alpha"   ${rSort==='alpha'?'selected':''}>A→Z Cliente</option>
-            <option value="dept"     ${rSort==='dept'?'selected':''}>🏛️ Departamento</option>
-            <option value="mun"      ${rSort==='mun'?'selected':''}>🏘️ Municipio</option>
-            <option value="recent"  ${rSort==='recent'?'selected':''}>Más recientes</option>
-            <option value="old"     ${rSort==='old'?'selected':''}>Más antiguos</option>
-            <option value="manual"  ${rSort==='manual'?'selected':''}>⇅ Manual</option>
-          </select>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+            <span style="font-size:10px;color:#64748b;white-space:nowrap;width:52px">Ordenar:</span>
+            <select onchange="setRouteOrdSort(${r.id},'s1',this.value)" style="flex:1;font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
+              <option value="default" ${rSort1==='default'?'selected':''}>Como se agregaron</option>
+              <option value="alpha"   ${rSort1==='alpha'?'selected':''}>A→Z Cliente</option>
+              <option value="dept"    ${rSort1==='dept'?'selected':''}>🏛️ Departamento</option>
+              <option value="mun"     ${rSort1==='mun'?'selected':''}>🏘️ Municipio</option>
+              <option value="recent"  ${rSort1==='recent'?'selected':''}>Más recientes</option>
+              <option value="old"     ${rSort1==='old'?'selected':''}>Más antiguos</option>
+              <option value="manual"  ${rSort1==='manual'?'selected':''}>⇅ Manual</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:10px;color:#64748b;white-space:nowrap;width:52px">Luego:</span>
+            <select onchange="setRouteOrdSort(${r.id},'s2',this.value)" style="flex:1;font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
+              <option value="none"   ${rSort2==='none'?'selected':''}>—</option>
+              <option value="alpha"  ${rSort2==='alpha'?'selected':''}>A→Z Cliente</option>
+              <option value="dept"   ${rSort2==='dept'?'selected':''}>🏛️ Departamento</option>
+              <option value="mun"    ${rSort2==='mun'?'selected':''}>🏘️ Municipio</option>
+              <option value="recent" ${rSort2==='recent'?'selected':''}>Más recientes</option>
+              <option value="old"    ${rSort2==='old'?'selected':''}>Más antiguos</option>
+            </select>
+          </div>
         </div>
-        ${rSort==='manual'?`<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-align:center">Mantén presionado ≡ para arrastrar y reordenar</div>`:''}
+        ${rSort1==='manual'?`<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-align:center">Mantén presionado ≡ para arrastrar y reordenar</div>`:''}
         <div style="margin-top:0" id="route-orders-${r.id}">${ordRows}</div>
       </div>
     </div>`;
@@ -4356,13 +4376,14 @@ function toggleRouteOrd(oid) {
 }
 
 let _routeAsc = false;
-function setRouteOrdSort(rid, mode) {
+function setRouteOrdSort(rid, level, mode) {
   if (!window._routeOrdSort) window._routeOrdSort = {};
-  window._routeOrdSort[rid] = mode;
+  const cur = window._routeOrdSort[rid] || {s1:'default',s2:'none'};
+  const obj  = typeof cur==='object' ? {...cur} : {s1:cur,s2:'none'};
+  obj[level] = mode;
+  window._routeOrdSort[rid] = obj;
   renderRoutes();
-  if (mode === 'manual') {
-    setTimeout(() => initRouteOrderDrag(rid), 100);
-  }
+  if (obj.s1==='manual') setTimeout(()=>initRouteOrderDrag(rid),100);
 }
 
 function initRouteOrderDrag(rid) {
