@@ -1162,7 +1162,7 @@ card.innerHTML = `
 <input class="inp" id="qty${i}" type="number" min="1" step="1" value="${it.qty}"
 style="margin-bottom:0" oninput="setQty(${i},this.value)"/></div>
 <div style="flex:1">
-<label class="lbl">Precio</label>
+<label class="lbl">Precio <span id="ref-price-${i}" style="font-size:9px;color:#64748b;font-weight:400"></span></label>
 <input class="inp" type="number" step="0.01"
 value="${(it && it.price!=null)?it.price:cliPrice(cid, it.pid, 0)}"
 oninput="setPrice(${i}, this.value)" style="margin-bottom:0"/>
@@ -1176,7 +1176,17 @@ refreshSub(i, cid);
 refreshTotal(cid);
 }
 
-function setPid(i, val) { ordItems[i].pid = val; renderItems(); }
+function setPid(i, val) {
+  ordItems[i].pid = val;
+  const cid = Number(document.getElementById('ord-cli').value);
+  const p   = S.products.find(x => x.id === Number(val));
+  if (p) {
+    const listPrice = cliPrice(cid, p.id, p.basePrice);
+    // Precargar con precio de lista (no el histórico)
+    ordItems[i].price = listPrice;
+  }
+  renderItems();
+}
 function setPrice(i, val) {
 if(!ordItems[i]) return;
 ordItems[i].price = Number(val);
@@ -1197,7 +1207,11 @@ function refreshSub(i, cid) {
 const el = document.getElementById('sub'+i); if (!el) return;
 const it = ordItems[i]; if (!it.pid) { el.innerHTML=''; return; }
 const p  = S.products.find(x => x.id===Number(it.pid)); if (!p) { el.innerHTML=''; return; }
-const prRaw = (it && it.price!=null)? it.price : cliPrice(cid, p.id, p.basePrice);
+const listPrice = cliPrice(cid, p.id, p.basePrice);
+// Mostrar precio de lista como referencia en el label
+const refEl = document.getElementById('ref-price-'+i);
+if (refEl) refEl.textContent = '(Lista: '+Q(listPrice)+')';
+const prRaw = (it && it.price!=null)? it.price : listPrice;
 const us    = Number(p.unitSize)||1;
 const ul    = p.unitLabel||'unidad';
 const qty   = Number(it.qty)||1;
@@ -1702,7 +1716,6 @@ function generateOrderReport() {
         <td style="padding:4px 8px;text-align:right">${Q(pr)}/${ul}</td>
         <td style="padding:4px 8px;text-align:right;font-weight:700">${Q(pr*it.qty*(Number(p?.unitSize)||1))}</td></tr>`;
     }).join('');
-    // Bonificaciones
     const bonusRowsHtml = (o.bonusLines||[]).map(bl=>{
       const p=S.products.find(x=>x.id===Number(bl.productId));
       const ul=p?.unitLabel||'unidad';
@@ -1720,6 +1733,7 @@ function generateOrderReport() {
         ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
         : `<span style="color:#374151;font-weight:600">💬 ${c}</span>`
       ).join('<br>') + '</div>' : '';
+    const bonusSeparator = bonusRowsHtml ? `<tr style="background:#f0fdf4"><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700">─── BONIFICACIONES ───</td></tr>` : '';
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;overflow:hidden;page-break-inside:avoid">
       <div style="background:#f9fafb;padding:8px 12px;display:flex;justify-content:space-between;align-items:flex-start">
         <div>
@@ -1733,7 +1747,7 @@ function generateOrderReport() {
       ${cmtsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:#f3f4f6"><th style="padding:4px 8px;text-align:left">Producto</th><th style="padding:4px 8px">Cant.</th><th style="padding:4px 8px">P/Unidad</th><th style="padding:4px 8px">Subtotal</th></tr></thead>
-        <tbody>${prods}${bonusRowsHtml}</tbody>
+        <tbody>${prods}${bonusSeparator}${bonusRowsHtml}</tbody>
       </table>
       <div style="text-align:right;padding:6px 12px;font-weight:800;font-size:13px;border-top:2px solid #111">TOTAL: ${Q(oDisp)}</div>
     </div>`;
@@ -2372,6 +2386,12 @@ return `<tr style="background:#f0fdf4">
 <td style="padding:7px 6px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td>
 </tr>`;
 }).join('');
+// Comentarios — van ARRIBA de la tabla
+const cmtsQuote = (()=>{
+const cmts = ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : []);
+return cmts.filter(Boolean).map(c=>`<div class="qt-note" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:4px 8px;margin-bottom:3px;border-radius:3px">💬 ${c}</div>`).join('');
+})();
+const bonusSepQ = bonusRows ? `<tr style="background:#f0fdf4"><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700">─── BONIFICACIONES ───</td></tr>` : '';
 return `<div class="qt">
 <div class="qt-head">
 <div class="qt-logo">${logoHtml}</div>
@@ -2383,6 +2403,7 @@ return `<div class="qt">
 <div style="font-size:13px;margin-top:2px">Cliente: <strong>${ord.clientName}</strong></div>
 ${ord.quoteNote?`<div style="font-size:12px;color:#374151;margin-top:4px;padding:5px 8px;background:#f9fafb;border-left:3px solid #f59e0b;border-radius:3px">${ord.quoteNote}</div>`:''}
 ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="color:#6b7280;margin-left:6px">${cliInfo}</span></div>`:''}
+${cmtsQuote}
 <table class="qt-tbl">
 <thead><tr>
 <th>Producto</th>
@@ -2390,17 +2411,13 @@ ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="co
 <th style="text-align:right">P/Unidad</th>
 <th style="text-align:right">Subtotal</th>
 </tr></thead>
-<tbody>${rows}${bonusRows}</tbody>
+<tbody>${rows}${bonusSepQ}${bonusRows}</tbody>
 </table>
 <div class="qt-total">TOTAL: <span style="color:#b45309">${Q(ord.pricesIncIva ? tot : ord.applyIva ? tot*1.12 : tot)}</span></div>
 ${(()=>{
 if(ord.pricesIncIva) return '<div style=\"font-size:11px;color:#6b7280;text-align:right;margin-top:4px;padding-top:4px\">Precio incluye IVA &nbsp;·&nbsp; Base: '+Q(tot/1.12)+' &nbsp;+&nbsp; IVA 12%: '+Q(tot-tot/1.12)+'</div>';
 if(ord.applyIva)    return '<div style=\"font-size:11px;color:#6b7280;text-align:right;margin-top:4px;padding-top:4px\">Subtotal: '+Q(tot)+' &nbsp;+&nbsp; IVA 12%: '+Q(tot*0.12)+'</div>';
 return '';
-})()}
-${(()=>{
-const cmts = ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : []);
-return cmts.map(c=>`<div class="qt-note">💬 ${c}</div>`).join('');
 })()}
 ${b.footer?`<div class="qt-note">${b.footer}</div>`:''}
 </div>`;
@@ -4214,8 +4231,8 @@ function renderRoutes() {
     if (!r.orders) r.orders = [];
     const orders = r.orders.map(id => S.orders.find(o=>o.id===id)).filter(Boolean);
     // Ordenar pedidos de la ruta según configuración
-    if (!window._routeOrdSort) window._routeOrdSort = {};
-    const rSortRaw = window._routeOrdSort[r.id] || {s1:'default',s2:'none'};
+    if (!S.routeOrdSort) S.routeOrdSort = {};
+    const rSortRaw = S.routeOrdSort[r.id] || {s1:'default',s2:'none'};
     const rSort1 = typeof rSortRaw==='object' ? (rSortRaw.s1||'default') : rSortRaw;
     const rSort2 = typeof rSortRaw==='object' ? (rSortRaw.s2||'none')    : 'none';
     const rSort  = rSort1;
@@ -4377,11 +4394,12 @@ function toggleRouteOrd(oid) {
 
 let _routeAsc = false;
 function setRouteOrdSort(rid, level, mode) {
-  if (!window._routeOrdSort) window._routeOrdSort = {};
-  const cur = window._routeOrdSort[rid] || {s1:'default',s2:'none'};
+  if (!S.routeOrdSort) S.routeOrdSort = {};
+  const cur = S.routeOrdSort[rid] || {s1:'default',s2:'none'};
   const obj  = typeof cur==='object' ? {...cur} : {s1:cur,s2:'none'};
   obj[level] = mode;
-  window._routeOrdSort[rid] = obj;
+  S.routeOrdSort[rid] = obj;
+  save();
   renderRoutes();
   if (obj.s1==='manual') setTimeout(()=>initRouteOrderDrag(rid),100);
 }
