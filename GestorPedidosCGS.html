@@ -4530,6 +4530,32 @@ function generateRouteReport(rid) {
   if (!route.orders) route.orders = [];
   const orders = route.orders.map(id=>S.orders.find(o=>o.id===id)).filter(Boolean);
   if (!orders.length) { toast('La ruta no tiene pedidos','#ef4444'); return; }
+
+  // Aplicar el mismo orden configurado en la vista
+  const rSortRaw = (S.routeOrdSort||{})[rid] || {s1:'default',s2:'none'};
+  const rSort1 = typeof rSortRaw==='object' ? (rSortRaw.s1||'default') : rSortRaw;
+  const rSort2 = typeof rSortRaw==='object' ? (rSortRaw.s2||'none')    : 'none';
+  const _gsv = (o,key) => {
+    const cli = S.clients.find(c=>c.id===o.clientId)||{};
+    if (key==='alpha')  return o.clientName||'';
+    if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name;
+    if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name;
+    if (key==='recent') return -o.id;
+    if (key==='old')    return  o.id;
+    return '';
+  };
+  if (rSort1 !== 'default' && rSort1 !== 'manual') {
+    orders.sort((a,b) => {
+      const v1a=_gsv(a,rSort1), v1b=_gsv(b,rSort1);
+      const c1 = typeof v1a==='string' ? v1a.localeCompare(v1b,'es') : v1a-v1b;
+      if (c1!==0) return c1;
+      if (rSort2&&rSort2!=='none') {
+        const v2a=_gsv(a,rSort2), v2b=_gsv(b,rSort2);
+        return typeof v2a==='string' ? v2a.localeCompare(v2b,'es') : v2a-v2b;
+      }
+      return 0;
+    });
+  }
   const b = S.biz;
   const tDisp = orders.reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
   const tPend = orders.filter(o=>o.status==='Confirmado').reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
@@ -4576,6 +4602,7 @@ function generateRouteReport(rid) {
         ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
         : `<span style="color:#374151;font-weight:600">💬 ${c}</span>`
       ).join('<br>') + '</div>' : '';
+    const bonusSep = bonusRows ? `<tr><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700;background:#f0fdf4">─── BONIFICACIONES ───</td></tr>` : '';
     return `<div style="break-inside:avoid;margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
       <div style="background:#f9fafb;padding:8px 12px;border-bottom:1px solid #e5e7eb">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -4588,6 +4615,7 @@ function generateRouteReport(rid) {
         ${metaExtra ? `<div style="margin-top:5px">${metaExtra}</div>` : ''}
         ${o.quoteNote?`<div style="font-size:11px;color:#374151;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
       </div>
+      ${cmtsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:#f3f4f6">
           <th style="padding:5px 8px;text-align:left">Producto</th>
@@ -4595,9 +4623,8 @@ function generateRouteReport(rid) {
           <th style="padding:5px 8px;text-align:right">P/Unidad</th>
           <th style="padding:5px 8px;text-align:right">Subtotal</th>
         </tr></thead>
-        <tbody>${items}${bonusRows}</tbody>
+        <tbody>${items}${bonusSep}${bonusRows}</tbody>
       </table>
-      ${cmtsHtml}
       <div style="padding:5px 12px;text-align:right;font-weight:800;font-size:13px;border-top:1px solid #e5e7eb;background:#fafafa">
         TOTAL: ${Q(disp)}${o.applyIva?'<span style="font-size:10px;font-weight:400;color:#6b7280;margin-left:5px">(IVA incl.)</span>':''}
       </div>
