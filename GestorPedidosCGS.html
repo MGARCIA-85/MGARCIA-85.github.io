@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <link rel="manifest" href="./manifest.json"/>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CiAgPGRlZnM+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9ImciIGN4PSIzNSUiIGN5PSIzNSUiIHI9IjY1JSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwMGU4OGEiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDBhMzYyIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjEwMCIgZmlsbD0idXJsKCNnKSIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTIyIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNzIiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiMwMDFhMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSI2Ij5DR1M8L3RleHQ+Cjwvc3ZnPg=="/>
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CiAgPGRlZnM+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9ImciIGN4PSIzNSUiIGN5PSIzNSUiIHI9IjY1JSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwMGU4OGEiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDBhMzYyIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjEwMCIgZmlsbD0idXJsKCNnKSIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTIyIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNzIiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiMwMDFhMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSI2Ij5DR1M8L3RleHQ+Cjwvc3ZnPg=="/>
   
@@ -1811,7 +1812,8 @@ function generateOrderReport() {
   </div>
   ${rows}
   <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / PDF</button>
-  </body></html>`;
+  
+</body></html>`;
 
   const w = window.open('','_blank');
   if (w) { w.document.write(html); w.document.close(); }
@@ -2505,7 +2507,8 @@ document.body.appendChild(iframe);
 }
 const doc = iframe.contentDocument || iframe.contentWindow.document;
 doc.open();
-doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${document.title}</title><style>${css}</style></head><body>${qHTML}</body></html>`);
+doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${document.title}</title><style>${css}</style></head><body>${qHTML}
+</body></html>`);
 doc.close();
 setTimeout(() => {
 try {
@@ -2524,7 +2527,8 @@ function buildCotFilename(ord) {
 
 function fallbackDownload(html, css) {
   const fname = buildCotFilename(currentQuote);
-  const full = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${fname}</title><style>${css}</style></head><body>${html}</body></html>`;
+  const full = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${fname}</title><style>${css}</style></head><body>${html}
+</body></html>`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([full], {type:'text/html'}));
   a.download = fname + '.html'; a.click();
@@ -4710,6 +4714,7 @@ const prodSummaryHTML = `<div style="margin-bottom:14px;border:1px solid #e5e7eb
 <button onclick="window.print()" style="margin-bottom:12px;padding:7px 16px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / PDF</button>
 ${prodSummaryHTML}
 ${rows}
+
 </body></html>`;
   // Usar Blob URL para evitar bloqueo de popup en Chrome Android
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
@@ -5133,5 +5138,14 @@ function initDrive() {
 
 </script>
 <script src="https://accounts.google.com/gsi/client" async onload="initDrive()"></script>
+
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
 </body>
 </html>
