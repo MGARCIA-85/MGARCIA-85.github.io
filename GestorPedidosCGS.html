@@ -150,7 +150,10 @@ table.rep th{background:#f0f0f0!important}
       const ref  = doc(db, 'codigos', codigo.trim().toUpperCase());
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        return { valido: true, dias: snap.data().dias || 365 };
+        const raw = snap.data().dias;
+        // Firebase int64 puede devolver objeto con .toNumber()
+        const dias = (raw && typeof raw === 'object' && raw.toNumber) ? raw.toNumber() : Number(raw) || 365;
+        return { valido: true, dias: dias };
       }
       return { valido: false };
     } catch(e) {
@@ -5521,17 +5524,29 @@ function setAppPassword() { showPwdPanel(); }
 function refreshActivationInfo() {
   const el = document.getElementById('activation-info');
   if (!el) return;
-  const info = getActivationInfo();
-  if (info) {
-    el.textContent = info.days >= 36500
-      ? '✅ Acceso de por vida'
-      : info.days > 0
-        ? '✅ Vence en ' + info.days + ' días'
-        : '⚠️ Acceso expirado';
-    el.style.color = info.days > 30 ? '#10b981' : '#f59e0b';
-  } else {
+  const code   = localStorage.getItem(ACT_CODE_KEY);
+  const expiry = localStorage.getItem(ACT_EXP_KEY);
+  if (!code || !expiry) {
     el.textContent = '⚠️ App no activada';
     el.style.color = '#ef4444';
+    return;
+  }
+  const exp = parseInt(expiry);
+  if (exp >= 9999999999990) {
+    el.textContent = '✅ Acceso de por vida · Código: ' + code;
+    el.style.color = '#10b981';
+    return;
+  }
+  const remaining = Math.ceil((exp - Date.now()) / 86400000);
+  if (remaining <= 0) {
+    el.textContent = '⚠️ Acceso expirado';
+    el.style.color = '#ef4444';
+  } else if (remaining <= 30) {
+    el.textContent = '⚠️ Vence en ' + remaining + ' días · Código: ' + code;
+    el.style.color = '#f59e0b';
+  } else {
+    el.textContent = '✅ Vence en ' + remaining + ' días · Código: ' + code;
+    el.style.color = '#10b981';
   }
 }
 
