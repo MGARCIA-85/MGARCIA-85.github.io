@@ -845,7 +845,7 @@ if (name==='order')    renderOrderPage();
 if (name==='list')     renderList();
 if (name==='clients')  { renderClients(); renderDeptList(); renderMunList(); }
 if (name==='products') { renderProducts(); renderPriceLists(); }
-if (name==='bizinfo')  loadBizForm();
+if (name==='bizinfo')  { loadBizForm(); setTimeout(refreshActivationInfo, 100); }
 if (name==='backup')   renderBackup();
 if (name==='routes')   renderRoutes();
 }
