@@ -620,23 +620,11 @@ Selecciona un cliente para continuar.<br><br>
 <label class="lbl">Mensaje de pie en cotizaciones</label>
 <textarea class="inp" id="biz-footer" placeholder="Ej: Cotización válida por 15 días. Precios sujetos a cambio sin previo aviso."></textarea>
 <button class="bp" onclick="saveBizInfo()">💾 Guardar Información</button>
-<button class="bs" style="margin-top:8px;width:100%" onclick="setAppPassword()">🔐 Contraseña de acceso</button>
+<button class="bs" style="margin-top:8px;width:100%" onclick="showPwdPanel()">🔐 Contraseña de acceso</button>
+<div id="pwd-panel" style="display:none;margin-top:8px;background:#1e2640;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">
+  <div id="pwd-panel-inner"></div>
+</div>
 <div id="activation-info" style="margin-top:6px;font-size:11px;color:#64748b;text-align:center"></div>
-<script>
-(function(){
-  try {
-    const info = (typeof getActivationInfo === 'function') ? getActivationInfo() : null;
-    const el = document.getElementById('activation-info');
-    if (el && info) {
-      el.textContent = info.days >= 36500
-        ? '✅ App activada · Acceso de por vida'
-        : info.days > 0
-          ? '✅ App activada · Vence en ' + info.days + ' días'
-          : '⚠️ Acceso expirado';
-    }
-  } catch(e) {}
-})();
-</script>
 </div>
 </div>
 
@@ -5477,22 +5465,62 @@ async function activateApp() {
   }
 }
 
-function setAppPassword() {
-  const current = localStorage.getItem(LOCK_KEY) || '';
-  if (current) {
-    const old = prompt('Ingresa tu contraseña actual:');
-    if (old !== current) { toast('Contraseña actual incorrecta', '#ef4444'); return; }
+function showPwdPanel() {
+  const panel = document.getElementById('pwd-panel');
+  const inner = document.getElementById('pwd-panel-inner');
+  if (!panel || !inner) return;
+  const hasPwd = !!localStorage.getItem(LOCK_KEY);
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+  inner.innerHTML = `
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:4px">${hasPwd ? 'Cambiar contraseña' : 'Crear contraseña'}</div>
+    ${hasPwd ? `<input id="pwd-old" type="password" placeholder="Contraseña actual" style="background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:10px;color:#f1f5f9;font-size:13px;width:100%;box-sizing:border-box"/>` : ''}
+    <input id="pwd-new1" type="password" placeholder="Nueva contraseña" style="background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:10px;color:#f1f5f9;font-size:13px;width:100%;box-sizing:border-box"/>
+    <input id="pwd-new2" type="password" placeholder="Confirmar contraseña" style="background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:10px;color:#f1f5f9;font-size:13px;width:100%;box-sizing:border-box"/>
+    <div style="display:flex;gap:6px">
+      <button onclick="savePwdPanel()" style="background:#00c97a;color:#001a10;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex:1">💾 Guardar</button>
+      ${hasPwd ? `<button onclick="deletePwd()" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">🗑 Quitar</button>` : ''}
+    </div>
+  `;
+}
+
+function savePwdPanel() {
+  const hasPwd = !!localStorage.getItem(LOCK_KEY);
+  const oldEl  = document.getElementById('pwd-old');
+  const np1    = (document.getElementById('pwd-new1')?.value || '').trim();
+  const np2    = (document.getElementById('pwd-new2')?.value || '').trim();
+  if (hasPwd) {
+    const old = oldEl?.value || '';
+    if (old !== localStorage.getItem(LOCK_KEY)) { toast('Contraseña actual incorrecta', '#ef4444'); return; }
   }
-  const np = prompt('Nueva contraseña (deja vacío para quitar):');
-  if (np === null) return;
-  if (np.trim() === '') {
-    localStorage.removeItem(LOCK_KEY);
-    toast('🔓 Contraseña eliminada', '#10b981');
+  if (!np1) { toast('Escribe una contraseña', '#f59e0b'); return; }
+  if (np1 !== np2) { toast('Las contraseñas no coinciden', '#ef4444'); return; }
+  localStorage.setItem(LOCK_KEY, np1);
+  document.getElementById('pwd-panel').style.display = 'none';
+  toast('🔐 Contraseña guardada', '#10b981');
+}
+
+function deletePwd() {
+  localStorage.removeItem(LOCK_KEY);
+  document.getElementById('pwd-panel').style.display = 'none';
+  toast('🔓 Contraseña eliminada', '#10b981');
+}
+
+function setAppPassword() { showPwdPanel(); }
+
+function refreshActivationInfo() {
+  const el = document.getElementById('activation-info');
+  if (!el) return;
+  const info = getActivationInfo();
+  if (info) {
+    el.textContent = info.days >= 36500
+      ? '✅ Acceso de por vida'
+      : info.days > 0
+        ? '✅ Vence en ' + info.days + ' días'
+        : '⚠️ Acceso expirado';
+    el.style.color = info.days > 30 ? '#10b981' : '#f59e0b';
   } else {
-    const np2 = prompt('Confirma la nueva contraseña:');
-    if (np !== np2) { toast('Las contraseñas no coinciden', '#ef4444'); return; }
-    localStorage.setItem(LOCK_KEY, np.trim());
-    toast('🔐 Contraseña guardada', '#10b981');
+    el.textContent = '⚠️ App no activada';
+    el.style.color = '#ef4444';
   }
 }
 
