@@ -1,4 +1,4 @@
-const CACHE = 'gestor-cgs-v1';
+const CACHE = 'gestor-cgs-v2';
 const FILES = ['./GestorPedidosCGS.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,6 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
