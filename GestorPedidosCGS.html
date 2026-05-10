@@ -129,6 +129,24 @@ table.rep th{background:#f0f0f0!important}
 </head>
 <body>
 
+<!-- ══ PANTALLA DE BLOQUEO ══ -->
+<div id="lock-screen" style="display:none;position:fixed;inset:0;background:#0d0f18;z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+  <div style="font-size:48px">🔐</div>
+  <div style="color:#f1f5f9;font-size:20px;font-weight:800;letter-spacing:1px">GestorPedidos CGS</div>
+  <div style="color:#94a3b8;font-size:13px">Ingresa tu contraseña para continuar</div>
+  <div style="display:flex;flex-direction:column;gap:10px;width:280px">
+    <input id="lock-input" type="password" placeholder="Contraseña..." autocomplete="current-password"
+      style="background:#161929;border:1.5px solid #2a3050;border-radius:10px;padding:14px 16px;color:#f1f5f9;font-size:16px;outline:none;width:100%;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')unlockApp()"/>
+    <button onclick="unlockApp()" style="background:#00c97a;color:#001a10;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">Entrar</button>
+    <div id="lock-error" style="color:#ef4444;font-size:12px;text-align:center;display:none">Contraseña incorrecta</div>
+  </div>
+  <div id="lock-setup" style="display:none;color:#64748b;font-size:11px;text-align:center;max-width:260px;line-height:1.6">
+    Aún no tienes contraseña. Ve a <strong style="color:#94a3b8">🏢 Negocio</strong> para configurarla.
+  </div>
+</div>
+
+
 <!-- ENCABEZADO -->
 <div id="header">
 <div id="biz-logo-wrap">
@@ -551,6 +569,7 @@ Selecciona un cliente para continuar.<br><br>
 <label class="lbl">Mensaje de pie en cotizaciones</label>
 <textarea class="inp" id="biz-footer" placeholder="Ej: Cotización válida por 15 días. Precios sujetos a cambio sin previo aviso."></textarea>
 <button class="bp" onclick="saveBizInfo()">💾 Guardar Información</button>
+<button class="bs" style="margin-top:8px;width:100%" onclick="setAppPassword()">🔐 Contraseña de acceso</button>
 </div>
 </div>
 
@@ -5276,9 +5295,64 @@ function showPriceListDoc(cid) {
     location.href = 'https://wa.me/?text=' + encodeURIComponent(msg);
   };
 }
+
+// ══ BLOQUEO POR CONTRASEÑA ══
+const LOCK_KEY = 'cgs_app_password';
+
+function checkLock() {
+  const pwd = localStorage.getItem(LOCK_KEY);
+  const ls = document.getElementById('lock-screen');
+  if (!pwd) {
+    // Sin contraseña configurada, entrar directo
+    ls.style.display = 'none';
+    return;
+  }
+  ls.style.display = 'flex';
+  document.getElementById('lock-input').focus();
+}
+
+function unlockApp() {
+  const pwd = localStorage.getItem(LOCK_KEY);
+  const input = document.getElementById('lock-input').value;
+  const errEl = document.getElementById('lock-error');
+  if (!pwd) { document.getElementById('lock-screen').style.display = 'none'; return; }
+  if (input === pwd) {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('lock-input').value = '';
+    errEl.style.display = 'none';
+  } else {
+    errEl.style.display = 'block';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-input').focus();
+  }
+}
+
+function setAppPassword() {
+  const current = localStorage.getItem(LOCK_KEY) || '';
+  if (current) {
+    const old = prompt('Ingresa tu contraseña actual:');
+    if (old !== current) { toast('Contraseña actual incorrecta', '#ef4444'); return; }
+  }
+  const np = prompt('Nueva contraseña (deja vacío para quitar):');
+  if (np === null) return;
+  if (np.trim() === '') {
+    localStorage.removeItem(LOCK_KEY);
+    toast('🔓 Contraseña eliminada', '#10b981');
+  } else {
+    const np2 = prompt('Confirma la nueva contraseña:');
+    if (np !== np2) { toast('Las contraseñas no coinciden', '#ef4444'); return; }
+    localStorage.setItem(LOCK_KEY, np.trim());
+    toast('🔐 Contraseña guardada', '#10b981');
+  }
+}
+
+
 </script>
 <script src="https://accounts.google.com/gsi/client" async onload="initDrive()"></script>
 
+<script>
+checkLock();
+</script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
