@@ -621,6 +621,16 @@ Selecciona un cliente para continuar.<br><br>
 <textarea class="inp" id="biz-footer" placeholder="Ej: Cotización válida por 15 días. Precios sujetos a cambio sin previo aviso."></textarea>
 <button class="bp" onclick="saveBizInfo()">💾 Guardar Información</button>
 <button class="bs" style="margin-top:8px;width:100%" onclick="showPwdPanel()">🔐 Contraseña de acceso</button>
+<button class="bs" style="margin-top:6px;width:100%;background:#1e3a5f;border-color:#2a5090" onclick="showChangeCodePanel()">🔑 Cambiar código de activación</button>
+<div id="change-code-panel" style="display:none;margin-top:8px;background:#1e2640;border-radius:10px;padding:12px;flex-direction:column;gap:8px">
+  <div style="color:#94a3b8;font-size:12px">Ingresa un nuevo código para extender o cambiar el acceso</div>
+  <input id="change-code-input" type="text" placeholder="Nuevo código..." style="background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:10px;color:#f1f5f9;font-size:13px;width:100%;box-sizing:border-box;text-transform:uppercase"/>
+  <div style="display:flex;gap:6px">
+    <button onclick="applyNewCode()" style="background:#00c97a;color:#001a10;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex:1">✅ Activar nuevo código</button>
+    <button onclick="document.getElementById('change-code-panel').style.display='none'" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">✕</button>
+  </div>
+  <div id="change-code-error" style="color:#ef4444;font-size:12px;display:none">Código incorrecto o inválido</div>
+</div>
 <div id="pwd-panel" style="display:none;margin-top:8px;background:#1e2640;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">
   <div id="pwd-panel-inner"></div>
 </div>
@@ -5446,10 +5456,11 @@ async function activateApp() {
     }
 
     if (resultado.valido) {
-      const dias   = resultado.dias;
+      const dias   = Number(resultado.dias); // forzar número
       const expiry = dias >= 36500 ? 9999999999999 : Date.now() + dias * 24 * 60 * 60 * 1000;
       localStorage.setItem(ACT_CODE_KEY, input);
       localStorage.setItem(ACT_EXP_KEY, String(expiry));
+      localStorage.setItem('cgs_act_dias', String(dias)); // guardar días originales
       sessionStorage.setItem(SESSION_KEY, '1');
       document.getElementById('lock-screen').style.display = 'none';
       document.getElementById('lock-code-input').value = '';
@@ -5538,6 +5549,54 @@ function getActivationInfo() {
 
 <script>
 checkLock();
+</script>
+<script>
+
+function showChangeCodePanel() {
+  const panel = document.getElementById('change-code-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+  document.getElementById('change-code-error').style.display = 'none';
+  document.getElementById('change-code-input').value = '';
+}
+
+async function applyNewCode() {
+  const input = document.getElementById('change-code-input').value.trim().toUpperCase();
+  const errEl = document.getElementById('change-code-error');
+  const btn   = document.querySelector('#change-code-panel button');
+  if (!input) return;
+
+  if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
+  errEl.style.display = 'none';
+
+  try {
+    let resultado = { valido: false };
+    if (window._verificarCodigoFirebase) {
+      resultado = await window._verificarCodigoFirebase(input);
+    } else {
+      const LOCAL = { 'GESTPCGS9379':36500, 'GEST365CGS88':365, 'CGS90GEST234':90, 'PRUEBA1CGS30':30 };
+      if (LOCAL[input] !== undefined) resultado = { valido: true, dias: LOCAL[input] };
+    }
+
+    if (resultado.valido) {
+      const dias   = Number(resultado.dias);
+      const expiry = dias >= 36500 ? 9999999999999 : Date.now() + dias * 24 * 60 * 60 * 1000;
+      localStorage.setItem(ACT_CODE_KEY, input);
+      localStorage.setItem(ACT_EXP_KEY, String(expiry));
+      localStorage.setItem('cgs_act_dias', String(dias));
+      document.getElementById('change-code-panel').style.display = 'none';
+      document.getElementById('change-code-input').value = '';
+      refreshActivationInfo();
+      const msg = dias >= 36500 ? '✅ Código actualizado — Acceso de por vida' : '✅ Código actualizado — ' + dias + ' días';
+      toast(msg, '#10b981');
+    } else {
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (btn) { btn.textContent = '✅ Activar nuevo código'; btn.disabled = false; }
+  }
+}
+
 </script>
 <script>
   if ('serviceWorker' in navigator) {
