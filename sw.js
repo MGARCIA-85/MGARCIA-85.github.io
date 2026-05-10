@@ -1,4 +1,4 @@
-const CACHE = 'gestor-cgs-v3';
+const CACHE = 'gestor-cgs-v5';
 const FILES = ['./GestorPedidosCGS.html', './manifest.json'];
 
 self.addEventListener('install', e => {

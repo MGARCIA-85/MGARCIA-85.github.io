@@ -126,23 +126,74 @@ table.rep th{background:#f0f0f0!important}
 .bp-pend,.bp-fact,.bp-quot{background:#eee!important;color:#000!important;border:1px solid #ccc!important}
 }
 </style>
+
+<!-- ══ FIREBASE SDK ══ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDuBy2hqAynYB2dzy2JIRr-osZVb0MKrKo",
+    authDomain: "gestorpedidoscgs.firebaseapp.com",
+    projectId: "gestorpedidoscgs",
+    storageBucket: "gestorpedidoscgs.firebasestorage.app",
+    messagingSenderId: "818392124571",
+    appId: "1:818392124571:web:ec05e7b0a91e89b18e0a3e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Exponer función de verificación globalmente
+  window._verificarCodigoFirebase = async function(codigo) {
+    try {
+      const ref  = doc(db, 'codigos', codigo.trim().toUpperCase());
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        return { valido: true, dias: snap.data().dias || 365 };
+      }
+      return { valido: false };
+    } catch(e) {
+      console.error('Firebase error:', e);
+      return { valido: false, error: true };
+    }
+  };
+
+  // Marcar Firebase como listo
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event('firebaseReady'));
+</script>
+
 </head>
 <body>
 
 <!-- ══ PANTALLA DE BLOQUEO ══ -->
-<div id="lock-screen" style="display:none;position:fixed;inset:0;background:#0d0f18;z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+<div id="lock-screen" style="display:none;position:fixed;inset:0;background:#0d0f18;z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px">
   <div style="font-size:48px">🔐</div>
   <div style="color:#f1f5f9;font-size:20px;font-weight:800;letter-spacing:1px">GestorPedidos CGS</div>
-  <div style="color:#94a3b8;font-size:13px">Ingresa tu contraseña para continuar</div>
-  <div style="display:flex;flex-direction:column;gap:10px;width:280px">
+  <!-- Panel contraseña de sesión -->
+  <div id="lock-panel-pwd" style="display:flex;flex-direction:column;gap:10px;width:280px">
+    <div style="color:#94a3b8;font-size:13px;text-align:center">Ingresa tu contraseña para continuar</div>
     <input id="lock-input" type="password" placeholder="Contraseña..." autocomplete="current-password"
       style="background:#161929;border:1.5px solid #2a3050;border-radius:10px;padding:14px 16px;color:#f1f5f9;font-size:16px;outline:none;width:100%;box-sizing:border-box"
       onkeydown="if(event.key==='Enter')unlockApp()"/>
     <button onclick="unlockApp()" style="background:#00c97a;color:#001a10;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">Entrar</button>
     <div id="lock-error" style="color:#ef4444;font-size:12px;text-align:center;display:none">Contraseña incorrecta</div>
   </div>
-  <div id="lock-setup" style="display:none;color:#64748b;font-size:11px;text-align:center;max-width:260px;line-height:1.6">
-    Aún no tienes contraseña. Ve a <strong style="color:#94a3b8">🏢 Negocio</strong> para configurarla.
+  <!-- Panel código de activación -->
+  <div id="lock-panel-code" style="display:none;flex-direction:column;gap:10px;width:280px">
+    <div style="color:#94a3b8;font-size:13px;text-align:center">Ingresa tu código de activación</div>
+    <input id="lock-code-input" type="text" placeholder="Código de activación..."
+      style="background:#161929;border:1.5px solid #2a3050;border-radius:10px;padding:14px 16px;color:#f1f5f9;font-size:16px;outline:none;width:100%;box-sizing:border-box;text-transform:uppercase"
+      onkeydown="if(event.key==='Enter')activateApp()"/>
+    <button onclick="activateApp()" style="background:#00c97a;color:#001a10;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:800;cursor:pointer">Activar</button>
+    <div id="lock-code-error" style="color:#ef4444;font-size:12px;text-align:center;display:none">Código incorrecto o expirado</div>
+  </div>
+  <!-- Panel acceso expirado -->
+  <div id="lock-panel-expired" style="display:none;flex-direction:column;gap:10px;width:280px;text-align:center">
+    <div style="font-size:36px">⏰</div>
+    <div style="color:#f59e0b;font-size:15px;font-weight:700">Acceso expirado</div>
+    <div style="color:#94a3b8;font-size:12px">Tu código de activación ha vencido. Contacta al administrador para renovar tu acceso.</div>
   </div>
 </div>
 
@@ -570,6 +621,22 @@ Selecciona un cliente para continuar.<br><br>
 <textarea class="inp" id="biz-footer" placeholder="Ej: Cotización válida por 15 días. Precios sujetos a cambio sin previo aviso."></textarea>
 <button class="bp" onclick="saveBizInfo()">💾 Guardar Información</button>
 <button class="bs" style="margin-top:8px;width:100%" onclick="setAppPassword()">🔐 Contraseña de acceso</button>
+<div id="activation-info" style="margin-top:6px;font-size:11px;color:#64748b;text-align:center"></div>
+<script>
+(function(){
+  try {
+    const info = (typeof getActivationInfo === 'function') ? getActivationInfo() : null;
+    const el = document.getElementById('activation-info');
+    if (el && info) {
+      el.textContent = info.days >= 36500
+        ? '✅ App activada · Acceso de por vida'
+        : info.days > 0
+          ? '✅ App activada · Vence en ' + info.days + ' días'
+          : '⚠️ Acceso expirado';
+    }
+  } catch(e) {}
+})();
+</script>
 </div>
 </div>
 
@@ -5296,27 +5363,68 @@ function showPriceListDoc(cid) {
   };
 }
 
-// ══ BLOQUEO POR CONTRASEÑA ══
-const LOCK_KEY = 'cgs_app_password';
+// ══ SISTEMA DE ACCESO: CONTRASEÑA + CÓDIGO DE ACTIVACIÓN ══
+const LOCK_KEY      = 'cgs_app_password';
+const ACT_CODE_KEY  = 'cgs_activation_code';
+const ACT_EXP_KEY   = 'cgs_activation_expiry';
+const SESSION_KEY   = 'cgs_session_active';
+
+// Códigos gestionados en Firebase Firestore (colección: codigos)
+// Agrega/modifica códigos desde console.firebase.google.com sin tocar este archivo
 
 function checkLock() {
-  const pwd = localStorage.getItem(LOCK_KEY);
   const ls = document.getElementById('lock-screen');
+
+  // 1. Verificar si ya hay sesión activa en esta pestaña
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    ls.style.display = 'none';
+    return;
+  }
+
+  // 2. Verificar código de activación y expiración
+  const savedCode = localStorage.getItem(ACT_CODE_KEY);
+  const expiry    = localStorage.getItem(ACT_EXP_KEY);
+  const now       = Date.now();
+
+  if (!savedCode || !expiry) {
+    // No activado — mostrar panel de código
+    ls.style.display = 'flex';
+    showLockPanel('code');
+    return;
+  }
+
+  if (now > parseInt(expiry)) {
+    // Expirado
+    ls.style.display = 'flex';
+    showLockPanel('expired');
+    return;
+  }
+
+  // 3. Activado y vigente — verificar contraseña de sesión
+  const pwd = localStorage.getItem(LOCK_KEY);
   if (!pwd) {
-    // Sin contraseña configurada, entrar directo
+    // Sin contraseña, entrar directo
+    sessionStorage.setItem(SESSION_KEY, '1');
     ls.style.display = 'none';
     return;
   }
   ls.style.display = 'flex';
-  document.getElementById('lock-input').focus();
+  showLockPanel('pwd');
+  setTimeout(() => document.getElementById('lock-input').focus(), 100);
+}
+
+function showLockPanel(panel) {
+  document.getElementById('lock-panel-pwd').style.display     = panel === 'pwd'     ? 'flex' : 'none';
+  document.getElementById('lock-panel-code').style.display    = panel === 'code'    ? 'flex' : 'none';
+  document.getElementById('lock-panel-expired').style.display = panel === 'expired' ? 'flex' : 'none';
 }
 
 function unlockApp() {
-  const pwd = localStorage.getItem(LOCK_KEY);
+  const pwd   = localStorage.getItem(LOCK_KEY);
   const input = document.getElementById('lock-input').value;
   const errEl = document.getElementById('lock-error');
-  if (!pwd) { document.getElementById('lock-screen').style.display = 'none'; return; }
-  if (input === pwd) {
+  if (!pwd || input === pwd) {
+    sessionStorage.setItem(SESSION_KEY, '1');
     document.getElementById('lock-screen').style.display = 'none';
     document.getElementById('lock-input').value = '';
     errEl.style.display = 'none';
@@ -5324,6 +5432,48 @@ function unlockApp() {
     errEl.style.display = 'block';
     document.getElementById('lock-input').value = '';
     document.getElementById('lock-input').focus();
+  }
+}
+
+async function activateApp() {
+  const input = document.getElementById('lock-code-input').value.trim().toUpperCase();
+  const errEl = document.getElementById('lock-code-error');
+  const btn   = document.querySelector('#lock-panel-code button');
+
+  if (!input) return;
+
+  // Mostrar estado de carga
+  if (btn) { btn.textContent = 'Verificando...'; btn.disabled = true; }
+  errEl.style.display = 'none';
+
+  try {
+    let resultado = { valido: false };
+
+    if (window._verificarCodigoFirebase) {
+      resultado = await window._verificarCodigoFirebase(input);
+    } else {
+      // Fallback local si Firebase no cargó
+      const LOCAL = { 'GESTPCGS9379':36500, 'GEST365CGS88':365, 'CGS90GEST234':90, 'PRUEBA1CGS30':30 };
+      if (LOCAL[input] !== undefined) resultado = { valido: true, dias: LOCAL[input] };
+    }
+
+    if (resultado.valido) {
+      const dias   = resultado.dias;
+      const expiry = dias >= 36500 ? 9999999999999 : Date.now() + dias * 24 * 60 * 60 * 1000;
+      localStorage.setItem(ACT_CODE_KEY, input);
+      localStorage.setItem(ACT_EXP_KEY, String(expiry));
+      sessionStorage.setItem(SESSION_KEY, '1');
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('lock-code-input').value = '';
+      const msg = dias >= 36500 ? '✅ App activada — Acceso de por vida' : '✅ App activada por ' + dias + ' días';
+      toast(msg, '#10b981');
+    } else {
+      errEl.style.display = 'block';
+      document.getElementById('lock-code-input').value = '';
+      document.getElementById('lock-code-input').focus();
+    }
+  } finally {
+    if (btn) { btn.textContent = 'Activar'; btn.disabled = false; }
   }
 }
 
@@ -5344,6 +5494,14 @@ function setAppPassword() {
     localStorage.setItem(LOCK_KEY, np.trim());
     toast('🔐 Contraseña guardada', '#10b981');
   }
+}
+
+function getActivationInfo() {
+  const code   = localStorage.getItem(ACT_CODE_KEY);
+  const expiry = localStorage.getItem(ACT_EXP_KEY);
+  if (!code || !expiry) return null;
+  const days = Math.ceil((parseInt(expiry) - Date.now()) / 86400000);
+  return { code, days };
 }
 
 
