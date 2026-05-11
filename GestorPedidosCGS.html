@@ -141,8 +141,10 @@ table.rep th{background:#f0f0f0!important}
       const res  = await fetch(url);
       if (!res.ok) return { valido: false };
       const json = await res.json();
-      if (!json.fields || !json.fields.dias) return { valido: false };
-      const field = json.fields.dias;
+      // Firebase puede devolver el campo como "días" (con tilde) o "dias" (sin tilde)
+      const fieldData = json.fields['días'] || json.fields['dias'];
+      if (!json.fields || !fieldData) return { valido: false };
+      const field = fieldData;
       // Firestore REST devuelve: { integerValue: "30" } o { doubleValue: 30 }
       let dias = 0;
       if (field.integerValue !== undefined) dias = parseInt(field.integerValue, 10);
