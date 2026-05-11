@@ -127,44 +127,34 @@ table.rep th{background:#f0f0f0!important}
 }
 </style>
 
-<!-- ══ FIREBASE SDK ══ -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+<!-- ══ FIREBASE REST API (sin SDK) ══ -->
+<script>
+  const _FB_PROJECT = 'gestorpedidoscgs';
+  const _FB_APIKEY  = 'AIzaSyDuBy2hqAynYB2dzy2JIRr-osZVb0MKrKo';
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDuBy2hqAynYB2dzy2JIRr-osZVb0MKrKo",
-    authDomain: "gestorpedidoscgs.firebaseapp.com",
-    projectId: "gestorpedidoscgs",
-    storageBucket: "gestorpedidoscgs.firebasestorage.app",
-    messagingSenderId: "818392124571",
-    appId: "1:818392124571:web:ec05e7b0a91e89b18e0a3e"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
-
-  // Exponer función de verificación globalmente
   window._verificarCodigoFirebase = async function(codigo) {
     try {
-      const ref  = doc(db, 'codigos', codigo.trim().toUpperCase());
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const raw = snap.data().dias;
-        // Firebase int64 puede devolver objeto con .toNumber()
-        const dias = (raw && typeof raw === 'object' && raw.toNumber) ? raw.toNumber() : Number(raw) || 365;
-        return { valido: true, dias: dias };
-      }
-      return { valido: false };
+      const code = codigo.trim().toUpperCase();
+      const url  = 'https://firestore.googleapis.com/v1/projects/' + _FB_PROJECT +
+                   '/databases/(default)/documents/codigos/' + code +
+                   '?key=' + _FB_APIKEY;
+      const res  = await fetch(url);
+      if (!res.ok) return { valido: false };
+      const json = await res.json();
+      if (!json.fields || !json.fields.dias) return { valido: false };
+      const field = json.fields.dias;
+      // Firestore REST devuelve: { integerValue: "30" } o { doubleValue: 30 }
+      let dias = 0;
+      if (field.integerValue !== undefined) dias = parseInt(field.integerValue, 10);
+      else if (field.doubleValue !== undefined) dias = parseFloat(field.doubleValue);
+      else if (field.stringValue !== undefined) dias = parseInt(field.stringValue, 10);
+      return { valido: true, dias: isNaN(dias) ? 365 : dias };
     } catch(e) {
-      console.error('Firebase error:', e);
+      console.error('Firebase REST error:', e);
       return { valido: false, error: true };
     }
   };
-
-  // Marcar Firebase como listo
   window._firebaseReady = true;
-  document.dispatchEvent(new Event('firebaseReady'));
 </script>
 
 </head>
