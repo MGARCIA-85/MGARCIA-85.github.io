@@ -4278,7 +4278,7 @@ const DRIVE_CLIENT_ID = '259852953495-dkj4m02pj92grpakn37jttfd99g7e68a.apps.goog
 const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_FILE_NAME = 'gestor_cgs_backup.json';
 const DRIVE_REDIRECT  = 'https://mgarcia-85.github.io/GestorPedidosCGS.html';
-const DRIVE_GAS_URL   = 'https://script.google.com/macros/s/AKfycbzwBosbUUT7vPPhlOR1K-G1LCCVyfxBcexFQMQa5LMlhfdTxzoOzsNQ4gyuQV20nIXLHA/exec';
+const DRIVE_GAS_URL   = 'https://script.google.com/macros/s/AKfycbyZxkpoRUvrlvJK6SB_OBbLT5-ixdk2A_GSUdyrnmbd3rsHScmh4t5SCuLI80OtXj0_oA/exec';
 let _driveToken = null;
 let _driveFileId = null;
 let _driveRefreshToken = null;
@@ -4304,11 +4304,7 @@ async function driveHandleRedirect() {
   history.replaceState(null, '', window.location.pathname);
   toast('⏳ Conectando con Google Drive...','#f59e0b');
   try {
-    const res = await fetch(DRIVE_GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'exchange', code: code })
-    });
+    const res = await fetch(DRIVE_GAS_URL + '?action=exchange&code=' + encodeURIComponent(code));
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
@@ -4336,11 +4332,7 @@ async function driveEnsureToken() {
   const refresh = _driveRefreshToken || localStorage.getItem('gpgt_drive_refresh');
   if (!refresh) { _driveToken = null; renderDriveStatus(); return false; }
   try {
-    const res = await fetch(DRIVE_GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'refresh', refresh_token: refresh })
-    });
+    const res = await fetch(DRIVE_GAS_URL + '?action=refresh&refresh_token=' + encodeURIComponent(refresh));
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
