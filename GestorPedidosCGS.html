@@ -3163,14 +3163,10 @@ function calcBonusProgress(cid, r, extraOrd) {
   // El ID es autoincremental, así que pedidos más nuevos tienen ID mayor
   function orderPassesFilter(o) {
     if (resetTs) {
-      const resetDateStr = typeof resetTs === 'string' ? resetTs.split('T')[0] : new Date(resetTs).toISOString().split('T')[0];
-      const parts = (o.date||'').split('/');
-      if (parts.length < 3) return false;
-      const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
-      const oDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if (oDateStr > resetDateStr) return true;
-      if (oDateStr === resetDateStr) return o.id > (r._resetOid||0);
-      return false;
+      // Usar ID del pedido como fuente de verdad (autoincremental)
+      // Pedidos con ID mayor al que causó el reset son del nuevo ciclo
+      const resetOid = r._resetOid || 0;
+      return o.id > resetOid;
     }
     const parts = (o.date||'').split('/');
     if (parts.length < 3) return true;
@@ -3424,6 +3420,8 @@ function deliverBonus(cid, ri) {
     // Solo reinicia startDate si hay fecha límite definida
     if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
     r.resetTs=resetTs;
+    r._resetOid = Math.max(...(S.orders.filter(o=>Number(o.clientId)===Number(cid)).map(o=>o.id)||[0]));
+    r._cycleCount = (r._cycleCount||0) + 1;
     if (r.targets) r.targets.forEach(t=>t.manualUnits=0);
     save(); toast('🎁 Bonificación entregada — contador reiniciado','#10b981');
     window._cliOpen[cid]=true; renderClients();
@@ -3485,12 +3483,16 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
       r.manualUnits = 0;
       // Solo reinicia startDate si hay fecha límite definida
       if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
-      r.resetTs = resetTs; r._resetOid = oid;
+      r.resetTs = resetTs;
+      r._resetOid = oid;
+      r._cycleCount = (r._cycleCount||0) + 1;
     } else {
-      if (r.targets) r.targets.forEach(t => t.manualUnits=0);
+      if (r.targets) r.targets.forEach(t => { t.manualUnits=0; });
       // Solo reinicia startDate si hay fecha límite definida
       if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
-      r.resetTs = resetTs; r._resetOid = oid;
+      r.resetTs = resetTs;
+      r._resetOid = oid;
+      r._cycleCount = (r._cycleCount||0) + 1;
     }
     document.getElementById('bonus-modal').style.display = 'none';
     save(); toast('🎁 Bonificación agregada — pedido confirmado','#10b981');
