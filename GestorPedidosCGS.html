@@ -1834,7 +1834,7 @@ function generateOrderReport() {
       const p=S.products.find(x=>x.id===Number(bl.productId));
       const ul=p?.unitLabel||'unidad';
       const sub=(bl.price||0)*bl.qty*(Number(p?.unitSize)||1);
-      return `<tr style="background:#f0fdf4"><td style="padding:4px 8px;color:#15803d"><strong>**BONIFICACIÓN**</strong><br><span style="font-size:11px">${p?p.name+' ('+(p.presentation||'')+')'  :'—'}</span>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><span style="font-size:10px;color:#6b7280">${bl.ruleName}</span>`:''}</td>
+      return `<tr style="background:#f0fdf4"><td style="padding:4px 8px;color:#15803d"><span style="font-size:11px;font-weight:700">${p?p.name+' ('+(p.presentation||'')+')'  :'—'}</span>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><span style="font-size:10px;color:#6b7280">${bl.ruleName}</span>`:''}</td>
         <td style="padding:4px 8px;text-align:center;color:#15803d">${bl.qty}</td>
         <td style="padding:4px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
         <td style="padding:4px 8px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td></tr>`;
@@ -2491,7 +2491,6 @@ const us = Number(p?.unitSize)||1;
 const sub = pr * bl.qty * us;
 return `<tr style="background:#f0fdf4">
 <td style="padding:7px 6px;color:#15803d">
-  <strong>**BONIFICACIÓN**</strong>
   <div style="font-size:10px;color:#15803d">${p?p.name:'—'}${p?.presentation?' ('+p.presentation+')':''}</div>
   ${bl.ruleName&&bl.ruleName!=='Manual'?`<div style="font-size:10px;color:#6b7280">${bl.ruleName}</div>`:''}
 </td>
@@ -2634,7 +2633,7 @@ const bonusLines = (ord.bonusLines||[]).map(bl => {
   const ul = p?.unitLabel||'unidad';
   return `${bl.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(bl.price||0)}/${ul}`;
 }).join('\n');
-const bonusBlock = bonusLines ? `\n***BONIFICACIÓN***\n${bonusLines}` : '';
+const bonusBlock = bonusLines ? `\n${bonusLines}` : '';
 
 const tot = orderTotal(ord.items, ord.clientId);
 const totalFinal = ord.applyIva ? tot*1.12 : tot;
@@ -3421,7 +3420,10 @@ function deliverBonus(cid, ri) {
   askConfirm('¿Marcar bonificación como entregada?', 'El contador reiniciará desde cero.', () => {
     const r = S.bonuses?.[cid]?.[ri]; if (!r) return;
     const resetTs = new Date().toISOString();
-    r.manualUnits=0; r.startDate=new Date().toISOString().split('T')[0]; r.resetTs=resetTs;
+    r.manualUnits=0;
+    // Solo reinicia startDate si hay fecha límite definida
+    if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
+    r.resetTs=resetTs;
     if (r.targets) r.targets.forEach(t=>t.manualUnits=0);
     save(); toast('🎁 Bonificación entregada — contador reiniciado','#10b981');
     window._cliOpen[cid]=true; renderClients();
@@ -3480,11 +3482,14 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
     ord.status = 'Confirmado';
     const resetTs = new Date().toISOString();
     if (r.ruleType==='pool') {
-      r.manualUnits = 0; r.startDate = new Date().toISOString().split('T')[0];
+      r.manualUnits = 0;
+      // Solo reinicia startDate si hay fecha límite definida
+      if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
       r.resetTs = resetTs; r._resetOid = oid;
     } else {
       if (r.targets) r.targets.forEach(t => t.manualUnits=0);
-      r.startDate = new Date().toISOString().split('T')[0];
+      // Solo reinicia startDate si hay fecha límite definida
+      if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
       r.resetTs = resetTs; r._resetOid = oid;
     }
     document.getElementById('bonus-modal').style.display = 'none';
@@ -4707,7 +4712,7 @@ function generateRouteReport(rid) {
       const us = Number(p?.unitSize)||1;
       const sub = (bl.price||0)*bl.qty*us;
       return `<tr style="background:#f0fdf4">
-        <td style="padding:5px 8px;color:#15803d"><strong>**BONIFICACIÓN**</strong><br><small>${p?p.name+' ('+p.presentation+')':'—'}</small>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><small style="color:#6b7280">${bl.ruleName}</small>`:''}</td>
+        <td style="padding:5px 8px;color:#15803d"><small style="font-weight:700">${p?p.name+' ('+p.presentation+')':'—'}</small>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><small style="color:#6b7280">${bl.ruleName}</small>`:''}</td>
         <td style="padding:5px 8px;text-align:center;color:#15803d">${bl.qty}</td>
         <td style="padding:5px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
         <td style="padding:5px 8px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td>
