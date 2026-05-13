@@ -4304,7 +4304,11 @@ async function driveHandleRedirect() {
   history.replaceState(null, '', window.location.pathname);
   toast('⏳ Conectando con Google Drive...','#f59e0b');
   try {
-    const res = await fetch(DRIVE_GAS_URL + '?action=exchange&code=' + encodeURIComponent(code));
+    const res = await fetch(DRIVE_GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'exchange', code: code })
+    });
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
@@ -4313,9 +4317,39 @@ async function driveHandleRedirect() {
       localStorage.setItem('gpgt_drive_token', data.access_token);
       localStorage.setItem('gpgt_drive_refresh', data.refresh_token || '');
       localStorage.setItem('gpgt_drive_expiry', String(_driveTokenExpiry));
-      toast('✅ Google Drive conectado','#10b981');
+      // Verificar si ya existe respaldo en Drive antes de guardar
+      try {
+        const search = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'&fields=files(id,modifiedTime)&orderBy=modifiedTime+desc`,
+          { headers: { Authorization: 'Bearer '+_driveToken } }
+        );
+        const found = await search.json();
+        if (found.files && found.files.length) {
+          // Hay respaldo existente — preguntar si importar
+          _driveFileId = found.files[0].id;
+          localStorage.setItem('gpgt_drive_file_id', _driveFileId);
+          const modal = document.getElementById('confirm-modal');
+          const inner = modal.querySelector('div');
+          inner.innerHTML = `
+            <div style="font-size:28px;margin-bottom:8px">☁️</div>
+            <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">Drive conectado</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:18px">Se encontró un respaldo existente en Drive.<br>¿Deseas importar esos datos?</div>
+            <div style="display:flex;gap:10px">
+              <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">No, continuar vacío</button>
+              <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:800;cursor:pointer;font-size:13px">📥 Importar</button>
+            </div>`;
+          modal.style.display = 'flex';
+          _confirmCb = () => driveRestoreBackup(true);
+        } else {
+          // No hay respaldo — guardar el actual
+          toast('✅ Google Drive conectado','#10b981');
+          driveSaveBackup(false);
+        }
+      } catch(err) {
+        toast('✅ Google Drive conectado','#10b981');
+        driveSaveBackup(false);
+      }
       renderDriveStatus();
-      driveSaveBackup(false);
       goTab('backup');
     } else {
       toast('⚠️ Error al conectar Drive: ' + JSON.stringify(data.error),'#ef4444');
@@ -4332,7 +4366,11 @@ async function driveEnsureToken() {
   const refresh = _driveRefreshToken || localStorage.getItem('gpgt_drive_refresh');
   if (!refresh) { _driveToken = null; renderDriveStatus(); return false; }
   try {
-    const res = await fetch(DRIVE_GAS_URL + '?action=refresh&refresh_token=' + encodeURIComponent(refresh));
+    const res = await fetch(DRIVE_GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'refresh', refresh_token: refresh })
+    });
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
