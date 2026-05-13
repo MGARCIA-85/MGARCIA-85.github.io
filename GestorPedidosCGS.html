@@ -4304,11 +4304,7 @@ async function driveHandleRedirect() {
   history.replaceState(null, '', window.location.pathname);
   toast('⏳ Conectando con Google Drive...','#f59e0b');
   try {
-    const res = await fetch(DRIVE_GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'exchange', code: code })
-    });
+    const res = await fetch(DRIVE_GAS_URL + '?action=exchange&code=' + encodeURIComponent(code));
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
@@ -4366,11 +4362,7 @@ async function driveEnsureToken() {
   const refresh = _driveRefreshToken || localStorage.getItem('gpgt_drive_refresh');
   if (!refresh) { _driveToken = null; renderDriveStatus(); return false; }
   try {
-    const res = await fetch(DRIVE_GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'refresh', refresh_token: refresh })
-    });
+    const res = await fetch(DRIVE_GAS_URL + '?action=refresh&refresh_token=' + encodeURIComponent(refresh));
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
