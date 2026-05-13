@@ -5607,15 +5607,17 @@ function refreshActivationInfo() {
     el.style.color = '#10b981';
     return;
   }
-  const remaining = Math.ceil((exp - Date.now()) / 86400000);
+  const _now = Date.now();
+  const remaining = Math.ceil((exp - _now) / 86400000);
+  const _expDate = new Date(exp).toLocaleDateString('es-GT');
   if (remaining <= 0) {
-    el.textContent = '⚠️ Acceso expirado';
+    el.textContent = '⚠️ Acceso expirado · Venció: ' + _expDate;
     el.style.color = '#ef4444';
   } else if (remaining <= 30) {
-    el.textContent = '⚠️ Vence en ' + remaining + ' días · Código: ' + code;
+    el.textContent = '⚠️ Vence en ' + remaining + ' días (' + _expDate + ') · Código: ' + code;
     el.style.color = '#f59e0b';
   } else {
-    el.textContent = '✅ Vence en ' + remaining + ' días · Código: ' + code;
+    el.textContent = '✅ Vence en ' + remaining + ' días (' + _expDate + ') · Código: ' + code;
     el.style.color = '#10b981';
   }
 }
