@@ -4274,11 +4274,11 @@ save(); toast('🗑 Todos los datos eliminados'); renderBackup();
 // ═══════════════════════════════════════════════════════
 //  GOOGLE DRIVE
 // ═══════════════════════════════════════════════════════
-const DRIVE_CLIENT_ID = '259852953495-dkj4m02pj92grpakn37jttfd99g7e68a.apps.googleusercontent.com';
-const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
-const DRIVE_FILE_NAME = 'gestor_cgs_backup.json';
-const DRIVE_REDIRECT  = 'https://mgarcia-85.github.io/GestorPedidosCGS.html';
-const DRIVE_GAS_URL   = 'https://script.google.com/macros/s/AKfycbyZxkpoRUvrlvJK6SB_OBbLT5-ixdk2A_GSUdyrnmbd3rsHScmh4t5SCuLI80OtXj0_oA/exec';
+var DRIVE_CLIENT_ID = '259852953495-dkj4m02pj92grpakn37jttfd99g7e68a.apps.googleusercontent.com';
+var DRIVE_SCOPE         = 'https://www.googleapis.com/auth/drive.file';
+var DRIVE_FILE_NAME = 'gestor_cgs_backup.json';
+var DRIVE_REDIRECT   = 'https://mgarcia-85.github.io/GestorPedidosCGS.html';
+var DRIVE_GAS_URL     = 'https://script.google.com/macros/s/AKfycbyZxkpoRUvrlvJK6SB_OBbLT5-ixdk2A_GSUdyrnmbd3rsHScmh4t5SCuLI80OtXj0_oA/exec';
 let _driveToken = null;
 let _driveFileId = null;
 let _driveRefreshToken = null;
