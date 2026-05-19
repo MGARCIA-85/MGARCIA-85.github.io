@@ -1,16 +1,12 @@
 {
-  "id": "gestor-pedidos-cgs",
-  "name": "GestorPedidos CGS",
-  "short_name": "GestorCGS",
-  "description": "Sistema de gesti\u00f3n de pedidos CGS",
+  "name": "Gestor Pedidos",
+  "short_name": "Gestor Pedidos",
+  "description": "Gestor de pedidos, clientes y cotizaciones - CGS",
   "start_url": "./GestorPedidosCGS.html",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#0d0f18",
   "theme_color": "#00c97a",
   "orientation": "portrait",
-  "lang": "es",
-  "dir": "ltr",
   "icons": [
     {
       "src": "./icon-192.png",
