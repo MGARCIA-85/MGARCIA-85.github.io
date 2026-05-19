@@ -163,9 +163,25 @@ table.rep th{background:#f0f0f0!important}
 <body>
 
 <!-- ══ PANTALLA DE BLOQUEO ══ -->
+<!-- SPLASH SCREEN -->
+<div id="splash-screen" style="display:flex;position:fixed;inset:0;background:#0d0f18;z-index:999999;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px">
+  <div style="font-size:72px;animation:splashPulse 1s ease-in-out infinite alternate">📦</div>
+  <div style="color:#f1f5f9;font-size:26px;font-weight:900;letter-spacing:1px;text-align:center">Gestor Pedidos</div>
+  <div style="color:#00c97a;font-size:13px;font-weight:600;letter-spacing:3px;text-align:center">GT</div>
+  <div style="margin-top:40px;color:#475569;font-size:11px;letter-spacing:2px;text-align:center">DESARROLLADO POR</div>
+  <div style="color:#64748b;font-size:14px;font-weight:700;letter-spacing:1px;text-align:center">CGS</div>
+</div>
+<style>
+@keyframes splashPulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.12); }
+}
+</style>
+
 <div id="lock-screen" style="display:none;position:fixed;inset:0;background:#0d0f18;z-index:99999;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px">
-  <div style="font-size:48px">🔐</div>
-  <div style="color:#f1f5f9;font-size:20px;font-weight:800;letter-spacing:1px">GestorPedidos CGS</div>
+  <div style="font-size:52px">📦</div>
+  <div style="color:#f1f5f9;font-size:22px;font-weight:900;letter-spacing:1px;text-align:center">Gestor Pedidos</div>
+  <div style="color:#475569;font-size:11px;letter-spacing:3px;text-align:center">DESARROLLADO POR CGS</div>
   <!-- Panel contraseña de sesión -->
   <div id="lock-panel-pwd" style="display:flex;flex-direction:column;gap:10px;width:280px">
     <div style="color:#94a3b8;font-size:13px;text-align:center">Ingresa tu contraseña para continuar</div>
@@ -4574,6 +4590,18 @@ setupPreview();
 initAutoBackup();
 driveHandleRedirect();
 goTab('list');
+
+// Ocultar splash screen
+(function() {
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    setTimeout(() => {
+      splash.style.transition = 'opacity 0.5s ease';
+      splash.style.opacity = '0';
+      setTimeout(() => splash.style.display = 'none', 500);
+    }, 1800);
+  }
+})();
 // Ajustar top del nav según altura real del header
 const _hdr = document.getElementById('header');
 const _nav = document.getElementById('nav');
