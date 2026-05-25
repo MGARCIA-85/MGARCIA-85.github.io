@@ -392,6 +392,7 @@ Selecciona un cliente para continuar.<br><br>
     <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
     <button class="bb" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="generateOrderReport()">📄 PDF</button>
+<button class="bg" style="padding:8px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700" onclick="generateOrderReportSel()" title="Reporte pedidos seleccionados">☑️ Seleccionados</button>
   </div>
 </div>
 <!-- Pestañas de estado -->
@@ -1808,8 +1809,24 @@ function getReportFiltered() {
   return filtered;
 }
 
-function generateOrderReport() {
-  const filtered = getReportFiltered();
+// ── Selección de pedidos para reporte general ──
+if (!window._ordSel) window._ordSel = new Set();
+function toggleOrdSel(oid, checked) {
+  if (!window._ordSel) window._ordSel = new Set();
+  if (checked) window._ordSel.add(oid);
+  else window._ordSel.delete(oid);
+}
+function generateOrderReportSel() {
+  if (!window._ordSel || window._ordSel.size === 0) {
+    return toast('Selecciona al menos un pedido con ☑️', '#f59e0b');
+  }
+  const selIds = [...window._ordSel];
+  generateOrderReport(selIds);
+}
+
+function generateOrderReport(selIds) {
+  let filtered = getReportFiltered();
+  if (selIds) filtered = filtered.filter(o => selIds.includes(o.id));
   if (!filtered.length) return toast('Sin pedidos para el filtro seleccionado','#f59e0b');
   const b = S.biz;
   const fCli  = (document.getElementById('f-cli-report')?.value||'').trim();
@@ -1989,10 +2006,17 @@ card.className = 'card';
 card.dataset.id = o.id;
 card.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+<div style="display:flex;align-items:flex-start;gap:8px">
+<input type="checkbox" class="ord-report-chk" data-oid="${o.id}"
+  style="width:16px;height:16px;margin-top:3px;cursor:pointer;accent-color:#10b981;flex-shrink:0"
+  ${(window._ordSel||new Set()).has(o.id)?'checked':''}
+  onclick="event.stopPropagation();toggleOrdSel(${o.id},this.checked)"/>
 <div>
 <div style="font-weight:800;font-size:15px">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
 ${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}
+</div>
+</div>
 </div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
 <span class="${sCls}">${o.status}</span>
@@ -2630,13 +2654,13 @@ function shareOrderEmail() {
 if (!currentQuote) return;
 const ord = currentQuote;
 
-// Productos con guion y precio
+// Productos con 》y precio
 const prodLines = ord.items.map(it => {
   const p  = S.products.find(x => x.id===(it.productId||Number(it.pid)));
   const pr = (it.customPrice != null) ? it.customPrice : cliPrice(ord.clientId, it.productId||it.pid, p?.basePrice||0);
   const ul = p?.unitLabel||'unidad';
   const ivaText = ord.applyIva ? ' + IVA' : '';
-  return `- ${it.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
+  return `》${it.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
 }).join('\n');
 
 // Bonificaciones
@@ -2645,16 +2669,16 @@ const bonusLines = (ord.bonusLines||[]).map(bl => {
   const ul = p?.unitLabel||'unidad';
   return `${bl.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(bl.price||0)}/${ul}`;
 }).join('\n');
-const bonusBlock = bonusLines ? `\n${bonusLines}` : '';
+const bonusBlock = bonusLines ? `》BONIFICACIÓN《\n${bonusLines}` : '';
 
 const tot = orderTotal(ord.items, ord.clientId);
 const totalFinal = ord.applyIva ? tot*1.12 : tot;
 
-// Comentarios con ** al inicio
+// Comentarios con bullet •
 const cmts = (ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : [])).filter(c=>c&&c.trim());
-const comentariosTexto = cmts.map(c => `**${c}`).join('\n');
+const comentariosTexto = cmts.map(c => `•${c}`).join('\n');
 
-const ocLine = ord.oc ? `Pedido: ${ord.oc}` : '';
+const ocLine = ord.oc ? `•Pedido: ${ord.oc}` : '';
 
 const parts = [
   'Buen día, por favor facturar:',
@@ -2663,6 +2687,7 @@ const parts = [
   comentariosTexto,
   '',
   prodLines,
+  bonusBlock ? '' : null,
   bonusBlock,
   '',
   `TOTAL: ${Q(totalFinal)}`
@@ -2674,7 +2699,6 @@ const subject = `${ord.quote||''} ${ord.clientName}`.trim();
 if (navigator.share) {
   navigator.share({ title: subject, text: body }).catch(() => {});
 } else {
-  // Fallback para desktop
   window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 }
@@ -4659,6 +4683,7 @@ function renderRoutes() {
     return;
   }
   if (!window._routeOpen) window._routeOpen = {};
+  if (!window._routeSel) window._routeSel = {};  // pedidos seleccionados por ruta
   if (!window._cliOpen)   window._cliOpen   = {};
   if (!S.pinnedRoutes) S.pinnedRoutes = [];
 
@@ -4713,20 +4738,34 @@ function renderRoutes() {
       }).join(' ');
       const ordOpen = window._ordOpen && window._ordOpen[o.id];
       const itemsHtml = o.items.map(it => {
-        const p = S.products.find(x => x.id === (it.productId || Number(it.pid)));
+        const p   = S.products.find(x => x.id === (it.productId || Number(it.pid)));
         const pres = p?.presentation || p?.presentacion || '';
-        return `<div style="font-size:12px;color:#94a3b8;padding:2px 0;border-bottom:1px solid #1e2640">
-          <span style="color:#f1f5f9;font-weight:600">${p ? p.name : '—'}</span>
-          ${pres ? `<span style="color:#64748b"> (${pres})</span>` : ''}
-          <span style="float:right;color:#f59e0b;font-weight:700">×${it.qty} ${it.price!=null?'· '+Q(it.price*it.qty):''}</span>
+        const pr  = (it.customPrice != null) ? it.customPrice : cliPrice(o.clientId, it.productId||it.pid, p?.basePrice||0);
+        const ul  = p?.unitLabel || 'unidad';
+        const us  = Number(p?.unitSize) || 1;
+        const sub = pr * it.qty * us;
+        const ivaText = o.applyIva ? ' + IVA' : '';
+        return `<div style="font-size:12px;color:#94a3b8;padding:4px 0;border-bottom:1px solid #1e2640">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:#f1f5f9;font-weight:600">${p ? p.name : '—'}${pres ? ` <span style="color:#64748b;font-weight:400">(${pres})</span>` : ''}</span>
+            <span style="color:#f59e0b;font-weight:700;margin-left:8px">×${it.qty}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:2px">
+            <span style="color:#64748b;font-size:11px">${Q(pr)}/${ul}${ivaText}</span>
+            <span style="color:#10b981;font-size:11px;font-weight:700">${Q(sub)}</span>
+          </div>
         </div>`;
       }).join('');
 
       return `<div data-oid="${o.id}" data-rid="${r.id}" style="background:#161929;border-radius:8px;margin-bottom:6px;border-left:3px solid ${statusColor};overflow:hidden;${rSort==='manual'?'cursor:grab':''}">
         <!-- CABECERA: siempre visible, clic para expandir -->
         <div onclick="toggleRouteOrd(${o.id})" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;cursor:pointer">
-          <div style="flex:1;min-width:0">
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
             ${rSort==='manual'?`<span class="route-drag-handle" style="color:#64748b;font-size:16px;margin-right:6px;cursor:grab;user-select:none;touch-action:none">≡</span>`:''}
+            <input type="checkbox" class="route-ord-chk" data-rid="${r.id}" data-oid="${o.id}"
+              style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;flex-shrink:0"
+              ${(window._routeSel[r.id]||new Set()).has(o.id)?'checked':''}
+              onclick="event.stopPropagation();toggleRouteOrdSel(${r.id},${o.id},this.checked)"/>
             <span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} ${o.clientName}</span>
             <div style="font-size:10px;color:#64748b;margin-top:1px">${o.date.split(',')[0]}${(o.quote||o.oc)?` · ${o.quote?'Cot: '+o.quote:''}${o.oc?'· OC: '+o.oc:''}`:''}</div>
           </div>
@@ -4784,6 +4823,7 @@ function renderRoutes() {
         <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="addOrderToRoute(${r.id})" title="Agregar pedido">🛒</button>
         <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="markRouteConcluido(${r.id})" title="Concluir todos">✔</button>
         <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReport(${r.id})" title="Informe PDF">📄</button>
+        <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReportSel(${r.id})" title="Informe seleccionados">☑️</button>
         <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="promptRenameRoute(${r.id})" title="Renombrar">✏️</button>
         <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="deleteRoute(${r.id})" title="Eliminar ruta">🗑</button>
       </div>
@@ -4920,6 +4960,7 @@ function togglePinRoute(rid) {
 
 function toggleRoute(rid) {
   if (!window._routeOpen) window._routeOpen = {};
+  if (!window._routeSel) window._routeSel = {};  // pedidos seleccionados por ruta
 if (!window._cliOpen)   window._cliOpen   = {};
   window._routeOpen[rid] = !window._routeOpen[rid];
   renderRoutes();
@@ -4965,11 +5006,33 @@ function markRouteConcluido(rid) {
   if (btn) { btn.style.background='#10b981'; btn.style.color='#fff'; }
 }
 
+// ── Selección de pedidos en ruta ──────────────────
+function toggleRouteOrdSel(rid, oid, checked) {
+  if (!window._routeSel) window._routeSel = {};
+  if (!window._routeSel[rid]) window._routeSel[rid] = new Set();
+  if (checked) {
+    window._routeSel[rid].add(oid);
+  } else {
+    window._routeSel[rid].delete(oid);
+  }
+}
+
+// ── Informe de ruta solo con seleccionados ──────────────────
+function generateRouteReportSel(rid) {
+  const sel = window._routeSel && window._routeSel[rid];
+  if (!sel || sel.size === 0) {
+    return toast('Selecciona al menos un pedido con ☑️', '#f59e0b');
+  }
+  // Filtrar solo los seleccionados y llamar generateRouteReport con override
+  generateRouteReport(rid, [...sel]);
+}
+
 // ── Informe de ruta (ventana nueva) ──────────────────
-function generateRouteReport(rid) {
+function generateRouteReport(rid, selIds) {
   const route = S.routes.find(r=>r.id===rid); if(!route) return;
   if (!route.orders) route.orders = [];
-  const orders = route.orders.map(id=>S.orders.find(o=>o.id===id)).filter(Boolean);
+  let orders = route.orders.map(id=>S.orders.find(o=>o.id===id)).filter(Boolean);
+  if (selIds) orders = orders.filter(o => selIds.includes(o.id));
   if (!orders.length) { toast('La ruta no tiene pedidos','#ef4444'); return; }
 
   // Aplicar el mismo orden configurado en la vista
@@ -5220,6 +5283,7 @@ function gsGoRoute(rid) {
   goTab('routes');
   setTimeout(()=>{
     if (!window._routeOpen) window._routeOpen = {};
+  if (!window._routeSel) window._routeSel = {};  // pedidos seleccionados por ruta
     window._routeOpen[rid] = true;
     renderRoutes();
     // Scroll al card de la ruta
