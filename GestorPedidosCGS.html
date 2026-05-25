@@ -392,7 +392,6 @@ Selecciona un cliente para continuar.<br><br>
     <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
     <button class="bb" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="generateOrderReport()">📄 PDF</button>
-<button class="bg" style="padding:8px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700" onclick="generateOrderReportSel()" title="Reporte pedidos seleccionados">☑️ Seleccionados</button>
   </div>
 </div>
 <!-- Pestañas de estado -->
@@ -5089,7 +5088,6 @@ function renderRoutes() {
         <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="addOrderToRoute(${r.id})" title="Agregar pedido">🛒</button>
         <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="markRouteConcluido(${r.id})" title="Concluir todos">✔</button>
         <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReport(${r.id})" title="Informe PDF">📄</button>
-        <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReportSel(${r.id})" title="Informe seleccionados">☑️</button>
         <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="promptRenameRoute(${r.id})" title="Renombrar">✏️</button>
         <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="deleteRoute(${r.id})" title="Eliminar ruta">🗑</button>
       </div>
