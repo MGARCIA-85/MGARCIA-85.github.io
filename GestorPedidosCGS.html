@@ -402,6 +402,18 @@ Selecciona un cliente para continuar.<br><br>
   <button id="tab-Confirmado" onclick="setOrderTab('Confirmado')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#60a5fa">✅ Confirmado <span id="cnt-Confirmado" style="font-size:10px"></span></button>
   <button id="tab-Concluido"  onclick="setOrderTab('Concluido')"  style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#052e16;color:#10b981">✔ Concluido <span id="cnt-Concluido" style="font-size:10px"></span></button>
 </div>
+<!-- Barra fija selección pedidos generales -->
+<div id="ord-sel-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#0d1a2e;border-bottom:2px solid #3b82f6;padding:10px 12px;flex-direction:column;gap:8px;box-shadow:0 4px 20px #00000090">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span id="ord-sel-count" style="font-size:13px;font-weight:700;color:#60a5fa"></span>
+    <div style="display:flex;gap:6px">
+      <button onclick="selectAllOrdVisible()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;cursor:pointer">✔ Todos</button>
+      <button onclick="clearOrdSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+    </div>
+  </div>
+  <div id="ord-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
+  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
+</div>
 <div id="lst-body"></div>
 </div>
 
@@ -421,12 +433,18 @@ Selecciona un cliente para continuar.<br><br>
   <!-- Botón Municipios -->
   <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#a78bfa;border-color:#2e1a5f"
     onclick="(function(){var m=document.getElementById('mun-form-body'),b=document.getElementById('dept-form-body'),c=document.getElementById('cli-form-body');var open=m.style.display!=='none';m.style.display=open?'none':'block';if(!open){b.style.display='none';c.style.display='none';renderMunList();}})()">
-    🏘️ Municipios
+    🏘️ Sectores
+  </button>
+
+  <!-- Botón Rutas Cliente -->
+  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#34d399;border-color:#064e3b"
+    onclick="(function(){var r=document.getElementById('ruta-form-body'),b=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),c=document.getElementById('cli-form-body');var open=r.style.display!=='none';r.style.display=open?'none':'block';if(!open){b.style.display='none';m.style.display='none';c.style.display='none';renderRutaClienteList();}})()">
+    🚚 Rutas
   </button>
 
   <!-- Botón Nuevo Cliente -->
   <button class="bp" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
-    onclick="(function(){var b=document.getElementById('cli-form-body'),d=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){d.style.display='none';m.style.display='none';}})()">
+    onclick="(function(){var b=document.getElementById('cli-form-body'),d=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),r=document.getElementById('ruta-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){d.style.display='none';m.style.display='none';r.style.display='none';}})()">
     ➕ Nuevo Cliente
   </button>
 
@@ -448,14 +466,34 @@ Selecciona un cliente para continuar.<br><br>
   <div id="mun-list" style="margin-top:10px"></div>
 </div>
 
+<!-- Panel Rutas Cliente (colapsado) -->
+<div id="ruta-form-body" style="display:none;background:#0d1a12;border:1px solid #064e3b;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <input id="new-ruta-cliente-name" placeholder="Nombre de la ruta (ej: Ruta Escuintla, Ruta Occidente...)"
+    style="display:block;width:100%;box-sizing:border-box;background:#0d2010;color:#f1f5f9;border:1px solid #10b981;border-radius:8px;padding:12px 14px;font-size:14px;outline:none;margin-bottom:8px"/>
+  <button style="width:100%;padding:11px;font-size:14px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer" onclick="addRutaCliente()">+ Agregar ruta</button>
+  <div id="ruta-cliente-list" style="margin-top:10px"></div>
+</div>
+
 <!-- Panel Nuevo Cliente (colapsado) -->
 <div id="cli-form-body" style="display:none;background:#0d1525;border:1px solid #2a3050;border-radius:12px;padding:12px 14px;margin-bottom:10px">
   <label class="lbl">Nombre *</label>
   <input class="inp" id="nc-n" placeholder="Ej: Carlos Martínez"/>
-  <label class="lbl">Teléfono</label>
-  <input class="inp" id="nc-p" placeholder="Ej: 5000-0000"/>
-  <label class="lbl">Dirección</label>
-  <input class="inp" id="nc-a" placeholder="Ej: Zona 5, Xela"/>
+  <label class="lbl">🚚 Ruta</label>
+  <select id="nc-route-id" class="sel" style="margin-bottom:12px;width:100%">
+    <option value="">— Sin ruta asignada —</option>
+  </select>
+  <script>
+  (function(){
+    const sel = document.getElementById('nc-route-id');
+    if (sel && window.S && S.rutasCliente) {
+      S.rutasCliente.forEach(r => {
+        const o = document.createElement('option');
+        o.value = r.id; o.textContent = r.name;
+        sel.appendChild(o);
+      });
+    }
+  })();
+  </script>
   <label class="lbl">🏛️ Departamento</label>
   <div style="position:relative;margin-bottom:10px">
     <input id="nc-dept-lbl" class="inp" style="margin-bottom:0" placeholder="Buscar departamento..." autocomplete="off"
@@ -463,13 +501,17 @@ Selecciona un cliente para continuar.<br><br>
     <input type="hidden" id="nc-dept-id"/>
     <div id="nc-dept-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #3b82f6;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>
   </div>
-  <label class="lbl">🏘️ Municipio</label>
+  <label class="lbl">🏘️ Sector</label>
   <div style="position:relative;margin-bottom:12px">
-    <input id="nc-mun-lbl" class="inp" style="margin-bottom:0" placeholder="Buscar municipio..." autocomplete="off"
+    <input id="nc-mun-lbl" class="inp" style="margin-bottom:0" placeholder="Buscar sector..." autocomplete="off"
       oninput="ncFieldSearch('mun',this.value)" onfocus="ncFieldSearch('mun',this.value)"/>
     <input type="hidden" id="nc-mun-id"/>
     <div id="nc-mun-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>
   </div>
+  <label class="lbl">Dirección</label>
+  <input class="inp" id="nc-a" placeholder="Ej: Zona 5, Xela"/>
+  <label class="lbl">Teléfono</label>
+  <input class="inp" id="nc-p" placeholder="Ej: 5000-0000"/>
   <button class="bp" onclick="addClient()">Agregar Cliente</button>
 </div>
 
@@ -488,6 +530,30 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 </div>
 <div class="hint" id="cli-drag-hint" style="display:none;text-align:center">Mantén presionado ≡ para arrastrar y reordenar</div>
+<!-- Barra flotante edición masiva -->
+<div id="cli-sel-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#0d2010;border-bottom:2px solid #10b981;padding:10px 12px;flex-direction:column;gap:8px;box-shadow:0 4px 20px #00000080">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span id="cli-sel-count" style="font-size:13px;font-weight:700;color:#10b981"></span>
+    <div style="display:flex;gap:6px">
+      <button onclick="selectAllCliVisible()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #10b981;border-radius:6px;color:#10b981;cursor:pointer">✔ Todos</button>
+      <button onclick="clearCliSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <select id="mass-ruta" class="sel" style="flex:1;min-width:100px;font-size:12px;padding:5px;margin:0">
+      <option value="">🚚 Ruta...</option>
+    </select>
+    <select id="mass-dept" class="sel" style="flex:1;min-width:100px;font-size:12px;padding:5px;margin:0">
+      <option value="">🏛️ Depto...</option>
+    </select>
+    <select id="mass-mun" class="sel" style="flex:1;min-width:100px;font-size:12px;padding:5px;margin:0">
+      <option value="">🏘️ Sector...</option>
+    </select>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button onclick="applyMassCliEdit()" style="flex:1;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">✅ Aplicar a seleccionados</button>
+  </div>
+</div>
 <div id="cli-body"></div>
 </div>
 
@@ -582,14 +648,23 @@ Selecciona un cliente para continuar.<br><br>
     style="display:block;width:100%;box-sizing:border-box;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;margin-bottom:6px"/>
   <div id="gen-dept-checks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
 
-  <label class="lbl">🏘️ Municipios <span style="color:#64748b;font-size:10px">(vacío = todos)</span></label>
-  <input id="gen-mun-search" placeholder="Buscar municipio..." oninput="filterGenChips('mun')"
+  <label class="lbl">🏘️ Sectores <span style="color:#64748b;font-size:10px">(vacío = todos)</span></label>
+  <input id="gen-mun-search" placeholder="Buscar sector..." oninput="filterGenChips('mun')"
     style="display:block;width:100%;box-sizing:border-box;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;margin-bottom:6px"/>
   <div id="gen-mun-checks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
 
   <button class="bg" style="width:100%;padding:12px;font-size:14px;font-weight:800" onclick="generateRouteOrdersFromPanel()">🚀 Generar Pedidos</button>
 </div>
 
+<!-- Barra fija selección pedidos de ruta -->
+<div id="route-sel-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a0d00;border-bottom:2px solid #f59e0b;padding:10px 12px;flex-direction:column;gap:8px;box-shadow:0 4px 20px #00000090">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span id="route-sel-count" style="font-size:13px;font-weight:700;color:#f59e0b"></span>
+    <button onclick="clearAllRouteSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+  </div>
+  <div id="route-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
+  <button onclick="printAllRouteSel()" style="width:100%;padding:9px;background:#f59e0b;color:#0d0f18;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
+</div>
 <div id="routes-list"></div>
 </div>
 </div>
@@ -763,7 +838,9 @@ nextOid: 1,
 categories: [],
 nextDeptId: 1,
 municipios: [],
+  rutasCliente: [],
 nextMunId: 1,
+  nextRutaClienteId: 1,
 lastBk: null,
 };
 
@@ -796,6 +873,7 @@ if (!S.depts)   S.depts   = [];
 if (!S.nextDeptId)    S.nextDeptId    = (S.depts.length ? Math.max(...S.depts.map(c=>c.id)) + 1 : 1);
 if (!S.municipios)    S.municipios    = [];
 if (!S.nextMunId)     S.nextMunId     = (S.municipios.length ? Math.max(...S.municipios.map(m=>m.id)) + 1 : 1);
+if (!S.nextRutaClienteId) S.nextRutaClienteId = ((S.rutasCliente||[]).length ? Math.max(...S.rutasCliente.map(r=>r.id)) + 1 : 1);
 // Migrar routeId de clientes a deptId si existía antes
 if (S.clients) S.clients.forEach(c => { if (c.routeId && !c.deptId) { c.deptId = c.routeId; delete c.routeId; } });
 if (S.products) S.products.forEach(p => {
@@ -1815,6 +1893,52 @@ function toggleOrdSel(oid, checked) {
   if (!window._ordSel) window._ordSel = new Set();
   if (checked) window._ordSel.add(oid);
   else window._ordSel.delete(oid);
+  updateOrdSelBar();
+}
+
+function updateOrdSelBar() {
+  const bar = document.getElementById('ord-sel-bar');
+  const n = (window._ordSel||new Set()).size;
+  if (!bar) return;
+  if (n === 0) {
+    bar.style.display = 'none';
+    const body = document.getElementById('lst-body');
+    if (body) body.style.paddingTop = '0';
+    return;
+  }
+  bar.style.display = 'flex';
+  document.getElementById('ord-sel-count').textContent = n + ' pedido' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'');
+  // Resumen: total y clientes
+  const selOrds = [...(window._ordSel)].map(id => S.orders.find(o=>o.id===id)).filter(Boolean);
+  const total = selOrds.reduce((s,o)=>{ const t=orderTotal(o.items,o.clientId); return s+(o.applyIva?t*1.12:t); },0);
+  const prods = {};
+  selOrds.forEach(o => o.items.forEach(it => {
+    const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+    const k = (p?p.name:'—')+' ('+(p?.presentation||'—')+')';
+    prods[k] = (prods[k]||0) + Number(it.qty);
+  }));
+  const prodLines = Object.entries(prods).map(([k,v])=>`• ${k}: <strong style="color:#f1f5f9">${v}</strong>`).join(' &nbsp;');
+  document.getElementById('ord-sel-summary').innerHTML =
+    `<div style="color:#f59e0b;font-weight:700;margin-bottom:3px">Total: ${Q(total)}</div>${prodLines}`;
+  setTimeout(() => {
+    const barH = bar.offsetHeight;
+    const body = document.getElementById('lst-body');
+    if (body) body.style.paddingTop = (barH + 8) + 'px';
+  }, 50);
+}
+
+function clearOrdSel() {
+  window._ordSel = new Set();
+  document.querySelectorAll('.ord-report-chk').forEach(chk => chk.checked = false);
+  updateOrdSelBar();
+}
+
+function selectAllOrdVisible() {
+  document.querySelectorAll('.ord-report-chk').forEach(chk => {
+    chk.checked = true;
+    window._ordSel.add(Number(chk.dataset.oid));
+  });
+  updateOrdSelBar();
 }
 function generateOrderReportSel() {
   if (!window._ordSel || window._ordSel.size === 0) {
@@ -1822,6 +1946,10 @@ function generateOrderReportSel() {
   }
   const selIds = [...window._ordSel];
   generateOrderReport(selIds);
+  // Limpiar selección después de imprimir
+  window._ordSel = new Set();
+  document.querySelectorAll('.ord-report-chk').forEach(chk => chk.checked = false);
+  updateOrdSelBar();
 }
 
 function generateOrderReport(selIds) {
@@ -1898,7 +2026,7 @@ function generateOrderReport(selIds) {
 
   const logoHtml = b.logoData ? `<img src="${b.logoData}" style="width:50px;height:50px;border-radius:8px;object-fit:cover"/>` : `<div style="font-size:28px">${b.emoji||'📦'}</div>`;
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:16px;color:#111;background:#fff}@media print{body{padding:8px}}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:16px;color:#111;background:#fff;font-size:17px}table{font-size:17px}th,td{font-size:17px}@media print{body{padding:8px}}</style>
   </head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb">
     <div style="display:flex;gap:12px;align-items:center">${logoHtml}<div>
@@ -2291,6 +2419,49 @@ function deleteDept(id) {
     S.depts = S.depts.filter(c=>c.id!==id);
     save(); renderDeptList(); renderClients();
     toast('Departamento eliminado');
+  });
+}
+
+// ── Gestión de Rutas Cliente ──────────────────────────────
+function addRutaCliente() {
+  const inp = document.getElementById('new-ruta-cliente-name');
+  const name = inp.value.trim();
+  if (!name) { toast('Escribe el nombre de la ruta', '#ef4444'); return; }
+  if (!S.rutasCliente) S.rutasCliente = [];
+  S.rutasCliente.push({ id: S.nextRutaClienteId++, name });
+  inp.value = '';
+  save(); renderRutaClienteList(); renderClients();
+  toast('🚚 Ruta agregada');
+}
+
+function renderRutaClienteList() {
+  const wrap = document.getElementById('ruta-cliente-list');
+  if (!wrap) return;
+  if (!S.rutasCliente || !S.rutasCliente.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin rutas. Agrega una arriba.</div>';
+    return;
+  }
+  wrap.innerHTML = S.rutasCliente.map(r => {
+    const count = S.clients.filter(c => c.rutaClienteId === r.id).length;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteRutaCliente(${r.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteRutaCliente(id) {
+  const r = (S.rutasCliente||[]).find(x=>x.id===id);
+  if (!r) return;
+  const count = S.clients.filter(c=>c.rutaClienteId===id).length;
+  const msg = count
+    ? `Esto quitará la ruta "${r.name}" de ${count} cliente(s). ¿Continuar?`
+    : `¿Eliminar la ruta "${r.name}"?`;
+  askConfirm('🗑 Eliminar ruta', msg, () => {
+    S.clients.forEach(c => { if (c.rutaClienteId===id) c.rutaClienteId=null; });
+    S.rutasCliente = S.rutasCliente.filter(x=>x.id!==id);
+    save(); renderRutaClienteList(); renderClients();
+    toast('Ruta eliminada');
   });
 }
 
@@ -2818,7 +2989,8 @@ function addClient() {
     phone:       document.getElementById('nc-p').value.trim(),
     address:     document.getElementById('nc-a').value.trim(),
     deptId:      deptVal  ? Number(deptVal)  : null,
-    municipioId: munVal   ? Number(munVal)   : null
+    municipioId: munVal   ? Number(munVal)   : null,
+    rutaClienteId: document.getElementById('nc-route-id')?.value ? Number(document.getElementById('nc-route-id').value) : null
   });
   const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
   S.cp[id] = init;
@@ -2830,9 +3002,91 @@ function addClient() {
   toast('👥 Cliente agregado'); renderClients();
 }
 
+// ── Edición masiva de clientes ──────────────────
+if (!window._cliSel) window._cliSel = new Set();
+
+function toggleCliSel(id, checked) {
+  if (!window._cliSel) window._cliSel = new Set();
+  if (checked) window._cliSel.add(id);
+  else window._cliSel.delete(id);
+  updateCliSelBar();
+}
+
+function updateCliSelBar() {
+  let bar = document.getElementById('cli-sel-bar');
+  const n = (window._cliSel||new Set()).size;
+  if (!bar) return;
+  if (n === 0) {
+    bar.style.display = 'none';
+    document.getElementById('cli-body').style.paddingTop = '0';
+    return;
+  }
+  bar.style.display = 'flex';
+  const cnt = bar.querySelector('#cli-sel-count');
+  if (cnt) cnt.textContent = n + ' cliente' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'');
+  // Empujar lista para que no quede tapada por la barra
+  setTimeout(() => {
+    const barH = bar.offsetHeight;
+    const body = document.getElementById('cli-body');
+    if (body) body.style.paddingTop = (barH + 8) + 'px';
+  }, 50);
+}
+
+function applyMassCliEdit() {
+  const sel = window._cliSel;
+  if (!sel || sel.size === 0) return toast('Selecciona al menos un cliente','#f59e0b');
+  const rutaVal = document.getElementById('mass-ruta')?.value;
+  const deptVal = document.getElementById('mass-dept')?.value;
+  const munVal  = document.getElementById('mass-mun')?.value;
+  if (!rutaVal && !deptVal && !munVal) return toast('Selecciona al menos un campo a asignar','#f59e0b');
+  sel.forEach(id => {
+    const c = S.clients.find(x=>x.id===id);
+    if (!c) return;
+    if (rutaVal) c.rutaClienteId = Number(rutaVal);
+    if (deptVal) c.deptId = Number(deptVal);
+    if (munVal)  c.municipioId = Number(munVal);
+  });
+  const count = sel.size;
+  save(); renderClients();
+  toast('✅ ' + count + ' clientes actualizados');
+  window._cliSel = new Set();
+  document.querySelectorAll('.cli-chk').forEach(chk => chk.checked = false);
+  updateCliSelBar();
+}
+
+function clearCliSel() {
+  window._cliSel = new Set();
+  document.querySelectorAll('.cli-chk').forEach(chk => chk.checked = false);
+  updateCliSelBar();
+}
+
+function selectAllCliVisible() {
+  document.querySelectorAll('.cli-chk').forEach(chk => {
+    chk.checked = true;
+    window._cliSel.add(Number(chk.dataset.id));
+  });
+  updateCliSelBar();
+}
+
 function renderClients() {
 if (!window._cliOpen) window._cliOpen = {};
 document.getElementById('cli-title').textContent = `Clientes (${S.clients.length})`;
+// Poblar selectores de edición masiva
+const massRuta = document.getElementById('mass-ruta');
+const massDept = document.getElementById('mass-dept');
+const massMun  = document.getElementById('mass-mun');
+if (massRuta) {
+  massRuta.innerHTML = '<option value="">🚚 Ruta...</option>' +
+    (S.rutasCliente||[]).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+}
+if (massDept) {
+  massDept.innerHTML = '<option value="">🏛️ Depto...</option>' +
+    (S.depts||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+}
+if (massMun) {
+  massMun.innerHTML = '<option value="">🏘️ Sector...</option>' +
+    (S.municipios||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+}
 
 // Actualizar filtros de departamento y municipio
 const rfSel = document.getElementById('cli-dept-filter');
@@ -2892,7 +3146,12 @@ const dh = clientSortMode==='manual' ? `<span class="drag-handle" title="Arrastr
 const isCliOpen = !!window._cliOpen[c.id];
 card.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="toggleCli(${c.id})">
-<div style="display:flex;align-items:center;gap:4px">${dh}
+<div style="display:flex;align-items:center;gap:6px">
+<input type="checkbox" class="cli-chk" data-id="${c.id}"
+  style="width:17px;height:17px;flex-shrink:0;cursor:pointer;accent-color:#10b981;margin-top:2px"
+  ${(window._cliSel||new Set()).has(c.id)?'checked':''}
+  onclick="event.stopPropagation();toggleCliSel(${c.id},this.checked)"/>
+${dh}
 <div>
 <div style="font-weight:800;font-size:15px">${c.name}</div>
 ${c.deptId ? (()=>{ const cat=(S.depts||[]).find(x=>x.id===c.deptId); return cat?`<div style="font-size:10px;display:inline-block;background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:8px;margin-top:2px">🏛️ ${cat.name}</div>`:''; })() : ''}
@@ -3646,20 +3905,25 @@ const curDept = (S.depts||[]).find(d=>d.id===c.deptId);
 const curMun  = (S.municipios||[]).find(m=>m.id===c.municipioId);
 document.getElementById("cc-"+id).innerHTML =
 '<label class="lbl">Nombre</label><input class="inp" id="ecn-'+id+'" value="'+c.name+'"/>' +
-'<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'"/>' +
-'<label class="lbl">Dirección</label><input class="inp" id="eca-'+id+'" value="'+(c.address||"")+'"/>' +
+'<label class="lbl">🚚 Ruta</label>' +
+'<select id="ecr-'+id+'" class="sel" style="margin-bottom:12px;width:100%">' +
+'<option value="">— Sin ruta —</option>' +
+(S.rutasCliente||[]).map(r=>'<option value="'+r.id+'"'+(c.rutaClienteId===r.id?' selected':'')+'>'+r.name+'</option>').join('') +
+'</select>' +
 '<label class="lbl">🏛️ Departamento</label>' +
 '<div style="position:relative;margin-bottom:10px">' +
 '<input id="ecdl-'+id+'" class="inp" style="margin-bottom:0" placeholder="Buscar departamento..." value="'+(curDept?curDept.name:'')+'" autocomplete="off" oninput="cliFieldSearch(\'dept\','+id+',this.value)" onfocus="cliFieldSearch(\'dept\','+id+',this.value)"/>' +
 '<input type="hidden" id="ecc-'+id+'" value="'+(c.deptId||'')+'"/>' +
 '<div id="ecdrop-'+id+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #3b82f6;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>' +
 '</div>' +
-'<label class="lbl">🏘️ Municipio</label>' +
+'<label class="lbl">🏘️ Sector</label>' +
 '<div style="position:relative;margin-bottom:10px">' +
-'<input id="ecml-'+id+'" class="inp" style="margin-bottom:0" placeholder="Buscar municipio..." value="'+(curMun?curMun.name:'')+'" autocomplete="off" oninput="cliFieldSearch(\'mun\','+id+',this.value)" onfocus="cliFieldSearch(\'mun\','+id+',this.value)"/>' +
+'<input id="ecml-'+id+'" class="inp" style="margin-bottom:0" placeholder="Buscar sector..." value="'+(curMun?curMun.name:'')+'" autocomplete="off" oninput="cliFieldSearch(\'mun\','+id+',this.value)" onfocus="cliFieldSearch(\'mun\','+id+',this.value)"/>' +
 '<input type="hidden" id="ecm-'+id+'" value="'+(c.municipioId||'')+'"/>' +
 '<div id="ecmdrop-'+id+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>' +
 '</div>' +
+'<label class="lbl">Dirección</label><input class="inp" id="eca-'+id+'" value="'+(c.address||"")+'" />' +
+'<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'" />' +
 '<div class="two">' +
 '<button class="bg" onclick="saveCliForm('+id+')">✔ Guardar</button>' +
 '<button class="bs" onclick="renderClients()">Cancelar</button>' +
@@ -3709,6 +3973,8 @@ const selDept = document.getElementById("ecc-"+id)?.value;
 const selMun  = document.getElementById("ecm-"+id)?.value;
 c.deptId     = selDept ? Number(selDept) : null;
 c.municipioId= selMun  ? Number(selMun)  : null;
+  const selRoute = document.getElementById('ecr-'+id)?.value;
+  c.rutaClienteId = selRoute ? Number(selRoute) : null;
 save(); toast("✔ Cliente actualizado"); renderClients();
 }
 
@@ -5010,11 +5276,85 @@ function markRouteConcluido(rid) {
 function toggleRouteOrdSel(rid, oid, checked) {
   if (!window._routeSel) window._routeSel = {};
   if (!window._routeSel[rid]) window._routeSel[rid] = new Set();
-  if (checked) {
-    window._routeSel[rid].add(oid);
-  } else {
-    window._routeSel[rid].delete(oid);
+  if (checked) window._routeSel[rid].add(oid);
+  else window._routeSel[rid].delete(oid);
+  updateRouteSelBar();
+}
+
+function updateRouteSelBar() {
+  const bar = document.getElementById('route-sel-bar');
+  if (!bar) return;
+  // Contar todos los seleccionados en todas las rutas
+  let allSel = [];
+  Object.values(window._routeSel||{}).forEach(set => set.forEach(id => allSel.push(id)));
+  const n = allSel.length;
+  if (n === 0) {
+    bar.style.display = 'none';
+    const body = document.getElementById('routes-list');
+    if (body) body.style.paddingTop = '0';
+    return;
   }
+  bar.style.display = 'flex';
+  document.getElementById('route-sel-count').textContent = n + ' pedido' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'');
+  // Resumen
+  const selOrds = allSel.map(id => S.orders.find(o=>o.id===id)).filter(Boolean);
+  const total = selOrds.reduce((s,o)=>{ const t=orderTotal(o.items,o.clientId); return s+(o.applyIva?t*1.12:t); },0);
+  const prods = {};
+  selOrds.forEach(o => o.items.forEach(it => {
+    const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+    const k = (p?p.name:'—')+' ('+(p?.presentation||'—')+')';
+    prods[k] = (prods[k]||0) + Number(it.qty);
+  }));
+  const prodLines = Object.entries(prods).map(([k,v])=>`• ${k}: <strong style="color:#f1f5f9">${v}</strong>`).join(' &nbsp;');
+  document.getElementById('route-sel-summary').innerHTML =
+    `<div style="color:#f59e0b;font-weight:700;margin-bottom:3px">Total: ${Q(total)}</div>${prodLines}`;
+  setTimeout(() => {
+    const barH = bar.offsetHeight;
+    const body = document.getElementById('routes-list');
+    if (body) body.style.paddingTop = (barH + 8) + 'px';
+  }, 50);
+}
+
+function clearAllRouteSel() {
+  window._routeSel = {};
+  document.querySelectorAll('.route-ord-chk').forEach(chk => chk.checked = false);
+  updateRouteSelBar();
+}
+
+function printAllRouteSel() {
+  // Recolectar todos los pedidos seleccionados de todas las rutas
+  let allSel = [];
+  Object.entries(window._routeSel||{}).forEach(([rid, set]) => {
+    if (set.size > 0) allSel.push({ rid: Number(rid), oids: [...set] });
+  });
+  if (!allSel.length) return toast('Selecciona al menos un pedido','#f59e0b');
+  // Si son de una sola ruta, usar generateRouteReport
+  if (allSel.length === 1) {
+    generateRouteReport(allSel[0].rid, allSel[0].oids);
+  } else {
+    // Varias rutas: generar reporte combinado
+    generateCombinedRouteReport(allSel);
+  }
+}
+
+function generateCombinedRouteReport(allSel) {
+  // Recopilar todos los pedidos en orden
+  let orders = [];
+  allSel.forEach(({rid, oids}) => {
+    oids.forEach(oid => {
+      const o = S.orders.find(x=>x.id===oid);
+      if (o) orders.push(o);
+    });
+  });
+  if (!orders.length) return toast('Sin pedidos seleccionados','#ef4444');
+  // Reusar generateRouteReport con override de orders
+  // Crear ruta temporal
+  const tempRid = -1;
+  const tempRoute = { id: tempRid, name: 'Seleccionados', orders: orders.map(o=>o.id) };
+  const origRoutes = S.routes;
+  S.routes = [...S.routes, tempRoute];
+  generateRouteReport(tempRid, orders.map(o=>o.id));
+  S.routes = origRoutes;
 }
 
 // ── Informe de ruta solo con seleccionados ──────────────────
@@ -5154,11 +5494,12 @@ const prodSummaryHTML = `<div style="margin-bottom:14px;border:1px solid #e5e7eb
 </div>`;
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe ${route.name}</title>
-<style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:14px;color:#111}
+<style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:14px;color:#111;font-size:17px}
 .hdr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #111}
 .sum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .sb{flex:1;min-width:100px;border:1px solid #e5e7eb;border-radius:7px;padding:8px;text-align:center}
-.sb .l{font-size:10px;color:#6b7280;margin-bottom:3px}.sb .v{font-size:15px;font-weight:800}
+.sb .l{font-size:13px;color:#6b7280;margin-bottom:3px}.sb .v{font-size:20px;font-weight:800}
+table{font-size:17px}th,td{font-size:17px}
 @media print{button{display:none!important}body{padding:6px}}</style>
 </head><body>
 <div class="hdr">
