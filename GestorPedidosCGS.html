@@ -3230,33 +3230,6 @@ ${(()=>{
   </div>`;
 })()}
 ${(()=>{
-  const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>b.id-a.id).slice(0,5);
-  if (!cliOrds.length) return '';
-  const rows = cliOrds.map(o=>{
-    const tot = orderTotal(o.items,o.clientId);
-    const disp = o.applyIva?tot*1.12:tot;
-    const sCls = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
-    const prods = o.items.map(it=>{const p=S.products.find(x=>x.id===it.productId);return p?`${p.name} ×${it.qty}`:''}).filter(Boolean).join(', ');
-    return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${sCls}">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}</div>
-        <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
-      </div>
-      <div style="font-size:12px;color:#f1f5f9;margin-top:2px">${prods}</div>
-      <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-top:2px">${Q(disp)}</div>
-    </div>`;
-  }).join('');
-  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
-    <div onclick="toggleCliSec('cso-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
-      <span style="font-size:11px;color:#94a3b8;font-weight:700">📦 ÚLTIMOS PEDIDOS</span>
-      <span style="color:#64748b;font-size:11px">▼</span>
-    </div>
-    <div id="cso-${c.id}" style="display:none">
-    ${rows}
-  </div>
-  </div>`;
-})()}
-${(()=>{
   if (!S.bonuses) S.bonuses = {};
   const rules = S.bonuses[c.id] || [];
   if (!rules.length) return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
@@ -3333,7 +3306,6 @@ ${(()=>{
     </div>
   </div>`;
 })()}
-
 ${(()=>{
   const notes = (S.clientNotes && S.clientNotes[c.id]) || '';
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
@@ -3345,6 +3317,34 @@ ${(()=>{
     <textarea id="cli-notes-${c.id}" placeholder="Escribe notas relevantes del cliente..." rows="3"
       style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;color:#f1f5f9;font-size:12px;resize:vertical;line-height:1.5"
       oninput="saveCliNotes(${c.id},this.value)">${notes}</textarea>
+  </div>
+  </div>`;
+})()}
+
+${(()=>{
+  const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>b.id-a.id).slice(0,5);
+  if (!cliOrds.length) return '';
+  const rows = cliOrds.map(o=>{
+    const tot = orderTotal(o.items,o.clientId);
+    const disp = o.applyIva?tot*1.12:tot;
+    const sCls = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
+    const prods = o.items.map(it=>{const p=S.products.find(x=>x.id===it.productId);return p?`${p.name} ×${it.qty}`:''}).filter(Boolean).join(', ');
+    return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${sCls}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}</div>
+        <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
+      </div>
+      <div style="font-size:12px;color:#f1f5f9;margin-top:2px">${prods}</div>
+      <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-top:2px">${Q(disp)}</div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('cso-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">📦 ÚLTIMOS PEDIDOS</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="cso-${c.id}" style="display:none">
+    ${rows}
   </div>
   </div>`;
 })()}
