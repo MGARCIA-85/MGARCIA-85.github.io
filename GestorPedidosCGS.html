@@ -3091,6 +3091,11 @@ function selectAllCliVisible() {
   updateCliSelBar();
 }
 
+function toggleCliSec(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 function renderClients() {
 if (!window._cliOpen) window._cliOpen = {};
 document.getElementById('cli-title').textContent = `Clientes (${S.clients.length})`;
@@ -3192,8 +3197,10 @@ ${c.address ? `<div style="font-size:12px;color:#64748b">📍 ${c.address}</div>
 </div>
 <div style="display:${isCliOpen?'block':'none'}">
 <div class="price-sub">
-<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0" onclick="(function(){var el=document.getElementById('csp-${c.id}');el.style.display=el.style.display==='none'?'block':'none';})()">
-<span style="font-size:11px;color:#94a3b8;font-weight:700">💰 LISTA DE PRECIOS PERSONALIZADA</span><span style="color:#64748b;font-size:11px">▼</span></div>
+<div onclick="toggleCliSec('csp-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+  <span style="font-size:11px;color:#94a3b8;font-weight:700">💰 LISTA DE PRECIOS PERSONALIZADA</span>
+  <span style="color:#64748b;font-size:11px">▼</span>
+</div>
 <div id="csp-${c.id}" style="display:none">
 ${prows}
 <button class="bp2" onclick="editCliPrices(${c.id})">✏️ Editar precios de este cliente</button>
@@ -3203,69 +3210,24 @@ ${prows}
 ${(()=>{
   const pinnedComs = (S.savedComments && S.savedComments[c.id]) || [];
   const validComs = Array.isArray(pinnedComs) ? pinnedComs : [];
-  const comRows = validComs.map((cm,i) => '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;background:#161929;border-radius:7px;padding:6px 10px"><span style="flex:1;font-size:12px;color:#f1f5f9">'+cm+'</span><button onclick="removeCliComment('+c.id+','+i+')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px">✕</button></div>').join('');
-  return '<div style="border-top:1px solid #2a3050;padding-top:8px;margin-top:8px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0" onclick="(function(){var el=document.getElementById(\'csc-${c.id}\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';})()">'
-    +'<span style="font-size:11px;color:#94a3b8;font-weight:700">💬 COMENTARIOS ANCLADOS</span><span style="color:#64748b;font-size:11px">▼</span></div>'
-    +'<div id="csc-${c.id}" style="display:none">'
-    +(comRows || '<div style="font-size:11px;color:#64748b;margin-bottom:6px">Sin comentarios anclados.</div>')
-    +'<div style="display:flex;gap:6px;margin-top:4px"><input class="inp" id="new-cli-com-${c.id}" placeholder="Nuevo comentario anclado..." style="margin-bottom:0;flex:1;font-size:12px"/>'
-    +'<button class="bg" style="padding:8px 12px;white-space:nowrap;font-size:12px" onclick="addCliComment(${c.id})">+ Agregar</button></div>'
-    +'</div></div>';
-})()}
-${(()=>{
-  if (!S.bonuses) S.bonuses = {};
-  const rules = S.bonuses[c.id] || [];
-  const header = '<div style="border-top:1px solid #2a3050;padding-top:8px;margin-top:8px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0" onclick="(function(){var el=document.getElementById(\'csb-${c.id}\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';})()">'
-    +'<span style="font-size:11px;color:#94a3b8;font-weight:700">🎁 BONIFICACIONES</span><span style="color:#64748b;font-size:11px">▼</span></div>'
-    +'<div id="csb-${c.id}" style="display:none">';
-  if (!rules.length) return header+'<div style="font-size:11px;color:#64748b;margin-bottom:6px">Sin reglas configuradas.</div><button class="bg" style="font-size:11px;padding:5px 12px" onclick="addBonusRule(${c.id})">+ Nueva regla</button></div></div>';
-  const rulesHtml = rules.map((r,ri) => {
-    const progress = calcBonusProgress(c.id, r);
-    const complete = isBonusComplete(c.id, r);
-    const readyBadge = complete ? '<span style="font-size:10px;background:#052e16;color:#10b981;padding:2px 7px;border-radius:8px;font-weight:700">🎁 Lista!</span>' : '';
-    let accumDesc = r.ruleType==='pool'
-      ? (r.poolProds||[]).map(pid=>{const p2=S.products.find(x=>x.id===Number(pid));return p2?p2.name:''}).filter(Boolean).join(' / ')
-      : (r.targets||[]).map(t=>{const p2=S.products.find(x=>x.id===Number(t.productId));return p2?p2.name+' ×'+t.threshold:''}).filter(Boolean).join(' + ');
-    const bonusDesc = (r.bonusItems||[]).map(bi=>{const p2=S.products.find(x=>x.id===Number(bi.productId));return bi.qty+' '+(p2?p2.name:'—');}).join(' + ');
-    const bars = progress.map((pg,pgi) => {
-      const tot = pg.app + pg.manual;
-      const pct = Math.min(100,Math.round(tot/pg.threshold*100));
-      const col = pct>=100?'#10b981':pct>=70?'#f59e0b':'#60a5fa';
-      const tidx = pg.isPool ? 'pool' : (pg.ti !== undefined ? pg.ti : pgi);
-      return '<div style="margin-bottom:8px">'
-        +'<div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:2px"><span>'+pg.label+'</span><span style="font-weight:700;color:'+col+'">'+tot+'/'+pg.threshold+'</span></div>'
-        +'<div style="background:#2a3050;border-radius:4px;height:7px;overflow:hidden;margin-bottom:2px"><div style="height:100%;background:'+col+';width:'+pct+'%;border-radius:4px"></div></div>'
-        +'<div style="font-size:10px;color:#64748b;margin-bottom:4px">App: '+pg.app+' · Manual: '+pg.manual+'</div>'
-        +'<div style="display:flex;gap:5px">'
-        +'<input type="number" min="0" step="1" placeholder="+ externas" id="bm-'+c.id+'-'+ri+'-'+tidx+'" style="flex:1;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;color:#f1f5f9;font-size:11px"/>'
-        +'<button onclick="addBonusManual('+c.id+','+ri+',\''+tidx+'\',1)" style="background:#1e3a5f;border:none;border-radius:6px;color:#60a5fa;padding:4px 10px;font-size:11px;cursor:pointer">+</button>'
-        +'<button onclick="addBonusManual('+c.id+','+ri+',\''+tidx+'\',-1)" style="background:#2d0f0f;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:4px 10px;font-size:11px;cursor:pointer">−</button>'
-        +'</div></div>';
-    }).join('');
-    return '<div style="background:#161929;border-radius:8px;padding:10px;margin-bottom:8px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
-      +'<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#f1f5f9">'+(r.name||accumDesc)+'</div>'
-      +'<div style="font-size:10px;color:#10b981;margin-top:1px">🎁 '+bonusDesc+'</div>'
-      +(r.deadline?'<div style="font-size:10px;color:#94a3b8">Vence: '+r.deadline+'</div>':'')+'</div>'
-      +'<div style="display:flex;gap:4px;align-items:center;margin-left:6px">'+readyBadge
-      +'<button onclick="editBonusRule('+c.id+','+ri+')" style="background:none;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:2px 6px;font-size:11px;cursor:pointer">✏️</button>'
-      +'<button onclick="delBonusRule('+c.id+','+ri+')" style="background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:2px 6px;font-size:11px;cursor:pointer">✕</button>'
-      +'</div></div>'+bars
-      +(complete?'<button onclick="deliverBonus('+c.id+','+ri+')" style="width:100%;background:#052e16;border:none;border-radius:6px;color:#10b981;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">✓ Entregar bonificación</button>':'')
-      +'</div>';
-  }).join('');
-  return header+'<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="bg" style="font-size:11px;padding:4px 10px" onclick="addBonusRule(${c.id})">+ Nueva regla</button></div>'+rulesHtml+'</div></div>';
-})()}
-${(()=>{
-  const notes = (S.clientNotes && S.clientNotes[c.id]) || '';
-  return '<div style="border-top:1px solid #2a3050;padding-top:8px;margin-top:8px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0" onclick="(function(){var el=document.getElementById(\'csn-${c.id}\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';})()">'
-    +'<span style="font-size:11px;color:#94a3b8;font-weight:700">📝 NOTAS</span><span style="color:#64748b;font-size:11px">▼</span></div>'
-    +'<div id="csn-${c.id}" style="display:none">'
-    +'<textarea id="cli-notes-${c.id}" placeholder="Escribe notas relevantes del cliente..." rows="3" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;color:#f1f5f9;font-size:12px;resize:vertical;line-height:1.5" oninput="saveCliNotes(${c.id},this.value)">'+notes+'</textarea>'
-    +'</div></div>';
+  const comRows = validComs.map((cm,i) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;background:#161929;border-radius:7px;padding:6px 10px">
+      <span style="flex:1;font-size:12px;color:#f1f5f9">${cm}</span>
+      <button onclick="removeCliComment(${c.id},${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px" title="Eliminar">✕</button>
+    </div>`).join('');
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('csc-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">💬 COMENTARIOS ANCLADOS</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="csc-${c.id}" style="display:none">
+    ${comRows || '<div style="font-size:11px;color:#64748b;margin-bottom:6px">Sin comentarios anclados.</div>'}
+    <div style="display:flex;gap:6px;margin-top:4px">
+      <input class="inp" id="new-cli-com-${c.id}" placeholder="Nuevo comentario anclado..." style="margin-bottom:0;flex:1;font-size:12px"/>
+      <button class="bg" style="padding:8px 12px;white-space:nowrap;font-size:12px" onclick="addCliComment(${c.id})">+ Agregar</button>
+    </div>
+  </div>
+  </div>`;
 })()}
 ${(()=>{
   const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>b.id-a.id).slice(0,5);
@@ -3274,20 +3236,119 @@ ${(()=>{
     const tot = orderTotal(o.items,o.clientId);
     const disp = o.applyIva?tot*1.12:tot;
     const sCls = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
-    const prods = o.items.map(it=>{const p=S.products.find(x=>x.id===it.productId);return p?p.name+' ×'+it.qty:''}).filter(Boolean).join(', ');
-    return '<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:5px;border-left:3px solid '+sCls+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center">'
-      +'<div style="font-size:11px;color:#94a3b8">'+o.date.split(',')[0]+'</div>'
-      +'<span style="font-size:10px;color:'+sCls+';font-weight:700">'+o.status+'</span></div>'
-      +'<div style="font-size:12px;color:#f1f5f9;margin-top:2px">'+prods+'</div>'
-      +'<div style="font-size:12px;font-weight:700;color:#f59e0b;margin-top:2px">'+Q(disp)+'</div></div>';
+    const prods = o.items.map(it=>{const p=S.products.find(x=>x.id===it.productId);return p?`${p.name} ×${it.qty}`:''}).filter(Boolean).join(', ');
+    return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${sCls}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}</div>
+        <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
+      </div>
+      <div style="font-size:12px;color:#f1f5f9;margin-top:2px">${prods}</div>
+      <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-top:2px">${Q(disp)}</div>
+    </div>`;
   }).join('');
-  return '<div style="border-top:1px solid #2a3050;padding-top:8px;margin-top:8px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0" onclick="(function(){var el=document.getElementById(\'cso-${c.id}\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';})()">'
-    +'<span style="font-size:11px;color:#94a3b8;font-weight:700">📦 ÚLTIMOS PEDIDOS</span><span style="color:#64748b;font-size:11px">▼</span></div>'
-    +'<div id="cso-${c.id}" style="display:none">'+rows+'</div></div>';
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('cso-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">📦 ÚLTIMOS PEDIDOS</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="cso-${c.id}" style="display:none">
+    ${rows}
+  </div>
+  </div>`;
 })()}
-</div>
+${(()=>{
+  if (!S.bonuses) S.bonuses = {};
+  const rules = S.bonuses[c.id] || [];
+  if (!rules.length) return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('csb-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">🎁 BONIFICACIONES</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="csb-${c.id}" style="display:none">
+      <div style="font-size:11px;color:#64748b;margin-bottom:6px">Sin reglas configuradas.</div>
+      <button class="bg" style="font-size:11px;padding:5px 12px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
+    </div>
+  </div>`;
+  const rulesHtml = rules.map((r,ri) => {
+    const progress = calcBonusProgress(c.id, r);
+    const complete = isBonusComplete(c.id, r);
+    const readyBadge = complete ? `<span style="font-size:10px;background:#052e16;color:#10b981;padding:2px 7px;border-radius:8px;font-weight:700">🎁 Lista!</span>` : '';
+    // Descripción de productos a acumular
+    let accumDesc = '';
+    if (r.ruleType==='pool') {
+      accumDesc = (r.poolProds||[]).map(pid=>{const p2=S.products.find(x=>x.id===Number(pid));return p2?p2.name:''}).filter(Boolean).join(' / ');
+    } else {
+      accumDesc = (r.targets||[]).map(t=>{const p2=S.products.find(x=>x.id===Number(t.productId));return p2?p2.name+' ×'+t.threshold:''}).filter(Boolean).join(' + ');
+    }
+    const bonusDesc = (r.bonusItems||[]).map(bi=>{const p2=S.products.find(x=>x.id===Number(bi.productId));return `${bi.qty} ${p2?p2.name:'—'}`;}).join(' + ');
+    // Barras de progreso con campo manual por línea
+    const bars = progress.map((pg, pgi) => {
+      const tot = pg.app + pg.manual;
+      const pct = Math.min(100, Math.round(tot/pg.threshold*100));
+      const col = pct>=100?'#10b981':pct>=70?'#f59e0b':'#60a5fa';
+      const tidx = pg.isPool ? 'pool' : (pg.ti !== undefined ? pg.ti : pgi);
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:2px">
+          <span>${pg.label}</span>
+          <span style="font-weight:700;color:${col}">${tot}/${pg.threshold}</span>
+        </div>
+        <div style="background:#2a3050;border-radius:4px;height:7px;overflow:hidden;margin-bottom:2px">
+          <div style="height:100%;background:${col};width:${pct}%;border-radius:4px"></div>
+        </div>
+        <div style="font-size:10px;color:#64748b;margin-bottom:4px">App: ${pg.app} · Manual: ${pg.manual}</div>
+        <div style="display:flex;gap:5px">
+          <input type="number" min="0" step="1" placeholder="+ externas" id="bm-${c.id}-${ri}-${tidx}" style="flex:1;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;color:#f1f5f9;font-size:11px"/>
+          <button onclick="addBonusManual(${c.id},${ri},'${tidx}',1)" style="background:#1e3a5f;border:none;border-radius:6px;color:#60a5fa;padding:4px 10px;font-size:11px;cursor:pointer">+</button>
+          <button onclick="addBonusManual(${c.id},${ri},'${tidx}',-1)" style="background:#2d0f0f;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:4px 10px;font-size:11px;cursor:pointer">−</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="background:#161929;border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:#f1f5f9">${r.name||accumDesc}</div>
+          <div style="font-size:10px;color:#10b981;margin-top:1px">🎁 ${bonusDesc}</div>
+          ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Vence: ${r.deadline}</div>`:''}
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;margin-left:6px">
+          ${readyBadge}
+          <button onclick="editBonusRule(${c.id},${ri})" style="background:none;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:2px 6px;font-size:11px;cursor:pointer">✏️</button>
+          <button onclick="delBonusRule(${c.id},${ri})" style="background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:2px 6px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      ${bars}
+      ${complete?`<button onclick="deliverBonus(${c.id},${ri})" style="width:100%;background:#052e16;border:none;border-radius:6px;color:#10b981;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">✓ Entregar bonificación</button>`:''}
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('csb-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">🎁 BONIFICACIONES</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="csb-${c.id}" style="display:none">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="bg" style="font-size:11px;padding:4px 10px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
+      </div>
+      ${rulesHtml}
+    </div>
+  </div>`;
+})()}
+
+${(()=>{
+  const notes = (S.clientNotes && S.clientNotes[c.id]) || '';
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('csn-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">📝 NOTAS</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="csn-${c.id}" style="display:none">
+    <textarea id="cli-notes-${c.id}" placeholder="Escribe notas relevantes del cliente..." rows="3"
+      style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;color:#f1f5f9;font-size:12px;resize:vertical;line-height:1.5"
+      oninput="saveCliNotes(${c.id},this.value)">${notes}</textarea>
+  </div>
+  </div>`;
+})()}
+</div>`;
 body.appendChild(card);
 });
 if (clientSortMode==='manual') setupDrag(body,'clients');
