@@ -2854,14 +2854,16 @@ const prodLines = ord.items.map(it => {
   const pr = (it.customPrice != null) ? it.customPrice : cliPrice(ord.clientId, it.productId||it.pid, p?.basePrice||0);
   const ul = p?.unitLabel||'unidad';
   const ivaText = ord.applyIva ? ' + IVA' : '';
-  return `》${it.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
+  const spec = p?.presentation ? ` (${p.presentation})` : '';
+  return `》${it.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
 }).join('\n');
 
 // Bonificaciones
 const bonusLines = (ord.bonusLines||[]).map(bl => {
   const p  = S.products.find(x => x.id===Number(bl.productId));
   const ul = p?.unitLabel||'unidad';
-  return `${bl.qty} ${p?p.name:'—'} (${p?.presentation||'—'})\nPrecio: ${Q(bl.price||0)}/${ul}`;
+  const spec = p?.presentation ? ` (${p.presentation})` : '';
+  return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}`;
 }).join('\n');
 const bonusBlock = bonusLines ? `》BONIFICACIÓN《\n${bonusLines}` : '';
 
@@ -2872,7 +2874,7 @@ const totalFinal = ord.applyIva ? tot*1.12 : tot;
 const cmts = (ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : [])).filter(c=>c&&c.trim());
 const comentariosTexto = cmts.map(c => `•${c}`).join('\n');
 
-const ocLine = ord.oc ? `•Pedido: ${ord.oc}` : '';
+const ocLine = ord.oc ? `Pedido #${ord.oc}` : '';
 
 const parts = [
   'Buen día, por favor facturar:',
