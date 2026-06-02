@@ -1662,6 +1662,19 @@ document.getElementById('btn-submit').textContent    = '✅ Registrar Pedido';
 const secTitle = document.getElementById('order-sec-title');
 if (secTitle) { const span = secTitle.querySelector('span'); if (span) span.textContent = 'Crear Nuevo Pedido'; }
 if (_cameFromRoute) { _cameFromRoute = false; onCliChange(); goTab('routes'); return; }
+if (_cameFromClient !== null) {
+  const _returnCid = (S.orders.find(x=>x.id===_cameFromClient)||{}).clientId;
+  _cameFromClient = null;
+  onCliChange();
+  goTab('clients');
+  setTimeout(() => {
+    if (_returnCid && window._cliOpen) {
+      window._cliOpen[_returnCid] = true;
+      renderClients();
+    }
+  }, 100);
+  return;
+}
 onCliChange(); goTab('list');
 }
 
@@ -3097,10 +3110,18 @@ function openQuoteFromCli(oid) {
   showQuoteFromOrder(oid);
 }
 function openEditFromCli(oid) {
+  _cameFromClient = oid;
   startEditOrder(oid);
 }
 function openDuplFromCli(oid) {
+  const orig = S.orders.find(x=>x.id===oid);
+  const cid = orig ? orig.clientId : null;
   duplicateOrder(oid);
+  // Refrescar ficha del cliente para ver el nuevo pedido
+  if (cid && window._cliOpen) {
+    window._cliOpen[cid] = true;
+    renderClients();
+  }
 }
 function openDelFromCli(oid) {
   const o = S.orders.find(x=>x.id===oid);
@@ -5346,6 +5367,7 @@ function addOrderToRoute(rid) {
 
 // ── Editar pedido desde la ruta ───────────────────────
 let _cameFromRoute = false;
+let _cameFromClient = null; // id del pedido si viene desde ficha cliente
 let _listScrollY = 0;
 function editOrderFromRoute(oid) {
   _cameFromRoute = true;
