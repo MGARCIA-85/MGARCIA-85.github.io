@@ -391,7 +391,7 @@ Selecciona un cliente para continuar.<br><br>
     <input type="date" id="f-date-from" class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
     <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
-    <button class="bb" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="generateOrderReport()">📄 PDF</button>
+<button class="bg" style="padding:8px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700" onclick="generateOrderReportSel()" title="Reporte pedidos seleccionados">☑️ Seleccionados</button>
   </div>
 </div>
 <!-- Pestañas de estado -->
@@ -626,8 +626,12 @@ Selecciona un cliente para continuar.<br><br>
     ➕ Nueva Ruta
   </button>
   <button class="bg" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
-    onclick="(function(){var g=document.getElementById('gen-route-body'),b=document.getElementById('route-form-body');var open=g.style.display!=='none';g.style.display=open?'none':'block';if(!open){b.style.display='none';renderRoutes();}})()">
+    onclick="(function(){var g=document.getElementById('gen-route-body'),b=document.getElementById('route-form-body'),e=document.getElementById('email-route-body');var open=g.style.display!=='none';g.style.display=open?'none':'block';if(!open){b.style.display='none';e.style.display='none';renderRoutes();}})()">
     🚀 Generar Pedidos
+  </button>
+  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#10b981;border-color:#064e3b"
+    onclick="(function(){var e=document.getElementById('email-route-body'),g=document.getElementById('gen-route-body'),b=document.getElementById('route-form-body');var open=e.style.display!=='none';e.style.display=open?'none':'block';if(!open){g.style.display='none';b.style.display='none';}})()">
+    📧 Config. Correo
   </button>
 </div>
 
@@ -635,6 +639,15 @@ Selecciona un cliente para continuar.<br><br>
 <div id="route-form-body" style="display:none;background:#0d1525;border:1px solid #2a3050;border-radius:12px;padding:12px 14px;margin-bottom:10px">
   <input class="inp" id="route-name" placeholder="Ej: Ruta Escuintla"/>
   <button class="bp" onclick="createRoute()">Crear Ruta</button>
+</div>
+
+<!-- Panel Config Correo Rutas (colapsado) -->
+<div id="email-route-body" style="display:none;background:#0d1a12;border:1px solid #064e3b;border-radius:12px;padding:12px 14px;margin-bottom:10px">
+  <label class="lbl">📧 Asunto del correo</label>
+  <input class="inp" id="route-email-subject" placeholder="Ej: Pedido Ruta Mayo 2026"/>
+  <label class="lbl">✏️ Texto del correo</label>
+  <textarea class="inp" id="route-email-body" rows="5" placeholder="Ej: Adjunto el informe de pedidos de la ruta. Saludos." style="resize:vertical;font-family:inherit"></textarea>
+  <button class="bg" style="width:100%;margin-top:4px" onclick="saveRouteEmailConfig()">💾 Guardar configuración</button>
 </div>
 
 <!-- Panel Generar Pedidos (colapsado) -->
@@ -659,10 +672,16 @@ Selecciona un cliente para continuar.<br><br>
 <div id="route-sel-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a0d00;border-bottom:2px solid #f59e0b;padding:10px 12px;flex-direction:column;gap:8px;box-shadow:0 4px 20px #00000090">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <span id="route-sel-count" style="font-size:13px;font-weight:700;color:#f59e0b"></span>
-    <button onclick="clearAllRouteSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+    <div style="display:flex;gap:6px">
+      <button onclick="selectAllRouteVisible()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;cursor:pointer">✔ Todos</button>
+      <button onclick="clearAllRouteSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+    </div>
   </div>
   <div id="route-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
-  <button onclick="printAllRouteSel()" style="width:100%;padding:9px;background:#f59e0b;color:#0d0f18;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
+  <div style="display:flex;gap:8px">
+    <button onclick="printAllRouteSel()" style="flex:1;padding:9px;background:#f59e0b;color:#0d0f18;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">⬇️ Descargar PDF</button>
+    <button onclick="shareRouteSelEmail()" style="flex:1;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📧 Enviar correo</button>
+  </div>
 </div>
 <div id="routes-list"></div>
 </div>
@@ -2024,7 +2043,7 @@ function generateOrderReport(selIds) {
   }).join('');
 
   const logoHtml = b.logoData ? `<img src="${b.logoData}" style="width:50px;height:50px;border-radius:8px;object-fit:cover"/>` : `<div style="font-size:28px">${b.emoji||'📦'}</div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${title}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:16px;color:#111;background:#fff;font-size:17px}table{font-size:17px}th,td{font-size:17px}@media print{body{padding:8px}}</style>
   </head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb">
@@ -5087,7 +5106,7 @@ function renderRoutes() {
         <button style="flex:1;font-size:11px;padding:5px 2px;background:${isPinned?'#92400e':'transparent'};border:1px solid ${isPinned?'#f59e0b':'#475569'};border-radius:7px;color:${isPinned?'#f59e0b':'#94a3b8'};cursor:pointer" onclick="togglePinRoute(${r.id})" title="${isPinned?'Desanclar':'Anclar'}">📌</button>
         <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="addOrderToRoute(${r.id})" title="Agregar pedido">🛒</button>
         <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="markRouteConcluido(${r.id})" title="Concluir todos">✔</button>
-        <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReport(${r.id})" title="Informe PDF">📄</button>
+        <button class="bg" style="flex:1;font-size:11px;padding:5px 2px" onclick="generateRouteReportSel(${r.id})" title="Informe seleccionados">☑️</button>
         <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="promptRenameRoute(${r.id})" title="Renombrar">✏️</button>
         <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="deleteRoute(${r.id})" title="Eliminar ruta">🗑</button>
       </div>
@@ -5313,6 +5332,65 @@ function updateRouteSelBar() {
   }, 50);
 }
 
+function selectAllRouteVisible() {
+  if (!window._routeSel) window._routeSel = {};
+  document.querySelectorAll('.route-ord-chk').forEach(chk => {
+    const rid = Number(chk.dataset.rid);
+    const oid = Number(chk.dataset.oid);
+    if (!window._routeSel[rid]) window._routeSel[rid] = new Set();
+    window._routeSel[rid].add(oid);
+    chk.checked = true;
+  });
+  updateRouteSelBar();
+}
+
+function saveRouteEmailConfig() {
+  const subj = document.getElementById('route-email-subject')?.value.trim() || '';
+  const body = document.getElementById('route-email-body')?.value.trim() || '';
+  localStorage.setItem('route_email_subject', subj);
+  localStorage.setItem('route_email_body', body);
+  toast('✅ Configuración de correo guardada');
+  document.getElementById('email-route-body').style.display = 'none';
+}
+
+async function shareRouteSelEmail() {
+  let allSel = [];
+  Object.entries(window._routeSel||{}).forEach(([rid, set]) => set.forEach(id => allSel.push(id)));
+  if (!allSel.length) return toast('Selecciona al menos un pedido primero','#f59e0b');
+
+  const subject = localStorage.getItem('route_email_subject') || 'Informe de Ruta';
+  const bodyText = localStorage.getItem('route_email_body') || '';
+
+  const allSelArr = Object.entries(window._routeSel||{}).map(([rid,set])=>({rid:Number(rid),oids:[...set]}));
+  let htmlContent = null;
+  if (allSelArr.length === 1) {
+    htmlContent = generateRouteReport(allSelArr[0].rid, allSelArr[0].oids, true);
+  } else {
+    let orders = [];
+    allSelArr.forEach(({oids}) => oids.forEach(oid => { const o=S.orders.find(x=>x.id===oid); if(o) orders.push(o); }));
+    const tempRid = -99;
+    const subj2 = localStorage.getItem('route_email_subject') || 'Seleccionados';
+    S.routes = [...S.routes, { id: tempRid, name: subj2, orders: orders.map(o=>o.id) }];
+    htmlContent = generateRouteReport(tempRid, orders.map(o=>o.id), true);
+    S.routes = S.routes.filter(r=>r.id !== tempRid);
+  }
+  if (!htmlContent) return toast('No se pudo generar el informe','#ef4444');
+
+  const fileName = (subject.replace(/[^a-zA-Z0-9]/g,'_') || 'Informe_Ruta') + '.html';
+  const blob = new Blob([htmlContent], {type:'text/html;charset=utf-8'});
+  const file = new File([blob], fileName, {type:'text/html'});
+
+  if (navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
+    try { await navigator.share({ title: subject, text: bodyText, files: [file] }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => { URL.revokeObjectURL(url); window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`; }, 800);
+}
+
 function clearAllRouteSel() {
   window._routeSel = {};
   document.querySelectorAll('.route-ord-chk').forEach(chk => chk.checked = false);
@@ -5348,7 +5426,8 @@ function generateCombinedRouteReport(allSel) {
   // Reusar generateRouteReport con override de orders
   // Crear ruta temporal
   const tempRid = -1;
-  const tempRoute = { id: tempRid, name: 'Seleccionados', orders: orders.map(o=>o.id) };
+  const _routeSubj2 = localStorage.getItem('route_email_subject') || 'Seleccionados';
+  const tempRoute = { id: tempRid, name: _routeSubj2, orders: orders.map(o=>o.id) };
   const origRoutes = S.routes;
   S.routes = [...S.routes, tempRoute];
   generateRouteReport(tempRid, orders.map(o=>o.id));
@@ -5366,7 +5445,7 @@ function generateRouteReportSel(rid) {
 }
 
 // ── Informe de ruta (ventana nueva) ──────────────────
-function generateRouteReport(rid, selIds) {
+function generateRouteReport(rid, selIds, returnHTML=false) {
   const route = S.routes.find(r=>r.id===rid); if(!route) return;
   if (!route.orders) route.orders = [];
   let orders = route.orders.map(id=>S.orders.find(o=>o.id===id)).filter(Boolean);
@@ -5491,6 +5570,10 @@ const prodSummaryHTML = `<div style="margin-bottom:14px;border:1px solid #e5e7eb
   <div style="column-count:3;column-gap:0;column-rule:1px solid #e5e7eb">${prodSummaryRows}</div>
 </div>`;
 
+    const _emailSubject = localStorage.getItem('route_email_subject') || 'Informe de Ruta';
+  const _emailBody    = localStorage.getItem('route_email_body') || '';
+  const _mailtoHref   = 'mailto:?subject=' + encodeURIComponent(_emailSubject) + '&body=' + encodeURIComponent(_emailBody);
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe ${route.name}</title>
 <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:14px;color:#111;font-size:17px}
 .hdr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #111}
@@ -5518,16 +5601,17 @@ table{font-size:17px}th,td{font-size:17px}
   <div class="sb"><div class="l">Concluido</div><div class="v" style="color:#15803d">${Q(tFact)}</div></div>
   <div class="sb"><div class="l">TOTAL RUTA</div><div class="v" style="color:#d97706">${Q(tDisp)}</div></div>
 </div>
-<button onclick="window.print()" style="margin-bottom:12px;padding:7px 16px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / PDF</button>
+<button onclick="window.print()" style="margin-bottom:14px;padding:8px 14px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
 ${prodSummaryHTML}
 ${rows}
 
 </body></html>`;
+  if (returnHTML) return html;
   // Usar Blob URL para evitar bloqueo de popup en Chrome Android
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  a.href = url; a.target = '_blank';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
