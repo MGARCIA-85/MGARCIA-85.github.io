@@ -3093,6 +3093,34 @@ function selectAllCliVisible() {
   updateCliSelBar();
 }
 
+function openQuoteFromCli(oid) {
+  const o = S.orders.find(x=>x.id===oid);
+  if (!o) return;
+  currentQuote = o;
+  showQuoteModal(o);
+}
+function openEditFromCli(oid) {
+  const o = S.orders.find(x=>x.id===oid);
+  if (!o) return;
+  goTab('order');
+  setTimeout(() => editOrder(oid), 100);
+}
+function openDuplFromCli(oid) {
+  const o = S.orders.find(x=>x.id===oid);
+  if (!o) return;
+  duplicateOrder(oid);
+  goTab('order');
+}
+function openDelFromCli(oid) {
+  const o = S.orders.find(x=>x.id===oid);
+  if (!o) return;
+  askConfirm('🗑 Eliminar pedido', `¿Eliminar el pedido de ${o.clientName}?`, () => {
+    S.orders = S.orders.filter(x=>x.id!==oid);
+    save(); renderClients(); renderList();
+    toast('Pedido eliminado');
+  });
+}
+
 function toggleCliSec(id) {
   var el = document.getElementById(id);
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
@@ -3331,13 +3359,18 @@ ${(()=>{
     const disp = o.applyIva?tot*1.12:tot;
     const sCls = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
     const prods = o.items.map(it=>{const p=S.products.find(x=>x.id===it.productId);return p?`${p.name} ×${it.qty}`:''}).filter(Boolean).join(', ');
-    return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${sCls}">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}</div>
+    const cotBtn = `<button onclick="openQuoteFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;font-size:11px;cursor:pointer">📄 Cot.</button>`;
+    const editBtn = `<button onclick="openEditFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:11px;cursor:pointer">✏️ Editar</button>`;
+    const duplBtn = `<button onclick="openDuplFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #a855f7;border-radius:6px;color:#a855f7;font-size:11px;cursor:pointer">📋 Dupl.</button>`;
+    const delBtn  = `<button onclick="openDelFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:11px;cursor:pointer">🗑</button>`;
+    return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:8px;border-left:3px solid ${sCls}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}</div>
         <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
       </div>
-      <div style="font-size:12px;color:#f1f5f9;margin-top:2px">${prods}</div>
-      <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-top:2px">${Q(disp)}</div>
+      <div style="font-size:12px;color:#f1f5f9;margin-bottom:2px">${prods}</div>
+      <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:6px">${Q(disp)}</div>
+      <div style="display:flex;gap:5px">${cotBtn}${editBtn}${duplBtn}${delBtn}</div>
     </div>`;
   }).join('');
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
