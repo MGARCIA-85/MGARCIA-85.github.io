@@ -3469,12 +3469,20 @@ function calcBonusProgress(cid, r, extraOrd) {
   const resetTs = r.resetTs ? new Date(r.resetTs).getTime() : null;
   const startDateStr = r.startDate || '2000-01-01';
 
+  // Obtener índice de la regla para excluir pedidos que la rechazaron
+  const ruleIdx = (S.bonuses[cid]||[]).indexOf(r);
+
   let orders = S.orders.filter(o =>
     Number(o.clientId)===Number(cid) &&
-    (o.status==='Confirmado'||o.status==='Concluido')
+    (o.status==='Confirmado'||o.status==='Concluido') &&
+    !(o.bonusDeclined && ruleIdx >= 0 && o.bonusDeclined.includes(ruleIdx))
   );
   if (extraOrd && !orders.find(o=>o.id===extraOrd.id)) {
-    orders = [...orders, extraOrd];
+    // Solo incluir extraOrd si no rechazó esta regla
+    const extraDeclined = extraOrd.bonusDeclined || [];
+    if (!(ruleIdx >= 0 && extraDeclined.includes(ruleIdx))) {
+      orders = [...orders, extraOrd];
+    }
   }
 
   // Convierte fecha del pedido a timestamp usando el ID del pedido como proxy de orden
@@ -3694,6 +3702,10 @@ function saveBonusRule(cid, ri) {
       rule.targets.forEach(t => { const ot=(old.targets||[]).find(x=>x.productId===t.productId); if(ot) t.manualUnits=ot.manualUnits||0; });
     }
     if (old && rule.ruleType==='pool') rule.manualUnits=old.manualUnits||0;
+    // Preservar el ciclo actual al editar
+    if (old && old.resetTs)      rule.resetTs      = old.resetTs;
+    if (old && old._resetOid)    rule._resetOid    = old._resetOid;
+    if (old && old._cycleCount)  rule._cycleCount  = old._cycleCount;
     S.bonuses[cid][ri] = rule;
   } else {
     S.bonuses[cid].push(rule);
@@ -3750,7 +3762,8 @@ function deliverBonus(cid, ri) {
 function checkBonusAlert(cid, oid, onDone, extraOrd) {
   if (!S.bonuses || !S.bonuses[cid]) return false;
   const rules = S.bonuses[cid];
-  const triggered = rules.map((r,ri)=>({r,ri})).filter(({r})=>isBonusComplete(cid, r, extraOrd));
+  const declined = extraOrd?.bonusDeclined || [];
+  const triggered = rules.map((r,ri)=>({r,ri})).filter(({r,ri})=>!declined.includes(ri) && isBonusComplete(cid, r, extraOrd));
   if (!triggered.length) return false;
 
   const { r, ri } = triggered[0];
@@ -3818,6 +3831,15 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
   };
 
   window._bonusAlertCancelCb = () => {
+    // Marcar este pedido como "bonificación rechazada" para no volver a preguntar
+    const ord = S.orders.find(o=>o.id===oid);
+    if (ord) {
+      if (!ord.bonusDeclined) ord.bonusDeclined = [];
+      // Guardar el índice de la regla rechazada para este pedido
+      if (!ord.bonusDeclined.includes(ri)) ord.bonusDeclined.push(ri);
+      ord.status = 'Confirmado';
+      save();
+    }
     document.getElementById('bonus-modal').style.display = 'none';
     if (onDone) onDone();
   };
