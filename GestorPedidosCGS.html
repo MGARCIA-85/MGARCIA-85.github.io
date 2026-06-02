@@ -3094,22 +3094,13 @@ function selectAllCliVisible() {
 }
 
 function openQuoteFromCli(oid) {
-  const o = S.orders.find(x=>x.id===oid);
-  if (!o) return;
-  currentQuote = o;
-  showQuoteModal(o);
+  showQuoteFromOrder(oid);
 }
 function openEditFromCli(oid) {
-  const o = S.orders.find(x=>x.id===oid);
-  if (!o) return;
-  goTab('order');
-  setTimeout(() => editOrder(oid), 100);
+  startEditOrder(oid);
 }
 function openDuplFromCli(oid) {
-  const o = S.orders.find(x=>x.id===oid);
-  if (!o) return;
   duplicateOrder(oid);
-  goTab('order');
 }
 function openDelFromCli(oid) {
   const o = S.orders.find(x=>x.id===oid);
