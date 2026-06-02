@@ -3117,10 +3117,14 @@ function openDuplFromCli(oid) {
   const orig = S.orders.find(x=>x.id===oid);
   const cid = orig ? orig.clientId : null;
   duplicateOrder(oid);
-  // Refrescar ficha del cliente para ver el nuevo pedido
   if (cid && window._cliOpen) {
     window._cliOpen[cid] = true;
     renderClients();
+    // Mantener sección últimos pedidos abierta
+    setTimeout(() => {
+      const sec = document.getElementById('cso-' + cid);
+      if (sec) sec.style.display = 'block';
+    }, 50);
   }
 }
 function openDelFromCli(oid) {
