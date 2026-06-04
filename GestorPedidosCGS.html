@@ -1969,16 +1969,26 @@ function toggleOrdSel(oid, checked) {
   updateOrdSelBar();
 }
 
+function _getNavBottom() {
+  const nav = document.getElementById('nav');
+  const hdr = document.querySelector('.app-header');
+  let top = 0;
+  if (hdr) top += hdr.offsetHeight;
+  if (nav) top += nav.offsetHeight;
+  return top;
+}
+
 function updateOrdSelBar() {
   const bar = document.getElementById('ord-sel-bar');
   const n = (window._ordSel||new Set()).size;
   if (!bar) return;
   if (n === 0) {
     bar.style.display = 'none';
-    const body = document.getElementById('lst-body');
-    if (body) body.style.paddingTop = '0';
+    const page = document.getElementById('page-list');
+    if (page) page.style.paddingTop = '';
     return;
   }
+  bar.style.top = _getNavBottom() + 'px';
   bar.style.display = 'flex';
   document.getElementById('ord-sel-count').textContent = n + ' pedido' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'');
   // Resumen: total y clientes
@@ -1994,10 +2004,19 @@ function updateOrdSelBar() {
   document.getElementById('ord-sel-summary').innerHTML =
     `<div style="color:#f59e0b;font-weight:700;margin-bottom:3px">Total: ${Q(total)}</div>${prodLines}`;
   setTimeout(() => {
-    const barH = bar.offsetHeight;
-    const body = document.getElementById('lst-body');
-    if (body) body.style.paddingTop = (barH + 8) + 'px';
-  }, 50);
+    const barBottom = bar.getBoundingClientRect().bottom;
+    const page = document.getElementById('page-list');
+    if (page) {
+      const oldPad = parseInt(page.style.paddingTop) || 0;
+      const pageTop = page.getBoundingClientRect().top;
+      const newPad = Math.max(0, barBottom - pageTop + oldPad);
+      if (Math.abs(newPad - oldPad) > 2) {
+        const diff = newPad - oldPad;
+        page.style.paddingTop = newPad + 'px';
+        window.scrollBy(0, diff);
+      }
+    }
+  }, 80);
 }
 
 function clearOrdSel() {
@@ -3094,17 +3113,28 @@ function updateCliSelBar() {
   if (!bar) return;
   if (n === 0) {
     bar.style.display = 'none';
-    document.getElementById('cli-body').style.paddingTop = '0';
+    const _cp = document.getElementById('page-clients'); if (_cp) _cp.style.paddingTop = '';
     return;
   }
+  bar.style.top = _getNavBottom() + 'px';
   bar.style.display = 'flex';
   const cnt = bar.querySelector('#cli-sel-count');
   if (cnt) cnt.textContent = n + ' cliente' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'');
   // Empujar lista para que no quede tapada por la barra
   setTimeout(() => {
     const barH = bar.offsetHeight;
-    const body = document.getElementById('cli-body');
-    if (body) body.style.paddingTop = (barH + 8) + 'px';
+    const page = document.getElementById('page-clients');
+    if (page) {
+      const oldPad = parseInt(page.style.paddingTop) || 0;
+      const barBottom = bar.getBoundingClientRect().bottom;
+      const pageTop = page.getBoundingClientRect().top;
+      const newPad = Math.max(0, barBottom - pageTop + oldPad);
+      if (Math.abs(newPad - oldPad) > 2) {
+        const diff = newPad - oldPad;
+        page.style.paddingTop = newPad + 'px';
+        window.scrollBy(0, diff);
+      }
+    }
   }, 50);
 }
 
@@ -5476,10 +5506,11 @@ function updateRouteSelBar() {
   const n = allSel.length;
   if (n === 0) {
     bar.style.display = 'none';
-    const body = document.getElementById('routes-list');
-    if (body) body.style.paddingTop = '0';
+    const page = document.getElementById('page-routes');
+    if (page) page.style.paddingTop = '';
     return;
   }
+  bar.style.top = _getNavBottom() + 'px';
   bar.style.display = 'flex';
   document.getElementById('route-sel-count').textContent = n + ' pedido' + (n!==1?'s':'') + ' seleccionado' + (n!==1?'s':'');
   // Resumen
@@ -5496,8 +5527,18 @@ function updateRouteSelBar() {
     `<div style="color:#f59e0b;font-weight:700;margin-bottom:3px">Total: ${Q(total)}</div>${prodLines}`;
   setTimeout(() => {
     const barH = bar.offsetHeight;
-    const body = document.getElementById('routes-list');
-    if (body) body.style.paddingTop = (barH + 8) + 'px';
+    const _rp = document.getElementById('page-routes');
+    if (_rp) {
+      const oldPad = parseInt(_rp.style.paddingTop) || 0;
+      const barBottom = bar.getBoundingClientRect().bottom;
+      const pageTop = _rp.getBoundingClientRect().top;
+      const newPad = Math.max(0, barBottom - pageTop + oldPad);
+      if (Math.abs(newPad - oldPad) > 2) {
+        const diff = newPad - oldPad;
+        _rp.style.paddingTop = newPad + 'px';
+        window.scrollBy(0, diff);
+      }
+    }
   }, 50);
 }
 
@@ -6375,6 +6416,31 @@ async function applyNewCode() {
       navigator.serviceWorker.register('./sw.js');
     });
   }
+
+  // Botón ir arriba
+  const _scrollBtn = document.createElement('button');
+  _scrollBtn.id = 'btn-scroll-top';
+  _scrollBtn.innerHTML = '▲';
+  _scrollBtn.style.cssText = 'display:none;position:fixed;bottom:80px;right:14px;z-index:8000;background:#f59e0b;color:#000;border:none;border-radius:50%;width:42px;height:42px;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 10px #00000060;opacity:0.9';
+  _scrollBtn.onclick = function() {
+    // Quitar padding temporal antes de ir arriba
+    ['page-list','page-clients','page-routes'].forEach(function(id) {
+      const p = document.getElementById(id);
+      if (p) p.style.paddingTop = '';
+    });
+    window.scrollTo({top:0, behavior:'smooth'});
+  };
+  document.body.appendChild(_scrollBtn);
+
+  window.addEventListener('scroll', function() {
+    const activeTab = document.querySelector('.page.active');
+    const tabs = ['page-list','page-clients','page-products','page-routes'];
+    if (activeTab && tabs.includes(activeTab.id) && window.scrollY > 200) {
+      _scrollBtn.style.display = 'block';
+    } else {
+      _scrollBtn.style.display = 'none';
+    }
+  }, { passive: true });
 
 
 </script>
