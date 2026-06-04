@@ -390,9 +390,6 @@ Selecciona un cliente para continuar.<br><br>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <input type="date" id="f-date-from" class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
     <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
-    <select id="f-route-filter" class="sel" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()">
-      <option value="">🚚 Todas las rutas</option>
-    </select>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
 <button class="bg" style="padding:8px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700" onclick="generateOrderReportSel()" title="Reporte pedidos seleccionados">☑️ Seleccionados</button>
   </div>
@@ -520,11 +517,14 @@ Selecciona un cliente para continuar.<br><br>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <div class="sec" id="cli-title" style="margin-bottom:0;border:none">Clientes (0)</div>
 <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+<select id="cli-ruta-filter" class="sel" style="font-size:11px;padding:4px 7px;margin:0;height:auto" onchange="renderClients()">
+  <option value="">🚚 Ruta</option>
+</select>
 <select id="cli-dept-filter" class="sel" style="font-size:11px;padding:4px 7px;margin:0;height:auto" onchange="renderClients()">
-  <option value="">🏛️ Todos</option>
+  <option value="">🏛️ Depto.</option>
 </select>
 <select id="cli-mun-filter" class="sel" style="font-size:11px;padding:4px 7px;margin:0;height:auto" onchange="renderClients()">
-  <option value="">🏘️ Todos</option>
+  <option value="">🏘️ Sector</option>
 </select>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('alpha')">A→Z</button>
 <button class="bs" style="padding:5px 10px;font-size:11px" onclick="sortClients('manual')">⇅ Mover</button>
@@ -1906,8 +1906,6 @@ function selectReportCli(name) {
 }
 
 function clearReportFilters() {
-  const fRoute = document.getElementById('f-route-filter');
-  if (fRoute) fRoute.value = '';
   _selectedClients = [];
   renderCliTags();
   const f = document.getElementById('f-cli-report');
@@ -1927,12 +1925,7 @@ function getReportFiltered() {
   const fFrom = document.getElementById('f-date-from')?.value;
   const fTo   = document.getElementById('f-date-to')?.value;
   if (_selectedClients && _selectedClients.length) filtered = filtered.filter(o=>_selectedClients.includes(o.clientName));
-  const fRoute = document.getElementById('f-route-filter')?.value;
-  if (fRoute) {
-    // Obtener clientes de esa ruta
-    const routeCliIds = (S.clients||[]).filter(c=>c.rutaClienteId===Number(fRoute)).map(c=>c.id);
-    filtered = filtered.filter(o=>routeCliIds.includes(Number(o.clientId)));
-  }
+
   if (fFrom||fTo) {
     filtered = filtered.filter(o=>{
       const parts=(o.date||'').split('/');
@@ -2140,15 +2133,7 @@ function setOrderTab(tab) {
 }
 
 function renderList() {
-  // Poblar selector de rutas si está vacío
-  const fRoute = document.getElementById('f-route-filter');
-  if (fRoute && fRoute.options.length <= 1) {
-    (S.rutasCliente||[]).forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = r.id; opt.textContent = '🚚 ' + r.name;
-      fRoute.appendChild(opt);
-    });
-  }
+
 const ords = S.orders;
 // Poblar clientes ya no es necesario con autocompletado
 ['Cotización','Confirmado','Concluido'].forEach(st => {
@@ -3178,6 +3163,13 @@ function toggleCliSec(id) {
 function renderClients() {
 if (!window._cliOpen) window._cliOpen = {};
 document.getElementById('cli-title').textContent = `Clientes (${S.clients.length})`;
+// Poblar selector de rutas en clientes
+const cliRutaSel = document.getElementById('cli-ruta-filter');
+if (cliRutaSel) {
+  const curRuta = cliRutaSel.value;
+  cliRutaSel.innerHTML = '<option value="">🚚 Ruta</option>' +
+    (S.rutasCliente||[]).map(r=>`<option value="${r.id}" ${curRuta==r.id?'selected':''}>${r.name}</option>`).join('');
+}
 // Poblar selectores de edición masiva
 const massRuta = document.getElementById('mass-ruta');
 const massDept = document.getElementById('mass-dept');
@@ -3221,12 +3213,14 @@ let list = clientSortMode==='alpha'
 : S.clients;
 
 // Aplicar filtros
+const rutaFilter = document.getElementById('cli-ruta-filter')?.value || '';
+if (rutaFilter) list = list.filter(c => String(c.rutaClienteId) === rutaFilter);
 if (routeFilter === '__none__') list = list.filter(c => !c.deptId);
 else if (routeFilter) list = list.filter(c => String(c.deptId) === routeFilter);
 if (munFilter === '__none__') list = list.filter(c => !c.municipioId);
 else if (munFilter) list = list.filter(c => String(c.municipioId) === munFilter);
 
-document.getElementById('cli-title').textContent = (routeFilter||munFilter)
+document.getElementById('cli-title').textContent = (rutaFilter||routeFilter||munFilter)
   ? `Clientes (${list.length} de ${S.clients.length})`
   : `Clientes (${S.clients.length})`;
 list.forEach(c => {
@@ -5128,9 +5122,10 @@ function renderRoutes() {
     const orders = r.orders.map(id => S.orders.find(o=>o.id===id)).filter(Boolean);
     // Ordenar pedidos de la ruta según configuración
     if (!S.routeOrdSort) S.routeOrdSort = {};
-    const rSortRaw = S.routeOrdSort[r.id] || {s1:'default',s2:'none'};
+    const rSortRaw = S.routeOrdSort[r.id] || {s1:'default',s2:'none',s3:'none'};
     const rSort1 = typeof rSortRaw==='object' ? (rSortRaw.s1||'default') : rSortRaw;
     const rSort2 = typeof rSortRaw==='object' ? (rSortRaw.s2||'none')    : 'none';
+    const rSort3 = typeof rSortRaw==='object' ? (rSortRaw.s3||'none')    : 'none';
     const rSort  = rSort1;
     const _getSortVal = (o,key) => {
       const cli = S.clients.find(c=>c.id===o.clientId)||{};
@@ -5265,27 +5260,34 @@ function renderRoutes() {
         </div>
         <!-- Pedidos -->
         <div style="margin-bottom:8px">
-          <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
-            <span style="font-size:10px;color:#64748b;white-space:nowrap;width:52px">Ordenar:</span>
+          <div style="display:flex;gap:4px">
             <select onchange="setRouteOrdSort(${r.id},'s1',this.value)" style="flex:1;font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
               <option value="default" ${rSort1==='default'?'selected':''}>Como se agregaron</option>
               <option value="alpha"   ${rSort1==='alpha'?'selected':''}>A→Z Cliente</option>
+              <option value="ruta"    ${rSort1==='ruta'?'selected':''}>🚚 Ruta</option>
               <option value="dept"    ${rSort1==='dept'?'selected':''}>🏛️ Departamento</option>
               <option value="mun"     ${rSort1==='mun'?'selected':''}>🏘️ Municipio</option>
               <option value="recent"  ${rSort1==='recent'?'selected':''}>Más recientes</option>
               <option value="old"     ${rSort1==='old'?'selected':''}>Más antiguos</option>
               <option value="manual"  ${rSort1==='manual'?'selected':''}>⇅ Manual</option>
             </select>
-          </div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <span style="font-size:10px;color:#64748b;white-space:nowrap;width:52px">Luego:</span>
             <select onchange="setRouteOrdSort(${r.id},'s2',this.value)" style="flex:1;font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
               <option value="none"   ${rSort2==='none'?'selected':''}>—</option>
               <option value="alpha"  ${rSort2==='alpha'?'selected':''}>A→Z Cliente</option>
+              <option value="ruta"   ${rSort2==='ruta'?'selected':''}>🚚 Ruta</option>
               <option value="dept"   ${rSort2==='dept'?'selected':''}>🏛️ Departamento</option>
               <option value="mun"    ${rSort2==='mun'?'selected':''}>🏘️ Municipio</option>
               <option value="recent" ${rSort2==='recent'?'selected':''}>Más recientes</option>
               <option value="old"    ${rSort2==='old'?'selected':''}>Más antiguos</option>
+            </select>
+            <select onchange="setRouteOrdSort(${r.id},'s3',this.value)" style="flex:1;font-size:11px;background:#161929;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:3px 6px">
+              <option value="none"   ${(rSort3||'none')==='none'?'selected':''}>—</option>
+              <option value="alpha"  ${(rSort3||'none')==='alpha'?'selected':''}>A→Z Cliente</option>
+              <option value="ruta"   ${(rSort3||'none')==='ruta'?'selected':''}>🚚 Ruta</option>
+              <option value="dept"   ${(rSort3||'none')==='dept'?'selected':''}>🏛️ Departamento</option>
+              <option value="mun"    ${(rSort3||'none')==='mun'?'selected':''}>🏘️ Municipio</option>
+              <option value="recent" ${(rSort3||'none')==='recent'?'selected':''}>Más recientes</option>
+              <option value="old"    ${(rSort3||'none')==='old'?'selected':''}>Más antiguos</option>
             </select>
           </div>
         </div>
