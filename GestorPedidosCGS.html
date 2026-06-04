@@ -390,6 +390,9 @@ Selecciona un cliente para continuar.<br><br>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <input type="date" id="f-date-from" class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
     <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
+    <select id="f-route-filter" class="sel" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()">
+      <option value="">🚚 Todas las rutas</option>
+    </select>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
 <button class="bg" style="padding:8px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700" onclick="generateOrderReportSel()" title="Reporte pedidos seleccionados">☑️ Seleccionados</button>
   </div>
@@ -1903,6 +1906,8 @@ function selectReportCli(name) {
 }
 
 function clearReportFilters() {
+  const fRoute = document.getElementById('f-route-filter');
+  if (fRoute) fRoute.value = '';
   _selectedClients = [];
   renderCliTags();
   const f = document.getElementById('f-cli-report');
@@ -1922,6 +1927,12 @@ function getReportFiltered() {
   const fFrom = document.getElementById('f-date-from')?.value;
   const fTo   = document.getElementById('f-date-to')?.value;
   if (_selectedClients && _selectedClients.length) filtered = filtered.filter(o=>_selectedClients.includes(o.clientName));
+  const fRoute = document.getElementById('f-route-filter')?.value;
+  if (fRoute) {
+    // Obtener clientes de esa ruta
+    const routeCliIds = (S.clients||[]).filter(c=>c.rutaClienteId===Number(fRoute)).map(c=>c.id);
+    filtered = filtered.filter(o=>routeCliIds.includes(Number(o.clientId)));
+  }
   if (fFrom||fTo) {
     filtered = filtered.filter(o=>{
       const parts=(o.date||'').split('/');
@@ -2129,6 +2140,15 @@ function setOrderTab(tab) {
 }
 
 function renderList() {
+  // Poblar selector de rutas si está vacío
+  const fRoute = document.getElementById('f-route-filter');
+  if (fRoute && fRoute.options.length <= 1) {
+    (S.rutasCliente||[]).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id; opt.textContent = '🚚 ' + r.name;
+      fRoute.appendChild(opt);
+    });
+  }
 const ords = S.orders;
 // Poblar clientes ya no es necesario con autocompletado
 ['Cotización','Confirmado','Concluido'].forEach(st => {
