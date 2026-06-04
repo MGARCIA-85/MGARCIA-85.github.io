@@ -12,7 +12,7 @@
 <title>GestorPedidosCGS</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{background:#0d0f18;color:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;padding-bottom:80px;overscroll-behavior-y:contain}
+body{background:#0d0f18;color:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;padding-bottom:80px;overscroll-behavior-y:contain;overscroll-behavior:none}
 input,select,button,textarea{font-family:inherit}
 /* HEADER */
 #header{background:#161929;border-bottom:1px solid #2a3050;padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200}
@@ -977,23 +977,28 @@ if (name==='backup')   renderBackup();
 if (name==='routes')   renderRoutes();
 // Registrar en el historial del navegador para el botón Atrás de Android
 if (!_fromPop) {
-  history.pushState({ tab: name }, '', '#' + name);
+  _currentTab = name;
+  history.pushState({ tab: name }, '', window.location.pathname + window.location.search);
 }
 }
 
 // Botón Atrás de Android
 window.addEventListener('popstate', function(e) {
-  const tab = (e.state && e.state.tab) || 'list';
-  goTab(tab, true);
-  // Siempre mantener al menos un estado en el historial para no salir
-  if (history.length <= 1) {
-    history.pushState({ tab: tab }, '', window.location.pathname + window.location.search);
+  if (e.state && e.state.sentinel) {
+    // Llegamos al estado centinela — volver a empujar para no salir
+    history.pushState({ tab: _currentTab || 'list' }, '', window.location.pathname + window.location.search);
+    goTab(_currentTab || 'list', true);
+    return;
   }
+  const tab = (e.state && e.state.tab) || 'list';
+  _currentTab = tab;
+  goTab(tab, true);
 });
 
-// Estado inicial - doble push para que el primer "atrás" no salga
-history.replaceState({ tab: 'list' }, '', window.location.pathname + window.location.search);
+// Estado inicial: primero un centinela, luego el estado real
+history.replaceState({ sentinel: true }, '', window.location.pathname + window.location.search);
 history.pushState({ tab: 'list' }, '', window.location.pathname + window.location.search);
+var _currentTab = 'list';
 
 // ═══════════════════════════════════════════════════════
 //  INFORMACIÓN DEL NEGOCIO
@@ -6365,6 +6370,19 @@ async function applyNewCode() {
       navigator.serviceWorker.register('./sw.js');
     });
   }
+
+  // Bloquear pull-to-refresh en Chrome Android
+  let _lastY = 0;
+  document.addEventListener('touchstart', function(e) {
+    _lastY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e) {
+    const y = e.touches[0].clientY;
+    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    if (scrollTop === 0 && y > _lastY) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 </script>
 </body>
 </html>
