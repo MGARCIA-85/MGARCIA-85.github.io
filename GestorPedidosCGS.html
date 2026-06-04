@@ -978,27 +978,36 @@ if (name==='routes')   renderRoutes();
 // Registrar en el historial del navegador para el botón Atrás de Android
 if (!_fromPop) {
   _currentTab = name;
+  if (_navHistory[_navHistory.length - 1] !== name) {
+    _navHistory.push(name);
+    if (_navHistory.length > 20) _navHistory.shift(); // limitar a 20
+  }
   history.pushState({ tab: name }, '', window.location.pathname + window.location.search);
 }
 }
 
-// Botón Atrás de Android
+// Botón Atrás de Android — historial completo sin salir
+var _currentTab = 'list';
+var _navHistory = ['list']; // historial manual
+
 window.addEventListener('popstate', function(e) {
-  if (e.state && e.state.sentinel) {
-    // Llegamos al estado centinela — volver a empujar para no salir
-    history.pushState({ tab: _currentTab || 'list' }, '', window.location.pathname + window.location.search);
-    goTab(_currentTab || 'list', true);
-    return;
+  // Siempre re-empujar un estado para que nunca quede el historial vacío
+  setTimeout(function() {
+    history.pushState({ tab: _currentTab }, '', window.location.pathname + window.location.search);
+  }, 0);
+
+  if (_navHistory.length > 1) {
+    _navHistory.pop(); // quitar el actual
+    var prev = _navHistory[_navHistory.length - 1];
+    _currentTab = prev;
+    goTab(prev, true);
   }
-  const tab = (e.state && e.state.tab) || 'list';
-  _currentTab = tab;
-  goTab(tab, true);
+  // Si solo queda uno en el historial, no hacer nada (quedarse en la pestaña actual)
 });
 
-// Estado inicial: primero un centinela, luego el estado real
-history.replaceState({ sentinel: true }, '', window.location.pathname + window.location.search);
+// Estado inicial
+history.replaceState({ tab: 'list' }, '', window.location.pathname + window.location.search);
 history.pushState({ tab: 'list' }, '', window.location.pathname + window.location.search);
-var _currentTab = 'list';
 
 // ═══════════════════════════════════════════════════════
 //  INFORMACIÓN DEL NEGOCIO
