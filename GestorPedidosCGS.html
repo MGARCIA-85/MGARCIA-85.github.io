@@ -11,11 +11,6 @@
 <meta name="apple-mobile-web-app-title" content="GestorPedidos GT"/>
 <title>GestorPedidosCGS</title>
 <style>
-  body {
-    transform: scale(0.70);
-    transform-origin: top left;
-    width: 111.11%;
-  }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{overscroll-behavior:none}body{background:#0d0f18;color:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;padding-bottom:80px;overscroll-behavior:none}
 input,select,button,textarea{font-family:inherit}
@@ -417,7 +412,7 @@ Selecciona un cliente para continuar.<br><br>
     </div>
   </div>
   <div id="ord-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
-  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
+  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📄 PDF seleccionados</button>
 </div>
 <div id="lst-body"></div>
 </div>
@@ -834,7 +829,7 @@ Selecciona un cliente para continuar.<br><br>
   <div style="font-weight:800;font-size:16px;color:#f59e0b">📋 Informe de Pedidos</div>
   <button style="background:none;border:1px solid #ef4444;border-radius:8px;color:#ef4444;padding:5px 10px;cursor:pointer;font-size:13px" onclick="closeOrdReport()">✕ Cerrar</button>
 </div>
-<div id="ord-report-preview" style="overflow:hidden;margin-bottom:0"></div>
+<div id="ord-report-preview" style="overflow:hidden;margin-bottom:0;zoom:0.75"></div>
 <div style="background:#1e2236;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">
   <button class="bp" style="flex:1;min-width:120px" onclick="printOrdReport()">🖨 Imprimir / PDF</button>
   <button class="bg" style="flex:1;min-width:120px" onclick="shareOrdReportEmail()">📧 Enviar correo</button>
