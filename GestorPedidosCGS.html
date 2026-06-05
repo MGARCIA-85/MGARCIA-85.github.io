@@ -2405,11 +2405,24 @@ function delOrder(id) {
     return (p?p.name:'—') + ' ×' + it.qty;
   }).join(', ') : '';
   const tot = o ? Q(o.applyIva ? orderTotal(o.items,o.clientId)*1.12 : orderTotal(o.items,o.clientId)) : '';
-  const sub = name + (prods ? '\n' + prods : '') + (tot ? ' · ' + tot : '');
-  askConfirm('¿Eliminar este pedido?', sub, () => {
+  const inner = document.querySelector('#confirm-modal > div');
+  if (!inner) return;
+  inner.innerHTML = `
+    <div style="font-size:28px;margin-bottom:8px">📦</div>
+    <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:4px">¿Eliminar este pedido?</div>
+    <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:2px">${name}</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:2px">${prods}</div>
+    <div style="font-size:12px;color:#4ade80;margin-bottom:14px">${tot}</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">Esta acción no se puede deshacer.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="confirmDel(false)" style="padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="confirmDel(true)" style="padding:10px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-weight:800;cursor:pointer;font-size:13px">🗑 Eliminar pedido</button>
+    </div>`;
+  document.getElementById('confirm-modal').style.display = 'flex';
+  _confirmCb = () => {
     S.orders = S.orders.filter(o => o.id!==id); save(); renderList();
     toast('🗑 Pedido eliminado');
-  });
+  };
 }
 
 function delClient(id) {
