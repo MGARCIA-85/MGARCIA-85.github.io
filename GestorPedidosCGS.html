@@ -651,15 +651,11 @@ Selecciona un cliente para continuar.<br><br>
 
 <!-- Panel Config Correo Rutas (colapsado) -->
 <div id="email-route-body" style="display:none;background:#0d1a12;border:1px solid #064e3b;border-radius:12px;padding:12px 14px;margin-bottom:10px">
-  <label class="lbl">📧 Asunto del correo</label>
-  <input class="inp" id="route-email-subject" placeholder="Ej: Pedido Ruta Mayo 2026"/>
   <label class="lbl">✏️ Texto del correo</label>
   <textarea class="inp" id="route-email-body" rows="5" placeholder="Ej: Adjunto el informe de pedidos de la ruta. Saludos." style="resize:vertical;font-family:inherit"></textarea>
   <script>
   (function(){
-    var s=document.getElementById('route-email-subject');
     var b=document.getElementById('route-email-body');
-    if(s) s.value=localStorage.getItem('route_email_subject')||'';
     if(b) b.value=localStorage.getItem('route_email_body')||'';
   })();
   </script>
@@ -2723,10 +2719,17 @@ function deleteRoute(rid) {
 function removeOrderFromRoute(oid, rid) {
   const inner = document.querySelector('#confirm-modal > div');
   if (!inner) return;
+  const _o = S.orders.find(x=>x.id===oid);
+  const _cliName = _o ? _o.clientName : '—';
+  const _prodDesc = _o ? _o.items.map(it=>{const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));return (p?p.name:'—')+' ×'+it.qty;}).join(', ') : '';
+  const _tot = _o ? Q(_o.applyIva ? orderTotal(_o.items,_o.clientId)*1.12 : orderTotal(_o.items,_o.clientId)) : '';
   inner.innerHTML = `
     <div style="font-size:28px;margin-bottom:8px">📦</div>
-    <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px">Quitar pedido de la ruta</div>
-    <div style="font-size:12px;color:#94a3b8;margin-bottom:18px">¿Qué deseas hacer con este pedido?</div>
+    <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:4px">Quitar pedido de la ruta</div>
+    <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:2px">${_cliName}</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:2px">${_prodDesc}</div>
+    <div style="font-size:12px;color:#4ade80;margin-bottom:14px">${_tot}</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">¿Qué deseas hacer con este pedido?</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button onclick="confirmDel(false)" style="padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer;font-size:13px">Cancelar</button>
       <button onclick="window._ordRouteCb('unlink')" style="padding:10px;border-radius:9px;border:none;background:#3b82f6;color:#fff;font-weight:800;cursor:pointer;font-size:13px">🔗 Solo desvincular (conservar pedido)</button>
@@ -5570,9 +5573,7 @@ function selectAllRouteVisible() {
 }
 
 function saveRouteEmailConfig() {
-  const subj = document.getElementById('route-email-subject')?.value.trim() || '';
   const body = document.getElementById('route-email-body')?.value.trim() || '';
-  localStorage.setItem('route_email_subject', subj);
   localStorage.setItem('route_email_body', body);
   toast('✅ Configuración de correo guardada');
   document.getElementById('email-route-body').style.display = 'none';
@@ -5583,10 +5584,14 @@ async function shareRouteSelEmail() {
   Object.entries(window._routeSel||{}).forEach(([rid, set]) => set.forEach(id => allSel.push(id)));
   if (!allSel.length) return toast('Selecciona al menos un pedido primero','#f59e0b');
 
-  const subject = localStorage.getItem('route_email_subject') || 'Informe de Ruta';
-  const bodyText = localStorage.getItem('route_email_body') || '';
-
   const allSelArr = Object.entries(window._routeSel||{}).map(([rid,set])=>({rid:Number(rid),oids:[...set]}));
+  // Asunto = nombre de la ruta seleccionada (o "Informe de Ruta" si hay varias)
+  let subject = 'Informe de Ruta';
+  if (allSelArr.length === 1) {
+    const _ruta = S.routes.find(r=>r.id===allSelArr[0].rid);
+    if (_ruta) subject = _ruta.name;
+  }
+  const bodyText = localStorage.getItem('route_email_body') || '';
   let htmlContent = null;
   if (allSelArr.length === 1) {
     htmlContent = generateRouteReport(allSelArr[0].rid, allSelArr[0].oids, true);
