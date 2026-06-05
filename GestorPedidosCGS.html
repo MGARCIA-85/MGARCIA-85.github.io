@@ -5802,7 +5802,7 @@ const prodSummaryHTML = `<div style="margin-bottom:14px;border:1px solid #e5e7eb
   <div style="column-count:3;column-gap:0;column-rule:1px solid #e5e7eb">${prodSummaryRows}</div>
 </div>`;
 
-    const _emailSubject = localStorage.getItem('route_email_subject') || 'Informe de Ruta';
+    const _emailSubject = route.name || localStorage.getItem('route_email_subject') || 'Informe de Ruta';
   const _emailBody    = localStorage.getItem('route_email_body') || '';
   const _mailtoHref   = 'mailto:?subject=' + encodeURIComponent(_emailSubject) + '&body=' + encodeURIComponent(_emailBody);
 
