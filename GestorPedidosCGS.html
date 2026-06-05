@@ -88,7 +88,7 @@ table.rep{width:100%;border-collapse:collapse;font-size:11px}
 table.rep th{padding:7px 5px;text-align:left;border-bottom:1px solid #2a3050;color:#64748b;white-space:nowrap;background:#1e2236}
 table.rep td{padding:6px 5px;border-bottom:1px solid #2a3050}
 /* QUOTE MODAL */
-#quote-modal,#ord-report-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;overflow-y:auto;padding:16px}
+#quote-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;overflow-y:auto;padding:16px}
 #quote-modal.show{display:block}
 #quote-inner{background:#1e2236;border-radius:14px;padding:16px;max-width:500px;margin:0 auto}
 /* QUOTE STYLES (usadas también en impresión) */
@@ -212,7 +212,7 @@ table.rep th{background:#f0f0f0!important}
 <img id="biz-logo-img" src="" alt="logo"/>
 </div>
 <div>
-<h1 id="hdr-name">GestorPedidos GT <span style="font-size:10px;font-weight:400;color:#64748b">v171</span></h1>
+<h1 id="hdr-name">GestorPedidos GT</h1>
 <p id="hdr-sub">Pedidos · Clientes · Precios · Cotizaciones</p>
 </div>
 <button onclick="location.reload()" style="background:none;border:1px solid #2a3050;border-radius:8px;padding:6px 10px;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0" title="Actualizar">🔄</button>
@@ -412,7 +412,7 @@ Selecciona un cliente para continuar.<br><br>
     </div>
   </div>
   <div id="ord-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
-  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📄 PDF seleccionados</button>
+  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
 </div>
 <div id="lst-body"></div>
 </div>
@@ -819,21 +819,6 @@ Selecciona un cliente para continuar.<br><br>
 <button class="bs" style="flex:1;min-width:120px" onclick="shareOrderEmail()">✉️ Correo</button>
 </div>
 <div class="hint" style="margin-top:8px;text-align:center">Imprimir → "Guardar como PDF" para enviar por WhatsApp</div>
-</div>
-</div>
-
-<!-- Modal informe pedidos seleccionados -->
-<div id="ord-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;overflow-y:auto;padding:16px">
-<div id="ord-report-inner" style="background:#fff;border-radius:12px;overflow:hidden;max-width:700px;margin:0 auto">
-<div style="background:#1e2236;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
-  <div style="font-weight:800;font-size:16px;color:#f59e0b">📋 Informe de Pedidos</div>
-  <button style="background:none;border:1px solid #ef4444;border-radius:8px;color:#ef4444;padding:5px 10px;cursor:pointer;font-size:13px" onclick="closeOrdReport()">✕ Cerrar</button>
-</div>
-<div id="ord-report-preview" style="overflow:auto;margin-bottom:0"></div>
-<div style="background:#1e2236;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap">
-  <button class="bp" style="flex:1;min-width:120px" onclick="printOrdReport()">🖨 Imprimir / PDF</button>
-  <button class="bg" style="flex:1;min-width:120px" onclick="shareOrdReportEmail()">📧 Enviar correo</button>
-</div>
 </div>
 </div>
 
@@ -2030,24 +2015,6 @@ function updateOrdSelBar() {
   }, 80);
 }
 
-function closeOrdReport() {
-  document.getElementById('ord-report-modal').style.display = 'none';
-}
-function printOrdReport() {
-  const html = window._ordReportHtml || '';
-  const w = window.open('','_blank');
-  if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
-}
-function shareOrdReportEmail() {
-  const body = window._ordReportMailBody || '';
-  const subj = window._ordReportMailSubject || 'Informe de Pedidos';
-  if (navigator.share) {
-    navigator.share({ title: subj, text: body }).catch(() => {});
-  } else {
-    window.location.href = 'mailto:?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
-  }
-}
-
 function clearOrdSel() {
   window._ordSel = new Set();
   document.querySelectorAll('.ord-report-chk').forEach(chk => chk.checked = false);
@@ -2146,37 +2113,6 @@ function generateOrderReport(selIds) {
   }).join('');
 
   const logoHtml = b.logoData ? `<img src="${b.logoData}" style="width:50px;height:50px;border-radius:8px;object-fit:cover"/>` : `<div style="font-size:28px">${b.emoji||'📦'}</div>`;
-  // Generar texto del correo (debe ir antes del template html)
-  const mailLines = filtered.map((o, i) => {
-    const oTot = orderTotal(o.items, o.clientId);
-    const oDisp = o.applyIva ? oTot*1.12 : oTot;
-    const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
-    const cotLine = o.quote ? `Cot: ${o.quote}` : '';
-    const ocLine  = o.oc    ? `Pedido #${o.oc}` : '';
-    const cmtLines = cmts.map(c => `•${c}`).join('\n');
-    const prodLines = o.items.map(it => {
-      const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
-      const pr = (it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
-      const ul = p?.unitLabel||'unidad';
-      const spec = p?.presentation ? ` (${p.presentation})` : '';
-      const ivaText = o.applyIva ? ' + IVA' : '';
-      return '》'+it.qty+' '+(p?p.name:'—')+spec+'\nPrecio: '+Q(pr)+'/'+ul+ivaText;
-    }).join('\n');
-    const bonusLines = (o.bonusLines||[]).map(bl => {
-      const p = S.products.find(x=>x.id===Number(bl.productId));
-      const ul = p?.unitLabel||'unidad';
-      const spec = p?.presentation ? ' ('+p.presentation+')' : '';
-      return bl.qty+' '+(p?p.name:'—')+spec+'\nPrecio: '+Q(bl.price||0)+'/'+ul;
-    }).join('\n');
-    const bonusBlock = bonusLines ? '》BONIFICACIÓN《\n'+bonusLines : '';
-    const parts = ['#'+(i+1), o.clientName, cotLine, ocLine, cmtLines, '', prodLines];
-    if (bonusBlock) { parts.push(''); parts.push(bonusBlock); }
-    parts.push(''); parts.push('TOTAL: '+Q(oDisp));
-    return parts.filter(l=>l!==null&&l!==undefined).join('\n');
-  }).join('\n\n');
-  const mailBody = 'Buen día, por favor facturar:\n\n' + mailLines;
-  const mailSubject = title;
-
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${title}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:16px;color:#111;background:#fff;font-size:17px}table{font-size:17px}th,td{font-size:17px}@media print{body{padding:8px}}</style>
   </head><body>
@@ -2200,20 +2136,13 @@ function generateOrderReport(selIds) {
     <div style="column-count:3;column-gap:0;column-rule:1px solid #e5e7eb">${prodSummaryRows}</div>
   </div>
   ${rows}
-  </div>
+  <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / PDF</button>
+  
 </body></html>`;
 
-  // Mostrar en modal interno
-  window._ordReportHtml = html;
-  window._ordReportMailBody = mailBody;
-  window._ordReportMailSubject = mailSubject;
-  const preview = document.getElementById('ord-report-preview');
-  if (preview) {
-    // Extraer solo el body del HTML generado
-    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    preview.innerHTML = bodyMatch ? bodyMatch[1] : html;
-  }
-  document.getElementById('ord-report-modal').style.display = 'block';
+  const w = window.open('','_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download=`${title}.html`; a.click(); }
 }
 
 function toggleOrderFilters() {
