@@ -2402,7 +2402,15 @@ function confirmDel(yes) {
 }
 
 function delOrder(id) {
-  askConfirm('¿Eliminar este pedido?', '', () => {
+  const o = S.orders.find(x => x.id===id);
+  const name = o ? o.clientName : '—';
+  const prods = o ? o.items.map(it => {
+    const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+    return (p?p.name:'—') + ' ×' + it.qty;
+  }).join(', ') : '';
+  const tot = o ? Q(o.applyIva ? orderTotal(o.items,o.clientId)*1.12 : orderTotal(o.items,o.clientId)) : '';
+  const sub = name + (prods ? '\n' + prods : '') + (tot ? ' · ' + tot : '');
+  askConfirm('¿Eliminar este pedido?', sub, () => {
     S.orders = S.orders.filter(o => o.id!==id); save(); renderList();
     toast('🗑 Pedido eliminado');
   });
@@ -2410,8 +2418,11 @@ function delOrder(id) {
 
 function delClient(id) {
   id = Number(id);
+  const c = S.clients.find(x => Number(x.id)===id);
+  const nombre = c ? c.name : '—';
   const hasOrders = S.orders.some(o => Number(o.clientId)===id);
-  const sub = hasOrders ? 'Este cliente tiene pedidos activos. También se eliminarán.' : 'Esta acción no se puede deshacer.';
+  const ordCount = S.orders.filter(o => Number(o.clientId)===id).length;
+  const sub = nombre + (hasOrders ? '\n⚠️ Tiene ' + ordCount + ' pedido(s) activo(s) que también se eliminarán.' : '\nEsta acción no se puede deshacer.');
   askConfirm('¿Eliminar este cliente?', sub, () => {
     S.orders = S.orders.filter(o => Number(o.clientId)!==id);
     S.clients = S.clients.filter(c => Number(c.id)!==id);
@@ -2422,8 +2433,10 @@ function delClient(id) {
 
 function delProd(id) {
   id = Number(id);
+  const p = S.products.find(x => Number(x.id)===id);
+  const nombre = p ? p.name + (p.presentation ? ' (' + p.presentation + ')' : '') : '—';
   const hasOrders = S.orders.some(o => o.items.some(i => Number(i.productId)===id));
-  const sub = hasOrders ? 'Este producto está en pedidos activos. Se eliminará de ellos.' : 'Esta acción no se puede deshacer.';
+  const sub = nombre + (hasOrders ? '\n⚠️ Este producto está en pedidos activos. Se eliminará de ellos.' : '\nEsta acción no se puede deshacer.');
   askConfirm('¿Eliminar este producto?', sub, () => {
     S.orders.forEach(o => { o.items = o.items.filter(i => Number(i.productId)!==id); });
     S.products = S.products.filter(p => Number(p.id)!==id);
