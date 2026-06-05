@@ -2169,8 +2169,20 @@ function generateOrderReport(selIds) {
   ${rows}
   <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
     <button onclick="window.print()" style="flex:1;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
-    <a href="mailto:?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}" style="flex:1;padding:8px 18px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;text-decoration:none;text-align:center;display:inline-block">📧 Enviar correo</a>
+    <button id="btn-share-mail" style="flex:1;padding:8px 18px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">📧 Enviar correo</button>
   </div>
+  <script>
+  var _MB_ = ${JSON.stringify(mailBody)};
+  var _MS_ = ${JSON.stringify(mailSubject)};
+  var _shareBtn = document.getElementById('btn-share-mail');
+  if(_shareBtn){ _shareBtn.onclick = function(){
+        if(navigator.share){
+          navigator.share({title:_MS_, text:_MB_}).catch(function(){});
+        } else {
+          window.location.href='mailto:?subject='+encodeURIComponent(_MS_)+'&body='+encodeURIComponent(_MB_);
+        }
+  };}
+  </script>
 </body></html>`;
 
   const w = window.open('','_blank');
