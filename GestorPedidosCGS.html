@@ -413,6 +413,7 @@ Selecciona un cliente para continuar.<br><br>
   </div>
   <div id="ord-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
   <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
+  <button onclick="shareOrderReportSel()" style="width:100%;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;margin-top:6px">📤 Enviar / Compartir seleccionados</button>
 </div>
 <div id="lst-body"></div>
 </div>
@@ -691,6 +692,7 @@ Selecciona un cliente para continuar.<br><br>
   </div>
   <div id="route-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
   <button onclick="printAllRouteSel()" style="width:100%;padding:9px;background:#f59e0b;color:#0d0f18;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">⬇️ Descargar PDF</button>
+  <button onclick="shareRouteSelEmail()" style="width:100%;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📤 Enviar / Compartir</button>
 </div>
 <div id="routes-list"></div>
 </div>
@@ -2034,7 +2036,46 @@ function generateOrderReportSel() {
   }
   const selIds = [...window._ordSel];
   generateOrderReport(selIds);
-  // Limpiar selección después de imprimir
+  window._ordSel = new Set();
+  document.querySelectorAll('.ord-report-chk').forEach(chk => chk.checked = false);
+  updateOrdSelBar();
+}
+
+function shareOrderReportSel() {
+  if (!window._ordSel || window._ordSel.size === 0) {
+    return toast('Selecciona al menos un pedido con ☑️', '#f59e0b');
+  }
+  const selIds = [...window._ordSel];
+  let filtered = getReportFiltered().filter(o => selIds.includes(o.id));
+  if (!filtered.length) return toast('Sin pedidos para compartir','#f59e0b');
+
+  const mailLines = filtered.map((o, i) => {
+    const oTot = orderTotal(o.items, o.clientId);
+    const oDisp = o.applyIva ? oTot*1.12 : oTot;
+    const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
+    const cotLine = o.quote ? `Cot: ${o.quote}` : '';
+    const ocLine  = o.oc    ? `OC: ${o.oc}` : '';
+    const cmtLines = cmts.map(c => `• ${c}`).join('\n');
+    const prodLines = o.items.map(it => {
+      const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+      const pr = (it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
+      const ul = p?.unitLabel||'unidad';
+      const spec = p?.presentation ? ` (${p.presentation})` : '';
+      return `》${it.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(pr)}/${ul}`;
+    }).join('\n');
+    const parts = [`#${i+1} ${o.clientName}`, cotLine, ocLine, cmtLines, '', prodLines, '', `TOTAL: ${Q(oDisp)}`];
+    return parts.filter(l=>l!==null&&l!==undefined&&l!=='').join('\n');
+  }).join('\n\n');
+
+  const subject = 'Informe de Pedidos';
+  const body = 'Buen día, por favor facturar:\n\n' + mailLines;
+
+  if (navigator.share) {
+    navigator.share({ title: subject, text: body }).catch(() => {});
+  } else {
+    location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
   window._ordSel = new Set();
   document.querySelectorAll('.ord-report-chk').forEach(chk => chk.checked = false);
   updateOrdSelBar();
@@ -2070,10 +2111,10 @@ function generateOrderReport(selIds) {
       const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
       const pr=(it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
       const ul=p?.unitLabel||'unidad';
-      return `<tr><td style="padding:4px 8px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
-        <td style="padding:4px 8px;text-align:center">${it.qty}</td>
-        <td style="padding:4px 8px;text-align:right">${Q(pr)}/${ul}</td>
-        <td style="padding:4px 8px;text-align:right;font-weight:700">${Q(pr*it.qty*(Number(p?.unitSize)||1))}</td></tr>`;
+      return `<tr><td style="padding:5px 8px;font-size:12px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
+        <td style="padding:5px 8px;text-align:center;font-size:12px">${it.qty}</td>
+        <td style="padding:5px 8px;text-align:right;font-size:12px">${Q(pr)}/${ul}</td>
+        <td style="padding:5px 8px;text-align:right;font-weight:700;font-size:12px">${Q(pr*it.qty*(Number(p?.unitSize)||1))}</td></tr>`;
     }).join('');
     const bonusRowsHtml = (o.bonusLines||[]).map(bl=>{
       const p=S.products.find(x=>x.id===Number(bl.productId));
@@ -2105,7 +2146,7 @@ function generateOrderReport(selIds) {
       </div>
       ${cmtsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:#f3f4f6"><th style="padding:4px 8px;text-align:left">Producto</th><th style="padding:4px 8px">Cant.</th><th style="padding:4px 8px">P/Unidad</th><th style="padding:4px 8px">Subtotal</th></tr></thead>
+        <thead><tr style="background:#f3f4f6"><th style="padding:5px 8px;text-align:left;font-size:12px">Producto</th><th style="padding:5px 8px;font-size:12px">Cant.</th><th style="padding:5px 8px;font-size:12px">P/Unidad</th><th style="padding:5px 8px;font-size:12px">Subtotal</th></tr></thead>
         <tbody>${prods}${bonusSeparator}${bonusRowsHtml}</tbody>
       </table>
       <div style="text-align:right;padding:6px 12px;font-weight:800;font-size:13px;border-top:2px solid #111">TOTAL: ${Q(oDisp)}</div>
@@ -2147,13 +2188,13 @@ function generateOrderReport(selIds) {
   const tPend = filtered.filter(o=>o.status==='Confirmado').reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
   const tFact = filtered.filter(o=>o.status==='Concluido').reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${title}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
   <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:14px;color:#111;font-size:17px}
   .hdr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #111}
   .sum{display:flex;gap:6px;margin-bottom:14px}
   .sb{flex:1;border:1px solid #e5e7eb;border-radius:7px;padding:6px 4px;text-align:center;min-width:0}
   .sb .l{font-size:11px;color:#6b7280;margin-bottom:2px}.sb .v{font-size:14px;font-weight:800;white-space:nowrap}
-  table{font-size:17px}th,td{font-size:17px}
+  table{font-size:12px}th,td{font-size:12px}
   @media print{button{display:none!important}body{padding:6px}}</style>
   </head><body>
   <div class="hdr">
@@ -2171,9 +2212,10 @@ function generateOrderReport(selIds) {
     <div class="sb"><div class="l">Concluido</div><div class="v" style="color:#15803d">${Q(tFact)}</div></div>
     <div class="sb"><div class="l">TOTAL</div><div class="v" style="color:#d97706">${Q(tot)}</div></div>
   </div>
-  <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
-    <button onclick="window.print()" style="flex:1;padding:8px 14px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
-    <a href="mailto:?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}" style="flex:1;padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;text-decoration:none;text-align:center;display:inline-block">📧 Enviar correo</a>
+  <div style="margin-bottom:14px;display:flex;gap:16px;padding:0 12px">
+    <button onclick="document.body.style.zoom=(parseFloat(document.body.style.zoom||1)-0.1).toFixed(1)" style="padding:16px 28px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:32px;cursor:pointer;font-weight:700;line-height:1">－</button>
+    <button onclick="window.print()" style="flex:1;padding:16px 4px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
+    <button onclick="document.body.style.zoom=(parseFloat(document.body.style.zoom||1)+0.1).toFixed(1)" style="padding:16px 28px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:32px;cursor:pointer;font-weight:700;line-height:1">＋</button>
   </div>
   <div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
     <div style="background:#1e3a8a;color:#fff;padding:7px 12px;font-weight:800;font-size:13px">📦 Resumen de Productos</div>
@@ -2182,6 +2224,9 @@ function generateOrderReport(selIds) {
   ${rows}
 </body></html>`;
 
+  window._shareReportSubj = mailSubject;
+  window._shareReportBody = mailBody;
+
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -2189,6 +2234,16 @@ function generateOrderReport(selIds) {
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function _shareReport() {
+  const subj = window._shareReportSubj || '';
+  const body = window._shareReportBody || '';
+  if (navigator.share) {
+    navigator.share({title: subj, text: body}).catch(function(){});
+  } else {
+    location.href = 'mailto:?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+  }
 }
 
 function toggleOrderFilters() {
@@ -5891,9 +5946,10 @@ table{font-size:17px}th,td{font-size:17px}
   <div class="sb"><div class="l">Concluido</div><div class="v" style="color:#15803d">${Q(tFact)}</div></div>
   <div class="sb"><div class="l">TOTAL RUTA</div><div class="v" style="color:#d97706">${Q(tDisp)}</div></div>
 </div>
-<div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
-  <button onclick="window.print()" style="flex:1;padding:8px 14px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
-  <a href="${_mailtoHref}" style="flex:1;padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;text-decoration:none;text-align:center;display:inline-block">📧 Enviar correo</a>
+<div style="margin-bottom:14px;display:flex;gap:16px;padding:0 12px">
+  <button onclick="document.body.style.zoom=(parseFloat(document.body.style.zoom||1)-0.1).toFixed(1)" style="padding:16px 28px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:32px;cursor:pointer;font-weight:700;line-height:1">－</button>
+  <button onclick="window.print()" style="flex:1;padding:16px 4px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
+  <button onclick="document.body.style.zoom=(parseFloat(document.body.style.zoom||1)+0.1).toFixed(1)" style="padding:16px 28px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:32px;cursor:pointer;font-weight:700;line-height:1">＋</button>
 </div>
 ${prodSummaryHTML}
 ${rows}
