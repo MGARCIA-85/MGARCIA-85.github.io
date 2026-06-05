@@ -2144,38 +2144,51 @@ function generateOrderReport(selIds) {
   const mailBody = 'Buen día, por favor facturar:\n\n' + mailLines;
   const mailSubject = title;
 
+  const tPend = filtered.filter(o=>o.status==='Confirmado').reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
+  const tFact = filtered.filter(o=>o.status==='Concluido').reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${title}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:16px;color:#111;background:#fff;font-size:17px}table{font-size:17px}th,td{font-size:17px}@media print{body{padding:8px}}</style>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:14px;color:#111;font-size:17px}
+  .hdr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #111}
+  .sum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .sb{flex:1;min-width:100px;border:1px solid #e5e7eb;border-radius:7px;padding:8px;text-align:center}
+  .sb .l{font-size:13px;color:#6b7280;margin-bottom:3px}.sb .v{font-size:20px;font-weight:800}
+  table{font-size:17px}th,td{font-size:17px}
+  @media print{button{display:none!important}body{padding:6px}}</style>
   </head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb">
+  <div class="hdr">
     <div style="display:flex;gap:12px;align-items:center">${logoHtml}<div>
-      <div style="font-size:18px;font-weight:900">${b.name||'Mi Negocio'}</div>
-
-
+      <div style="font-size:19px;font-weight:900">${b.name||'Mi Negocio'}</div>
     </div></div>
     <div style="text-align:right">
-      <div style="font-size:15px;font-weight:800">${title}</div>
+      <div style="font-size:16px;font-weight:800">${title}</div>
       <div style="font-size:11px;color:#6b7280">${periodo}</div>
     </div>
   </div>
-  <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-    <div style="background:#f3f4f6;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:18px;font-weight:800">${filtered.length}</div><div style="font-size:10px;color:#6b7280">Pedidos</div></div>
-    <div style="background:#f3f4f6;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:14px;font-weight:800;color:#15803d">${Q(tot)}</div><div style="font-size:10px;color:#6b7280">Total</div></div>
+  <div class="sum">
+    <div class="sb"><div class="l">Pedidos</div><div class="v">${filtered.length}</div></div>
+    <div class="sb"><div class="l">Confirmado</div><div class="v" style="color:#b45309">${Q(tPend)}</div></div>
+    <div class="sb"><div class="l">Concluido</div><div class="v" style="color:#15803d">${Q(tFact)}</div></div>
+    <div class="sb"><div class="l">TOTAL</div><div class="v" style="color:#d97706">${Q(tot)}</div></div>
+  </div>
+  <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
+    <button onclick="window.print()" style="flex:1;padding:8px 14px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
+    <a href="mailto:?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}" style="flex:1;padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;text-decoration:none;text-align:center;display:inline-block">📧 Enviar correo</a>
   </div>
   <div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
     <div style="background:#1e3a8a;color:#fff;padding:7px 12px;font-weight:800;font-size:13px">📦 Resumen de Productos</div>
     <div style="column-count:3;column-gap:0;column-rule:1px solid #e5e7eb">${prodSummaryRows}</div>
   </div>
   ${rows}
-  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-    <button onclick="window.print()" style="flex:1;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
-    <a href="mailto:?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}" style="flex:1;padding:8px 18px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;text-decoration:none;text-align:center;display:inline-block">📧 Enviar correo</a>
-  </div>
 </body></html>`;
 
-  const w = window.open('','_blank');
-  if (w) { w.document.write(html); w.document.close(); }
-  else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download=`${title}.html`; a.click(); }
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.target = '_blank';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function toggleOrderFilters() {
