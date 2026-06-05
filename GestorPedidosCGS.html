@@ -2136,9 +2136,64 @@ function generateOrderReport(selIds) {
     <div style="column-count:3;column-gap:0;column-rule:1px solid #e5e7eb">${prodSummaryRows}</div>
   </div>
   ${rows}
-  <button onclick="window.print()" style="margin-top:12px;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">🖨️ Imprimir / PDF</button>
-  
+  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+    <button onclick="window.print()" style="flex:1;padding:8px 18px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700">🖨️ Imprimir / PDF</button>
+    <a id="btn-mail-sel" href="#" style="flex:1;padding:8px 18px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;text-decoration:none;text-align:center;display:inline-block">📧 Enviar correo</a>
+  </div>
+  <script>
+  (function(){
+    var mailBody = window._ordSelMailBody || '';
+    var mailSubject = window._ordSelMailSubject || 'Informe de Pedidos';
+    document.getElementById('btn-mail-sel').href = 'mailto:?subject=' + encodeURIComponent(mailSubject) + '&body=' + encodeURIComponent(mailBody);
+  })();
+  </script>
 </body></html>`;
+
+  // Generar texto del correo
+  const mailLines = filtered.map((o, i) => {
+    const oTot = orderTotal(o.items, o.clientId);
+    const oDisp = o.applyIva ? oTot*1.12 : oTot;
+    const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
+    const cotLine = o.quote ? `Cot: ${o.quote}` : '';
+    const ocLine  = o.oc    ? `Pedido #${o.oc}` : '';
+    const cmtLines = cmts.map(c => `•${c}`).join('\n');
+    const prodLines = o.items.map(it => {
+      const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
+      const pr = (it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
+      const ul = p?.unitLabel||'unidad';
+      const spec = p?.presentation ? ` (${p.presentation})` : '';
+      const ivaText = o.applyIva ? ' + IVA' : '';
+      return `》${it.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
+    }).join('\n');
+    const bonusLines = (o.bonusLines||[]).map(bl => {
+      const p = S.products.find(x=>x.id===Number(bl.productId));
+      const ul = p?.unitLabel||'unidad';
+      const spec = p?.presentation ? ` (${p.presentation})` : '';
+      return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}`;
+    }).join('\n');
+    const bonusBlock = bonusLines ? `》BONIFICACIÓN《\n${bonusLines}` : '';
+    const parts = [
+      `#${i+1}`,
+      o.clientName,
+      cotLine,
+      ocLine,
+      cmtLines,
+      '',
+      prodLines,
+      bonusBlock ? '' : null,
+      bonusBlock,
+      '',
+      `TOTAL: ${Q(oDisp)}`
+    ].filter(l => l !== null && l !== undefined).join('\n');
+    return parts;
+  }).join('\n\n');
+
+  const mailBody = 'Buen día, por favor facturar:\n\n' + mailLines;
+  const mailSubject = title;
+
+  // Pasar variables a la ventana hija
+  window._ordSelMailBody = mailBody;
+  window._ordSelMailSubject = mailSubject;
 
   const w = window.open('','_blank');
   if (w) { w.document.write(html); w.document.close(); }
