@@ -5585,11 +5585,13 @@ async function shareRouteSelEmail() {
   if (!allSel.length) return toast('Selecciona al menos un pedido primero','#f59e0b');
 
   const allSelArr = Object.entries(window._routeSel||{}).map(([rid,set])=>({rid:Number(rid),oids:[...set]}));
-  // Asunto = nombre de la ruta seleccionada (o "Informe de Ruta" si hay varias)
+  // Asunto = nombre de la ruta seleccionada
   let subject = 'Informe de Ruta';
-  if (allSelArr.length === 1) {
-    const _ruta = S.routes.find(r=>r.id===allSelArr[0].rid);
-    if (_ruta) subject = _ruta.name;
+  const _rutasSel = allSelArr.map(x => S.routes.find(r=>Number(r.id)===Number(x.rid))).filter(Boolean);
+  if (_rutasSel.length === 1) {
+    subject = _rutasSel[0].name;
+  } else if (_rutasSel.length > 1) {
+    subject = _rutasSel.map(r=>r.name).join(', ');
   }
   const bodyText = localStorage.getItem('route_email_body') || '';
   let htmlContent = null;
