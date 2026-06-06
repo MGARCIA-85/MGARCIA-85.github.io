@@ -411,6 +411,12 @@ Selecciona un cliente para continuar.<br><br>
       <button onclick="clearOrdSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
     </div>
   </div>
+  <div style="display:flex;gap:6px">
+    <button id="ord-btn-cot" onclick="toggleOrdByStatus('Cotización')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #64748b;border-radius:6px;color:#94a3b8;cursor:pointer">Cotización</button>
+    <button id="ord-btn-con" onclick="toggleOrdByStatus('Confirmado')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #1d4ed8;border-radius:6px;color:#60a5fa;cursor:pointer">Confirmado</button>
+    <button id="ord-btn-fin" onclick="toggleOrdByStatus('Concluido')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #15803d;border-radius:6px;color:#4ade80;cursor:pointer">Concluido</button>
+    </div>
+  </div>
   <div id="ord-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
   <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
   <button onclick="shareOrderReportSel()" style="width:100%;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;margin-top:6px">📤 Enviar / Compartir seleccionados</button>
@@ -688,6 +694,12 @@ Selecciona un cliente para continuar.<br><br>
     <div style="display:flex;gap:6px">
       <button onclick="selectAllRouteVisible()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;cursor:pointer">✔ Todos</button>
       <button onclick="clearAllRouteSel()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button id="rut-btn-cot" onclick="toggleRouteByStatus('Cotización')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #64748b;border-radius:6px;color:#94a3b8;cursor:pointer">Cotización</button>
+    <button id="rut-btn-con" onclick="toggleRouteByStatus('Confirmado')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #1d4ed8;border-radius:6px;color:#60a5fa;cursor:pointer">Confirmado</button>
+    <button id="rut-btn-fin" onclick="toggleRouteByStatus('Concluido')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #15803d;border-radius:6px;color:#4ade80;cursor:pointer">Concluido</button>
     </div>
   </div>
   <div id="route-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
@@ -2020,6 +2032,10 @@ function updateOrdSelBar() {
 function clearOrdSel() {
   window._ordSel = new Set();
   document.querySelectorAll('.ord-report-chk').forEach(chk => chk.checked = false);
+  ['Cotización','Confirmado','Concluido'].forEach(s => { _ordStatusActive[s]=false; });
+  const r = {Cotización:{b:'#64748b',c:'#94a3b8'}, Confirmado:{b:'#1d4ed8',c:'#60a5fa'}, Concluido:{b:'#15803d',c:'#4ade80'}};
+  const m = {Cotización:'ord-btn-cot', Confirmado:'ord-btn-con', Concluido:'ord-btn-fin'};
+  Object.entries(m).forEach(([s,id])=>{ const b=document.getElementById(id); if(b){b.style.background='transparent';b.style.color=r[s].c;b.style.borderColor=r[s].b;} });
   updateOrdSelBar();
 }
 
@@ -2030,6 +2046,32 @@ function selectAllOrdVisible() {
   });
   updateOrdSelBar();
 }
+const _ordStatusActive = {};
+function toggleOrdByStatus(status) {
+  const btnMap = {Cotización:'ord-btn-cot', Confirmado:'ord-btn-con', Concluido:'ord-btn-fin'};
+  const colorMap = {Cotización:{b:'#64748b',c:'#94a3b8',ab:'#475569',ac:'#fff'}, Confirmado:{b:'#1d4ed8',c:'#60a5fa',ab:'#1d4ed8',ac:'#fff'}, Concluido:{b:'#15803d',c:'#4ade80',ab:'#15803d',ac:'#fff'}};
+  const btn = document.getElementById(btnMap[status]);
+  const col = colorMap[status];
+  if (_ordStatusActive[status]) {
+    // Deseleccionar
+    _ordStatusActive[status] = false;
+    document.querySelectorAll('.ord-report-chk').forEach(chk => {
+      const o = S.orders.find(x => x.id === Number(chk.dataset.oid));
+      if (o && o.status === status) { chk.checked = false; window._ordSel.delete(Number(chk.dataset.oid)); }
+    });
+    if (btn) { btn.style.background='transparent'; btn.style.color=col.c; btn.style.borderColor=col.b; }
+  } else {
+    // Seleccionar
+    _ordStatusActive[status] = true;
+    document.querySelectorAll('.ord-report-chk').forEach(chk => {
+      const o = S.orders.find(x => x.id === Number(chk.dataset.oid));
+      if (o && o.status === status) { chk.checked = true; window._ordSel.add(Number(chk.dataset.oid)); }
+    });
+    if (btn) { btn.style.background=col.ab; btn.style.color=col.ac; btn.style.borderColor=col.ab; }
+  }
+  updateOrdSelBar();
+}
+function selectOrdByStatus(status) { toggleOrdByStatus(status); }
 function generateOrderReportSel() {
   if (!window._ordSel || window._ordSel.size === 0) {
     return toast('Selecciona al menos un pedido con ☑️', '#f59e0b');
@@ -5674,9 +5716,8 @@ function updateRouteSelBar() {
 
 function selectAllRouteVisible() {
   if (!window._routeSel) window._routeSel = {};
-  // Seleccionar solo los checkboxes visibles (ruta expandida)
   document.querySelectorAll('.route-ord-chk').forEach(chk => {
-    if (chk.offsetParent === null) return; // ignorar los ocultos
+    if (chk.offsetParent === null) return;
     const rid = Number(chk.dataset.rid);
     const oid = Number(chk.dataset.oid);
     if (!window._routeSel[rid]) window._routeSel[rid] = new Set();
@@ -5685,6 +5726,39 @@ function selectAllRouteVisible() {
   });
   updateRouteSelBar();
 }
+const _routeStatusActive = {};
+function toggleRouteByStatus(status) {
+  const btnMap = {Cotización:'rut-btn-cot', Confirmado:'rut-btn-con', Concluido:'rut-btn-fin'};
+  const colorMap = {Cotización:{b:'#64748b',c:'#94a3b8',ab:'#475569',ac:'#fff'}, Confirmado:{b:'#1d4ed8',c:'#60a5fa',ab:'#1d4ed8',ac:'#fff'}, Concluido:{b:'#15803d',c:'#4ade80',ab:'#15803d',ac:'#fff'}};
+  const btn = document.getElementById(btnMap[status]);
+  const col = colorMap[status];
+  if (_routeStatusActive[status]) {
+    _routeStatusActive[status] = false;
+    document.querySelectorAll('.route-ord-chk').forEach(chk => {
+      if (chk.offsetParent === null) return;
+      const rid = Number(chk.dataset.rid);
+      const oid = Number(chk.dataset.oid);
+      const o = S.orders.find(x => x.id === oid);
+      if (o && o.status === status) { chk.checked = false; if (window._routeSel[rid]) window._routeSel[rid].delete(oid); }
+    });
+    if (btn) { btn.style.background='transparent'; btn.style.color=col.c; btn.style.borderColor=col.b; }
+  } else {
+    _routeStatusActive[status] = true;
+    document.querySelectorAll('.route-ord-chk').forEach(chk => {
+      if (chk.offsetParent === null) return;
+      const rid = Number(chk.dataset.rid);
+      const oid = Number(chk.dataset.oid);
+      const o = S.orders.find(x => x.id === oid);
+      if (o && o.status === status) {
+        if (!window._routeSel[rid]) window._routeSel[rid] = new Set();
+        window._routeSel[rid].add(oid); chk.checked = true;
+      }
+    });
+    if (btn) { btn.style.background=col.ab; btn.style.color=col.ac; btn.style.borderColor=col.ab; }
+  }
+  updateRouteSelBar();
+}
+function selectRouteByStatus(status) { toggleRouteByStatus(status); }
 
 function saveRouteEmailConfig() {
   const body = document.getElementById('route-email-body')?.value.trim() || '';
@@ -5740,6 +5814,10 @@ async function shareRouteSelEmail() {
 function clearAllRouteSel() {
   window._routeSel = {};
   document.querySelectorAll('.route-ord-chk').forEach(chk => chk.checked = false);
+  ['Cotización','Confirmado','Concluido'].forEach(s => { _routeStatusActive[s]=false; });
+  const r = {Cotización:{b:'#64748b',c:'#94a3b8'}, Confirmado:{b:'#1d4ed8',c:'#60a5fa'}, Concluido:{b:'#15803d',c:'#4ade80'}};
+  const m = {Cotización:'rut-btn-cot', Confirmado:'rut-btn-con', Concluido:'rut-btn-fin'};
+  Object.entries(m).forEach(([s,id])=>{ const b=document.getElementById(id); if(b){b.style.background='transparent';b.style.color=r[s].c;b.style.borderColor=r[s].b;} });
   updateRouteSelBar();
 }
 
