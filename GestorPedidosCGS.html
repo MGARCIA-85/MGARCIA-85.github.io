@@ -2102,12 +2102,13 @@ function shareOrderReportSel() {
 
   // Helper: líneas de productos de un pedido
   function getProdLines(o) {
+    const ivaText = o.applyIva ? ' + IVA' : '';
     return o.items.map(it => {
       const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
       const pr = (it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
       const ul = p?.unitLabel||'unidad';
       const spec = p?.presentation ? ` (${p.presentation})` : '';
-      return `》${it.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(pr)}/${ul}`;
+      return `》${it.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(pr)}/${ul}${ivaText}`;
     }).join('\n');
   }
 
