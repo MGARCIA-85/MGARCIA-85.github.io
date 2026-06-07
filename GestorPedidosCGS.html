@@ -3374,6 +3374,7 @@ return `<div class="qt">
 <div style="font-size:12px;color:#6b7280;margin-bottom:2px">Fecha: ${ord.date}</div>
 <div style="font-size:13px;margin-top:2px">Cliente: <strong>${ord.clientName}</strong></div>
 ${ord.quoteNote?`<div style="font-size:12px;color:#374151;margin-top:4px;padding:5px 8px;background:#f9fafb;border-left:3px solid #f59e0b;border-radius:3px">${ord.quoteNote}</div>`:''}
+${ord.delivery?`<div style="font-size:12px;color:#0369a1;margin-top:4px;padding:5px 8px;background:#f0f9ff;border-left:3px solid #bae6fd;border-radius:3px">📍 Entrega: ${ord.delivery}</div>`:''}
 ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="color:#6b7280;margin-left:6px">${cliInfo}</span></div>`:''}
 ${cmtsQuote}
 <table class="qt-tbl">
@@ -3504,11 +3505,15 @@ const cmts = (ord.comments && ord.comments.length ? ord.comments : (ord.note ? [
 const comentariosTexto = cmts.map(c => `•${c}`).join('\n');
 
 const ocLine = ord.oc ? `Pedido #${ord.oc}` : '';
+const qNoteLine = ord.quoteNote ? ord.quoteNote : '';
+const deliveryLine = ord.delivery ? `Entrega: ${ord.delivery}` : '';
 
 const parts = [
   'Buen día, por favor facturar:',
   '',
   ocLine,
+  qNoteLine,
+  deliveryLine,
   comentariosTexto,
   '',
   prodLines,
@@ -3538,36 +3543,57 @@ function buildQuoteText(ord) {
 const b   = S.biz;
 const tot = orderTotal(ord.items, ord.clientId);
 const qNum = ord.quote || '';
-// Solo la fecha, sin la hora
 const fechaSolo = (ord.date||'').split(',')[0];
 
-let t = `*${b.name||'Cotización'}*\n`;
-if (b.exec) t += `${b.exec}\n`;
+let t = '';
+
+// Encabezado empresa
+t += `*${b.name||'Cotización'}*\n`;
+if (b.exec)  t += `${b.exec}\n`;
 if (b.phone) t += `📞 ${b.phone}\n`;
 if (b.email) t += `✉ ${b.email}\n`;
 t += `\n📄 *COTIZACIÓN*\n`;
 if (qNum) t += `No. ${qNum}\n`;
 t += `Fecha: ${fechaSolo}\n\n`;
-t += `Cliente: ${ord.clientName}\n\n`;
+t += `Cliente: ${ord.clientName}\n`;
 
+// Comentario de cotización y comentarios normales
+const cmts = ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : []);
+if (ord.quoteNote) t += `\n${ord.quoteNote}\n`;
+cmts.filter(Boolean).forEach(c => { t += `💬 ${c}\n`; });
+
+// Productos
+t += '\n';
 ord.items.forEach(it => {
-const p   = S.products.find(x => x.id===(it.productId||Number(it.pid)));
-const pr  = (it.customPrice != null) ? it.customPrice : cliPrice(ord.clientId, it.productId||it.pid, p?.basePrice||0);
-const us  = Number(p?.unitSize)||1;
-const ul  = p?.unitLabel||'unidad';
-const units = Number(it.qty)*us;
-const sub   = pr*units;
-const ivaText = ord.applyIva ? ' + IVA' : '';
-t += `• ${p?p.name:'—'} (${p?.presentation||'—'})\n`;
-t += `  ${it.qty} × ${Q(pr)}/${ul}${ivaText}\n`;
+  const p   = S.products.find(x => x.id===(it.productId||Number(it.pid)));
+  const pr  = (it.customPrice != null) ? it.customPrice : cliPrice(ord.clientId, it.productId||it.pid, p?.basePrice||0);
+  const ul  = p?.unitLabel||'unidad';
+  const spec = p?.presentation ? ` (${p.presentation})` : '';
+  const ivaText = ord.applyIva ? ' +IVA' : '';
+  t += `- ${it.qty} *${p?p.name.toUpperCase():'—'}${spec}*\n`;
+  t += `  Precio ${Q(pr)}/${ul}${ivaText}\n`;
 });
 
-const totalFinal = ord.applyIva ? tot*1.12 : ord.pricesIncIva ? tot : tot;
-t += `\n*TOTAL: ${Q(ord.applyIva ? tot*1.12 : tot)}*\n`;
+// Bonificaciones
+const bonusLines = (ord.bonusLines||[]).map(bl => {
+  const p  = S.products.find(x=>x.id===Number(bl.productId));
+  const ul = p?.unitLabel||'unidad';
+  const spec = p?.presentation ? ` (${p.presentation})` : '';
+  return `- ${bl.qty} *${p?p.name.toUpperCase():'—'}${spec}*\n  Precio ${Q(bl.price||0)}/${ul}`;
+}).join('\n');
+if (bonusLines) t += `\n》BONIFICACIÓN《\n${bonusLines}\n`;
 
-const cmts = ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : []);
-cmts.forEach(c => { if(c) t += `\n💬 ${c}\n`; });
+// Total
+const totalFinal = ord.applyIva ? tot*1.12 : tot;
+const ivaLabel = ord.applyIva ? ' _(IVA incluido)_' : '';
+t += `\n*TOTAL: ${Q(totalFinal)}*${ivaLabel}\n`;
+
+// Entrega
+if (ord.delivery) t += `Entrega: ${ord.delivery}\n`;
+
+// Pie de página
 if (b.footer) t += `\n${b.footer}`;
+
 return t;
 }
 
