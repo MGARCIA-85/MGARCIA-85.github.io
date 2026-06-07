@@ -2135,6 +2135,19 @@ function getReportFiltered() {
 
 // ── Selección de pedidos para reporte general ──
 if (!window._ordSel) window._ordSel = new Set();
+function openClientCard(cid) {
+  if (!window._cliOpen) window._cliOpen = {};
+  window._cliOpen[Number(cid)] = true;
+  goTab('clients');
+  setTimeout(() => {
+    renderClients();
+    setTimeout(() => {
+      const el = document.getElementById('cc-' + cid);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  }, 100);
+}
+
 function toggleOrdSel(oid, checked) {
   if (!window._ordSel) window._ordSel = new Set();
   if (checked) window._ordSel.add(oid);
@@ -2650,7 +2663,7 @@ card.innerHTML = `
   ${(window._ordSel||new Set()).has(o.id)?'checked':''}
   onclick="event.stopPropagation();toggleOrdSel(${o.id},this.checked)"/>
 <div>
-<div style="font-weight:800;font-size:15px">${o.clientName}</div>
+<div style="font-weight:800;font-size:15px;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
 ${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}\n${o.delivery?`<div style="font-size:11px;color:#a78bfa;margin-top:1px">📍 Entrega: ${o.delivery}</div>`:''}
 ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:1px">${o.quoteNote}</div>`:''}
@@ -5761,7 +5774,7 @@ function renderRoutes() {
               style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;flex-shrink:0"
               ${(window._routeSel[r.id]||new Set()).has(o.id)?'checked':''}
               onclick="event.stopPropagation();toggleRouteOrdSel(${r.id},${o.id},this.checked)"/>
-            <span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} ${o.clientName}</span>
+            <span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} </span><span style="font-size:13px;font-weight:700;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</span>
             <div style="font-size:10px;color:#64748b;margin-top:1px">${o.date.split(',')[0]}${(o.quote||o.oc)?` · ${o.quote?'Cot: '+o.quote:''}${o.oc?'· OC: '+o.oc:''}`:''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
