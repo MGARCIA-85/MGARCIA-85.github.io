@@ -1250,27 +1250,41 @@ const _o = document.getElementById('ord-oc');    if (_o) _o.value = '';
 // Si viene de duplicar, precargar los datos
 if (_duplicatingData) {
   const d = _duplicatingData;
-  const cliSel = document.getElementById('ord-cli');
-  if (cliSel) { cliSel.value = d.clientId; onCliChange(true); }
-  setTimeout(() => {
-    const fields = {'ord-quote':d.quote,'ord-quote-note':d.quoteNote,'ord-oc':d.oc};
-    Object.entries(fields).forEach(([fid,val])=>{ const el=document.getElementById(fid); if(el) el.value=val||''; });
-    const ivaEl=document.getElementById('ord-iva'); if(ivaEl) ivaEl.checked=d.applyIva;
-    const ivaIncEl=document.getElementById('ord-iva-inc'); if(ivaIncEl) ivaIncEl.checked=d.pricesIncIva;
-    if (d.comments && d.comments.length) {
-      const wrap=document.getElementById('ord-comments-list');
-      if (wrap) { wrap.innerHTML=''; d.comments.forEach(c=>{ const ta=document.createElement('textarea'); ta.className='inp'; ta.rows=2; ta.style.marginBottom='6px'; ta.value=c; wrap.appendChild(ta); }); }
-    }
-    renderOrdItems(); refreshTotalWithIVA(); onDeliveryInputChange();
-    const _defIdx = S.defaultAddresses && S.defaultAddresses[Number(d.clientId)] !== undefined ? S.defaultAddresses[Number(d.clientId)] : null;
-    const _defAddrs = (S.savedAddresses && S.savedAddresses[Number(d.clientId)]) || [];
-    alert('clientId: ' + d.clientId + '\ndefIdx: ' + _defIdx + '\naddrs: ' + JSON.stringify(_defAddrs) + '\ndefaultAddresses: ' + JSON.stringify(S.defaultAddresses));
-    if (_defIdx !== null && _defAddrs[_defIdx]) {
-      showDeliveryAlert(Number(d.clientId), _defAddrs[_defIdx]);
-    }
-    toast('📋 Duplicado — edita y guarda','#3b82f6');
-    _duplicatingData = null;
-  }, 80);
+  // Asignar cliente
+  const _cliHid = document.getElementById('ord-cli');
+  const _cliTxt = document.getElementById('ord-cli-txt');
+  const _cli = S.clients.find(c => c.id === Number(d.clientId));
+  if (_cliHid) _cliHid.value = d.clientId;
+  if (_cliTxt && _cli) _cliTxt.value = _cli.name;
+  // Mostrar formulario manualmente
+  const _body = document.getElementById('ord-body');
+  const _ph   = document.getElementById('ord-ph');
+  const _info = document.getElementById('ord-cli-info');
+  if (_body) _body.style.display = 'block';
+  if (_ph)   _ph.style.display   = 'none';
+  if (_info && _cli) _info.innerHTML = (_cli.phone?'📞 '+_cli.phone:'') + (_cli.address?' &nbsp;📍 '+_cli.address:'');
+  refreshDeliverySel(Number(d.clientId));
+  // Llenar campos
+  const fields = {'ord-quote':d.quote,'ord-quote-note':d.quoteNote,'ord-oc':d.oc};
+  Object.entries(fields).forEach(([fid,val])=>{ const el=document.getElementById(fid); if(el) el.value=val||''; });
+  const ivaEl=document.getElementById('ord-iva'); if(ivaEl) ivaEl.checked=d.applyIva;
+  const ivaIncEl=document.getElementById('ord-iva-inc'); if(ivaIncEl) ivaIncEl.checked=d.pricesIncIva;
+  if (d.comments && d.comments.length) {
+    setComments(d.comments);
+  } else {
+    setComments(['']);
+  }
+  renderItems(); renderOrdBonusRows(); refreshTotalWithIVA(); onDeliveryInputChange();
+  // Mostrar alerta de dirección predeterminada
+  const _cid = Number(d.clientId);
+  const _defIdx = S.defaultAddresses && S.defaultAddresses[_cid] !== undefined ? S.defaultAddresses[_cid] : null;
+  const _defAddrs = (S.savedAddresses && S.savedAddresses[_cid]) || [];
+  if (_defIdx !== null && _defAddrs[_defIdx]) {
+    showDeliveryAlert(_cid, _defAddrs[_defIdx]);
+  }
+  toast('📋 Duplicado — edita y guarda','#3b82f6');
+  _duplicatingData = null;
+  return;
 }
 }
 onCliChange();
@@ -1290,7 +1304,7 @@ refreshDeliverySel(cid);
 // Sugerir dirección predeterminada si existe
 const _defIdx = S.defaultAddresses && S.defaultAddresses[cid] !== undefined ? S.defaultAddresses[cid] : null;
 const _defAddrs = (S.savedAddresses && S.savedAddresses[cid]) || [];
-if (_defIdx !== null && _defAddrs[_defIdx] && !_duplicatingData && !skipAlert) {
+if (_defIdx !== null && _defAddrs[_defIdx] && !_duplicatingData && !skipAlert && editingOid === null) {
   const _defAddr = _defAddrs[_defIdx];
   showDeliveryAlert(cid, _defAddr);
 }
@@ -1592,6 +1606,7 @@ const valid = ordItems.filter(it => it.pid && Number(it.qty) > 0);
 if (!valid.length) return alert('Agrega al menos un producto.');
 const delivery = document.getElementById('ord-delivery')?.value.trim() || '';
 if (!delivery) return toast('El campo Entrega no puede estar vacío.', '#ef4444');
+if (document.getElementById('delivery-alert')) return toast('Confirma o cambia la dirección de entrega sugerida.', '#f59e0b');
 const cli  = S.clients.find(c => c.id===cid);
 const comments = getComments();
 const note = comments.join(' | ');  // backward compat field
@@ -2014,7 +2029,7 @@ function duplicateOrder(id) {
 
   // Precargar estado antes de abrir el formulario
   editingOid = null;
-  ordItems = orig.items.map(it => ({ ...it }));
+  ordItems = orig.items.map(it => ({ pid:String(it.productId||it.pid), qty:it.qty, price: it.customPrice != null ? it.customPrice : null, priceIncludesIva: !!it.priceIncludesIva }));
   ordBonusLines = orig.bonusLines ? orig.bonusLines.map(bl=>({...bl})) : [];
   _duplicatingFrom = id;
   if (orig.routeId) _cameFromRoute = true;
@@ -2432,7 +2447,7 @@ function generateOrderReport(selIds) {
     const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
     const stColor = o.status==='Concluido'?'#15803d':o.status==='Confirmado'?'#1d4ed8':'#64748b';
     const metaLine = [o.quote?`<strong>📋 Cot: ${o.quote}</strong>`:'', o.oc?`<strong>📄 OC: ${o.oc}</strong>`:''].filter(Boolean).join(' &nbsp;·&nbsp; ');
-    const deliveryHtml = o.delivery ? `<div style="padding:4px 12px;font-size:11px;background:#f0f9ff;border-top:1px solid #bae6fd;color:#0369a1;font-weight:700">📍 Entrega: ${o.delivery}</div>` : '';
+    const deliveryHtml = o.delivery ? `<div style="padding:4px 12px;font-size:16px;background:#f0f9ff;border-top:1px solid #bae6fd;color:#0369a1;font-weight:700">📍 Entrega: ${o.delivery}</div>` : '';
     const cmtsHtml = cmts.length ? `<div style="padding:5px 12px;font-size:11px;background:#fffbeb;border-top:1px solid #fde68a">` +
       cmts.map((c,ci) => ci===0
         ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
@@ -2444,8 +2459,7 @@ function generateOrderReport(selIds) {
         <div>
           <div style="font-size:16px;font-weight:900;color:#1e3a8a">#${i+1} ${o.clientName}</div>
           ${metaLine?`<div style="font-size:13px;color:#111;margin-top:3px">${metaLine}</div>`:''}
-          ${o.quoteNote?`<div style="font-size:11px;color:#374151;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
-          <div style="font-size:11px;color:#6b7280;margin-top:2px">${o.date.split(',')[0]}</div>
+          ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
         </div>
         <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px;white-space:nowrap">${o.status}</span>
       </div>
@@ -2615,14 +2629,14 @@ const us     = Number(p?.unitSize)||1;
 const ul     = p?.unitLabel||'unidad';
 const units  = it.qty*us;
 const sub    = pr*units;
-const detail = us>1 ? ` <span style="font-size:10px;color:#64748b">(${units} ${ul}s × ${Q(pr)})</span>` : '';
-// Desglose IVA por línea en informe
-const ivaTag = (!o.applyIva && o.pricesIncIva)
-? ` <span style="font-size:9px;background:#1e3a5f;color:#60a5fa;border-radius:3px;padding:1px 5px">IVA inc.</span>` : '';
-const ivaBadge = o.applyIva
-? ` <span style="font-size:9px;color:#60a5fa">+ IVA 12%: ${Q(pr*0.12)}/${ul}</span>` : '';
 const lineDisplay = o.applyIva ? Q(sub*1.12) : Q(sub);
-return `<div style="font-size:12px;color:#94a3b8;margin-bottom:2px">• ${p?p.name:'Eliminado'}${p?.presentation?' ('+p.presentation+')':''} × ${it.qty}${detail} = ${lineDisplay}${ivaBadge}${ivaTag}</div>`;
+const ivaLabel = o.applyIva
+  ? ` <span style="font-size:9px;color:#60a5fa">+IVA</span>`
+  : (!o.applyIva && o.pricesIncIva)
+    ? ` <span style="font-size:9px;background:#1e3a5f;color:#60a5fa;border-radius:3px;padding:1px 5px">IVA inc.</span>`
+    : '';
+const nombre = `${p?p.name:'Eliminado'}${p?.presentation?' ('+p.presentation+')':''}`;
+return `<div style="font-size:12px;color:#94a3b8;margin-bottom:4px"><span style="color:#f1f5f9;font-weight:600">${it.qty} ${nombre}</span><br/><span style="font-size:11px">×${Q(pr)}/${ul} = ${lineDisplay}${ivaLabel}</span></div>`;
 }).join('');
 const sCls = o.status==='Concluido'?'bp-fact':o.status==='Cotización'?'bp-quot':'bp-pend';
 const card = document.createElement('div');
@@ -2639,6 +2653,7 @@ card.innerHTML = `
 <div style="font-weight:800;font-size:15px">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
 ${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}\n${o.delivery?`<div style="font-size:11px;color:#a78bfa;margin-top:1px">📍 Entrega: ${o.delivery}</div>`:''}
+${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:1px">${o.quoteNote}</div>`:''}
 </div>
 </div>
 </div>
@@ -4541,13 +4556,15 @@ function editCliAddress(cid, idx) {
 }
 
 function newOrderForClient(cid) {
-  // Ir a Pedido nuevo con el cliente preseleccionado
   editingOid = null;
   ordItems = [{pid:'',qty:1}];
   ordComments = [''];
   goTab('order');
   setTimeout(() => {
+    const _cli = S.clients.find(c => c.id === Number(cid));
     document.getElementById('ord-cli').value = cid;
+    const cliTxt = document.getElementById('ord-cli-txt');
+    if (cliTxt && _cli) cliTxt.value = _cli.name;
     document.getElementById('ord-iva-inc').checked = true;
     document.getElementById('ord-iva').checked = false;
     onCliChange();
@@ -6267,7 +6284,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
       o.quote ? `<span style="font-size:13px;font-weight:800;color:#111">📋 Cot: <strong>${o.quote}</strong></span>` : '',
       o.oc    ? `<span style="font-size:13px;font-weight:800;color:#111">📄 OC: <strong>${o.oc}</strong></span>`    : ''
     ].filter(Boolean).join(' &nbsp;·&nbsp; ');
-    const deliveryHtmlR = o.delivery ? `<div style="padding:4px 12px;font-size:11px;background:#f0f9ff;border-top:1px solid #bae6fd;color:#0369a1;font-weight:700">📍 Entrega: ${o.delivery}</div>` : '';
+    const deliveryHtmlR = o.delivery ? `<div style="padding:4px 12px;font-size:16px;background:#f0f9ff;border-top:1px solid #bae6fd;color:#0369a1;font-weight:700">📍 Entrega: ${o.delivery}</div>` : '';
     // Bonificaciones
     const bonusRows = (o.bonusLines||[]).map(bl => {
       const p  = S.products.find(x=>x.id===Number(bl.productId));
@@ -6293,12 +6310,11 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <span style="font-size:12px;color:#6b7280;font-weight:600">#${rIdx+1} &nbsp;</span><span style="font-weight:900;font-size:16px;color:#1e3a8a">${o.clientName}</span>
-            <span style="font-size:11px;color:#6b7280;margin-left:8px">${o.date}</span>
           </div>
           <span style="font-size:11px;font-weight:700;color:${sc};border:1px solid ${sc};padding:1px 8px;border-radius:10px">${o.status}</span>
         </div>
         ${metaExtra ? `<div style="margin-top:5px">${metaExtra}</div>` : ''}
-        ${o.quoteNote?`<div style="font-size:11px;color:#374151;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
+        ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
       </div>
       ${deliveryHtmlR}
       ${cmtsHtml}
