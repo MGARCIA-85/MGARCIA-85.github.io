@@ -1737,8 +1737,15 @@ function finishSave() {
   document.getElementById('ord-iva-inc').checked = true;
   refreshTotalWithIVA();
   ordItems = [{pid:'',qty:1}]; onCliChange();
-  if (_cameFromRoute) { _cameFromRoute = false; goTab('routes'); }
-  else { goTab('list'); }
+  if (_cameFromRoute) {
+    _cameFromRoute = false;
+    const _newOrdId = newOrd.id;
+    goTab('routes');
+    setTimeout(() => {
+      const el = document.querySelector(`[data-oid="${_newOrdId}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 400);
+  } else { goTab('list'); }
 }
 
 // Verificar bonificaciones antes de finalizar
@@ -5900,23 +5907,22 @@ function renderRoutes() {
     const rSort  = rSort1;
     const _getSortVal = (o,key) => {
       const cli = S.clients.find(c=>c.id===o.clientId)||{};
-      if (key==='alpha')  return (o.clientName||'');
-      if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name;
-      if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name;
+      if (key==='alpha')  return (o.clientName||'').toLowerCase();
+      if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name.toLowerCase();
+      if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name.toLowerCase();
+      if (key==='ruta')   return ((S.rutasCliente||[]).find(x=>x.id===cli.rutaClienteId)||{name:''}).name.toLowerCase();
       if (key==='recent') return -o.id;
       if (key==='old')    return  o.id;
       return '';
     };
+    const _cmpR = (a,b,key) => {
+      if (!key||key==='none') return 0;
+      const va=_getSortVal(a,key), vb=_getSortVal(b,key);
+      return typeof va==='string' ? va.localeCompare(vb,'es') : va-vb;
+    };
     const orderedOrders = [...orders].sort((a,b) => {
       if (rSort1==='default'||rSort1==='manual') return 0;
-      const v1a=_getSortVal(a,rSort1), v1b=_getSortVal(b,rSort1);
-      const c1 = typeof v1a==='string' ? v1a.localeCompare(v1b,'es') : v1a-v1b;
-      if (c1!==0) return c1;
-      if (rSort2&&rSort2!=='none') {
-        const v2a=_getSortVal(a,rSort2), v2b=_getSortVal(b,rSort2);
-        return typeof v2a==='string' ? v2a.localeCompare(v2b,'es') : v2a-v2b;
-      }
-      return 0;
+      return _cmpR(a,b,rSort1) || _cmpR(a,b,rSort2) || _cmpR(a,b,rSort3);
     });
     const pend   = orders.filter(o=>o.status==='Confirmado').length;
     const fact   = orders.filter(o=>o.status==='Concluido').length;
@@ -6458,29 +6464,27 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
   if (!orders.length) { toast('La ruta no tiene pedidos','#ef4444'); return; }
 
   // Aplicar el mismo orden configurado en la vista
-  const rSortRaw = (S.routeOrdSort||{})[rid] || {s1:'default',s2:'none'};
+  const rSortRaw = (S.routeOrdSort||{})[rid] || {s1:'default',s2:'none',s3:'none'};
   const rSort1 = typeof rSortRaw==='object' ? (rSortRaw.s1||'default') : rSortRaw;
   const rSort2 = typeof rSortRaw==='object' ? (rSortRaw.s2||'none')    : 'none';
+  const rSort3 = typeof rSortRaw==='object' ? (rSortRaw.s3||'none')    : 'none';
   const _gsv = (o,key) => {
     const cli = S.clients.find(c=>c.id===o.clientId)||{};
-    if (key==='alpha')  return o.clientName||'';
-    if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name;
-    if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name;
+    if (key==='alpha')  return (o.clientName||'').toLowerCase();
+    if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name.toLowerCase();
+    if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name.toLowerCase();
+    if (key==='ruta')   return ((S.rutasCliente||[]).find(x=>x.id===cli.rutaClienteId)||{name:''}).name.toLowerCase();
     if (key==='recent') return -o.id;
     if (key==='old')    return  o.id;
     return '';
   };
+  const _cmp = (a,b,key) => {
+    if (!key||key==='none') return 0;
+    const va=_gsv(a,key), vb=_gsv(b,key);
+    return typeof va==='string' ? va.localeCompare(vb,'es') : va-vb;
+  };
   if (rSort1 !== 'default' && rSort1 !== 'manual') {
-    orders.sort((a,b) => {
-      const v1a=_gsv(a,rSort1), v1b=_gsv(b,rSort1);
-      const c1 = typeof v1a==='string' ? v1a.localeCompare(v1b,'es') : v1a-v1b;
-      if (c1!==0) return c1;
-      if (rSort2&&rSort2!=='none') {
-        const v2a=_gsv(a,rSort2), v2b=_gsv(b,rSort2);
-        return typeof v2a==='string' ? v2a.localeCompare(v2b,'es') : v2a-v2b;
-      }
-      return 0;
-    });
+    orders.sort((a,b) => _cmp(a,b,rSort1) || _cmp(a,b,rSort2) || _cmp(a,b,rSort3));
   }
   const b = S.biz;
   const tDisp = orders.reduce((s,o)=>{const bv=orderTotal(o.items,o.clientId);return s+(o.applyIva?bv*1.12:bv);},0);
