@@ -2981,13 +2981,31 @@ function renderDeptList() {
     wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin departamentos. Agrega uno arriba.</div>';
     return;
   }
-  wrap.innerHTML = S.depts.map(cat => {
+  const sorted = [...S.depts].sort((a,b) => a.name.localeCompare(b.name,'es'));
+  wrap.innerHTML = sorted.map(cat => {
     const count = S.clients.filter(c => c.deptId === cat.id).length;
+    const isEditing = window._editingDept === cat.id;
+    if (isEditing) {
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-dept-${cat.id}" value="${cat.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
+        <button onclick="saveDeptName(${cat.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
+        <button onclick="window._editingDept=null;renderDeptList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
+      </div>`;
+    }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <span style="flex:1;font-size:13px;color:#f1f5f9">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <span onclick="window._editingDept=${cat.id};renderDeptList()" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteDept(${cat.id})">✕</button>
     </div>`;
   }).join('');
+}
+
+function saveDeptName(id) {
+  const inp = document.getElementById('edit-dept-'+id);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('El nombre no puede estar vacío','#ef4444');
+  const dept = S.depts.find(d => d.id === id);
+  if (dept) { dept.name = name; save(); renderDeptList(); renderClients(); toast('✅ Departamento actualizado','#10b981'); }
+  window._editingDept = null;
 }
 
 function deleteDept(id) {
@@ -3024,13 +3042,31 @@ function renderRutaClienteList() {
     wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin rutas. Agrega una arriba.</div>';
     return;
   }
-  wrap.innerHTML = S.rutasCliente.map(r => {
+  const sorted = [...S.rutasCliente].sort((a,b) => a.name.localeCompare(b.name,'es'));
+  wrap.innerHTML = sorted.map(r => {
     const count = S.clients.filter(c => c.rutaClienteId === r.id).length;
+    const isEditing = window._editingRuta === r.id;
+    if (isEditing) {
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-ruta-${r.id}" value="${r.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
+        <button onclick="saveRutaName(${r.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
+        <button onclick="window._editingRuta=null;renderRutaClienteList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
+      </div>`;
+    }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <span style="flex:1;font-size:13px;color:#f1f5f9">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <span onclick="window._editingRuta=${r.id};renderRutaClienteList()" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteRutaCliente(${r.id})">✕</button>
     </div>`;
   }).join('');
+}
+
+function saveRutaName(id) {
+  const inp = document.getElementById('edit-ruta-'+id);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('El nombre no puede estar vacío','#ef4444');
+  const r = S.rutasCliente.find(x => x.id === id);
+  if (r) { r.name = name; save(); renderRutaClienteList(); renderClients(); toast('✅ Ruta actualizada','#10b981'); }
+  window._editingRuta = null;
 }
 
 function deleteRutaCliente(id) {
@@ -3067,13 +3103,31 @@ function renderMunList() {
     wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin municipios. Agrega uno arriba.</div>';
     return;
   }
-  wrap.innerHTML = S.municipios.map(m => {
+  const sorted = [...S.municipios].sort((a,b) => a.name.localeCompare(b.name,'es'));
+  wrap.innerHTML = sorted.map(m => {
     const count = S.clients.filter(c => c.municipioId === m.id).length;
+    const isEditing = window._editingMun === m.id;
+    if (isEditing) {
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-mun-${m.id}" value="${m.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
+        <button onclick="saveMunName(${m.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
+        <button onclick="window._editingMun=null;renderMunList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
+      </div>`;
+    }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <span style="flex:1;font-size:13px;color:#f1f5f9">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <span onclick="window._editingMun=${m.id};renderMunList()" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteMun(${m.id})">✕</button>
     </div>`;
   }).join('');
+}
+
+function saveMunName(id) {
+  const inp = document.getElementById('edit-mun-'+id);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('El nombre no puede estar vacío','#ef4444');
+  const m = S.municipios.find(x => x.id === id);
+  if (m) { m.name = name; save(); renderMunList(); renderClients(); toast('✅ Sector actualizado','#10b981'); }
+  window._editingMun = null;
 }
 
 function deleteMun(id) {
@@ -3739,38 +3793,36 @@ if (cliRutaSel) {
   const curRuta = cliRutaSel.value;
   cliRutaSel.innerHTML = '<option value="">🚚 Ruta</option>' +
     '<option value="__none__" ' + (curRuta==='__none__'?'selected':'') + '>— Sin ruta —</option>' +
-    (S.rutasCliente||[]).map(r=>`<option value="${r.id}" ${curRuta==r.id?'selected':''}>${r.name}</option>`).join('');
+    [...(S.rutasCliente||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(r=>`<option value="${r.id}" ${curRuta==r.id?'selected':''}>${r.name}</option>`).join('');
 }
-// Poblar selectores de edición masiva
 const massRuta = document.getElementById('mass-ruta');
 const massDept = document.getElementById('mass-dept');
 const massMun  = document.getElementById('mass-mun');
 if (massRuta) {
   massRuta.innerHTML = '<option value="">🚚 Ruta...</option>' +
-    (S.rutasCliente||[]).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+    [...(S.rutasCliente||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
 }
 if (massDept) {
   massDept.innerHTML = '<option value="">🏛️ Depto...</option>' +
-    (S.depts||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+    [...(S.depts||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
 }
 if (massMun) {
   massMun.innerHTML = '<option value="">🏘️ Sector...</option>' +
-    (S.municipios||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+    [...(S.municipios||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
 }
 
-// Actualizar filtros de departamento y municipio
 const rfSel = document.getElementById('cli-dept-filter');
 if (rfSel) {
   const curVal = rfSel.value;
   rfSel.innerHTML = '<option value="">🏛️ Todos</option>' +
-    (S.depts||[]).map(d=>`<option value="${d.id}" ${String(d.id)===curVal?'selected':''}>${d.name}</option>`).join('') +
+    [...(S.depts||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(d=>`<option value="${d.id}" ${String(d.id)===curVal?'selected':''}>${d.name}</option>`).join('') +
     `<option value="__none__" ${curVal==='__none__'?'selected':''}>— Sin departamento</option>`;
 }
 const munSel = document.getElementById('cli-mun-filter');
 if (munSel) {
   const curMun = munSel.value;
   munSel.innerHTML = '<option value="">🏘️ Todos</option>' +
-    (S.municipios||[]).map(m=>`<option value="${m.id}" ${String(m.id)===curMun?'selected':''}>${m.name}</option>`).join('') +
+    [...(S.municipios||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(m=>`<option value="${m.id}" ${String(m.id)===curMun?'selected':''}>${m.name}</option>`).join('') +
     `<option value="__none__" ${curMun==='__none__'?'selected':''}>— Sin municipio</option>`;
 }
 const routeFilter = rfSel ? rfSel.value : '';
