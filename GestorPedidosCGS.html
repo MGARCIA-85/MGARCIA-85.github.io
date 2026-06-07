@@ -291,6 +291,14 @@ table.rep th{background:#f0f0f0!important}
 <input class="inp" id="ord-quote" placeholder="Ej: COT-001"/>
 <label class="lbl">Orden de Compra (OC)</label>
 <input class="inp" id="ord-oc" placeholder="Ej: OC-4587"/>
+<label class="lbl">Entrega</label>
+<div style="display:flex;gap:6px;margin-bottom:8px">
+  <select class="sel" id="ord-delivery-sel" style="flex:1;font-size:13px" onchange="onDeliverySelChange()">
+    <option value="">— Seleccionar dirección guardada —</option>
+  </select>
+</div>
+<input class="inp" id="ord-delivery" placeholder="Dirección de entrega..." style="margin-bottom:4px" oninput="onDeliveryInputChange()"/>
+<button class="bs" id="ord-delivery-save-btn" style="display:none;font-size:11px;padding:4px 10px;margin-bottom:8px" onclick="saveDeliveryToClient()">💾 Guardar esta dirección en el cliente</button>
 <label class="lbl">Comentario de cotización (aparece en cotización e informes)</label>
 <input class="inp" id="ord-quote-note" placeholder="Ej: Válido por 5 días"/>
 </div>
@@ -885,6 +893,8 @@ lastBk: null,
 
 let ordItems    = [{ pid:'', qty:1, price:null }];
 let ordComments = [''];
+let _duplicatingFrom = null;
+let _duplicatingData = null;
 let editingOid  = null;
 let ordBonusLines = []; // bonificaciones del pedido en edición
 
@@ -1237,11 +1247,36 @@ const _span2 = secTit.querySelector('span'); if (_span2) _span2.textContent = 'C
 // Limpiar campos al iniciar un pedido nuevo
 const _q = document.getElementById('ord-quote'); if (_q) _q.value = '';
 const _o = document.getElementById('ord-oc');    if (_o) _o.value = '';
+// Si viene de duplicar, precargar los datos
+if (_duplicatingData) {
+  const d = _duplicatingData;
+  const cliSel = document.getElementById('ord-cli');
+  if (cliSel) { cliSel.value = d.clientId; onCliChange(true); }
+  setTimeout(() => {
+    const fields = {'ord-quote':d.quote,'ord-quote-note':d.quoteNote,'ord-oc':d.oc};
+    Object.entries(fields).forEach(([fid,val])=>{ const el=document.getElementById(fid); if(el) el.value=val||''; });
+    const ivaEl=document.getElementById('ord-iva'); if(ivaEl) ivaEl.checked=d.applyIva;
+    const ivaIncEl=document.getElementById('ord-iva-inc'); if(ivaIncEl) ivaIncEl.checked=d.pricesIncIva;
+    if (d.comments && d.comments.length) {
+      const wrap=document.getElementById('ord-comments-list');
+      if (wrap) { wrap.innerHTML=''; d.comments.forEach(c=>{ const ta=document.createElement('textarea'); ta.className='inp'; ta.rows=2; ta.style.marginBottom='6px'; ta.value=c; wrap.appendChild(ta); }); }
+    }
+    renderOrdItems(); refreshTotalWithIVA(); onDeliveryInputChange();
+    const _defIdx = S.defaultAddresses && S.defaultAddresses[Number(d.clientId)] !== undefined ? S.defaultAddresses[Number(d.clientId)] : null;
+    const _defAddrs = (S.savedAddresses && S.savedAddresses[Number(d.clientId)]) || [];
+    alert('clientId: ' + d.clientId + '\ndefIdx: ' + _defIdx + '\naddrs: ' + JSON.stringify(_defAddrs) + '\ndefaultAddresses: ' + JSON.stringify(S.defaultAddresses));
+    if (_defIdx !== null && _defAddrs[_defIdx]) {
+      showDeliveryAlert(Number(d.clientId), _defAddrs[_defIdx]);
+    }
+    toast('📋 Duplicado — edita y guarda','#3b82f6');
+    _duplicatingData = null;
+  }, 80);
+}
 }
 onCliChange();
 }
 
-function onCliChange() {
+function onCliChange(skipAlert) {
 const cid  = Number(document.getElementById('ord-cli').value);
 const info = document.getElementById('ord-cli-info');
 const body = document.getElementById('ord-body');
@@ -1250,6 +1285,15 @@ if (!cid) { body.style.display='none'; ph.style.display='block'; info.textConten
 const c = S.clients.find(x => x.id === cid);
 info.innerHTML = (c.phone ? '📞 '+c.phone : '') + (c.address ? ' &nbsp;📍 '+c.address : '');
 body.style.display = 'block'; ph.style.display = 'none';
+refreshDeliverySel(cid);
+
+// Sugerir dirección predeterminada si existe
+const _defIdx = S.defaultAddresses && S.defaultAddresses[cid] !== undefined ? S.defaultAddresses[cid] : null;
+const _defAddrs = (S.savedAddresses && S.savedAddresses[cid]) || [];
+if (_defIdx !== null && _defAddrs[_defIdx] && !_duplicatingData && !skipAlert) {
+  const _defAddr = _defAddrs[_defIdx];
+  showDeliveryAlert(cid, _defAddr);
+}
 if (editingOid === null) {
   // Recopilar TODOS los pedidos del cliente (cualquier estado), ordenados del más nuevo al más viejo
   const facturados = [...S.orders]
@@ -1546,6 +1590,8 @@ const cid = Number(document.getElementById('ord-cli').value);
 if (!cid) return alert('Selecciona un cliente.');
 const valid = ordItems.filter(it => it.pid && Number(it.qty) > 0);
 if (!valid.length) return alert('Agrega al menos un producto.');
+const delivery = document.getElementById('ord-delivery')?.value.trim() || '';
+if (!delivery) return toast('El campo Entrega no puede estar vacío.', '#ef4444');
 const cli  = S.clients.find(c => c.id===cid);
 const comments = getComments();
 const note = comments.join(' | ');  // backward compat field
@@ -1575,6 +1621,7 @@ ord.comments     = comments;
 ord.quote        = quote;
 ord.quoteNote    = quoteNote;
 ord.oc           = oc;
+ord.delivery     = delivery;
 ord.applyIva     = applyIva;
 ord.pricesIncIva = pricesIncIva;
 ord.editedAt     = new Date().toLocaleString('es-GT');
@@ -1614,15 +1661,27 @@ return;
 // Nuevo pedido
 const newOrd = {
   id:S.nextOid++, clientId:cli.id, clientName:cli.name,
-  note, comments, quote, quoteNote, oc, applyIva, pricesIncIva, items,
+  note, comments, quote, quoteNote, oc, delivery, applyIva, pricesIncIva, items,
   bonusLines: ordBonusLines.length ? ordBonusLines.map(bl=>({...bl})) : undefined,
   date:new Date().toLocaleString('es-GT'), status:'Cotización'
 };
+// Si viene de duplicar, preservar routeId
+if (_duplicatingFrom) {
+  const _origDup = S.orders.find(x => x.id === _duplicatingFrom);
+  if (_origDup && _origDup.routeId) {
+    newOrd.routeId = _origDup.routeId;
+    const _route = S.routes ? S.routes.find(r => r.id === _origDup.routeId) : null;
+    if (_route) { if (!_route.orders) _route.orders = []; _route.orders.push(newOrd.id); }
+  }
+  newOrd.duplicatedFrom = _duplicatingFrom;
+  _duplicatingFrom = null;
+}
 S.orders.push(newOrd);
 
 // Función para finalizar después de resolver bonificaciones
 function finishSave() {
-  const _pendRid = sessionStorage.getItem('pendingRouteId') || localStorage.getItem('currentRouteId');
+  const _isDup = !!newOrd.duplicatedFrom;
+  const _pendRid = !_isDup && (sessionStorage.getItem('pendingRouteId') || localStorage.getItem('currentRouteId'));
   if (_pendRid) {
     const _route = S.routes ? S.routes.find(r => r.id == _pendRid) : null;
     if (_route) {
@@ -1635,6 +1694,8 @@ function finishSave() {
     save(); toast('✅ Pedido agregado a la ruta');
     if (_route) { setTimeout(()=>{ goTab('routes'); }, 300); }
   } else {
+    sessionStorage.removeItem('pendingRouteId');
+    localStorage.removeItem('currentRouteId');
     save(); toast('✅ Pedido registrado');
   }
   editingOid = null;
@@ -1685,16 +1746,23 @@ const quoteNoteInp = document.getElementById('ord-quote-note');
 if (quoteNoteInp) quoteNoteInp.value = ord.quoteNote || '';
 const ocInp = document.getElementById('ord-oc');
 if (ocInp) ocInp.value = ord.oc || '';
+const deliveryInp = document.getElementById('ord-delivery');
+if (deliveryInp) deliveryInp.value = ord.delivery || '';
 onCliChange();
 }, 60);
 }
 
 function cancelEdit() {
 editingOid = null; ordItems = [{pid:'',qty:1}]; ordBonusLines = [];
+const _wasDuplicating = !!_duplicatingFrom || !!_duplicatingData;
+_duplicatingFrom = null; _duplicatingData = null;
+const _prevAlert = document.getElementById('delivery-alert');
+if (_prevAlert) _prevAlert.remove();
 document.getElementById('ord-cli').value = ''; document.getElementById('ord-cli-txt').value = '';
 const _qInp = document.getElementById('ord-quote'); if (_qInp) _qInp.value = '';
 const _qnInp = document.getElementById('ord-quote-note'); if (_qnInp) _qnInp.value = '';
 const _oInp = document.getElementById('ord-oc');    if (_oInp) _oInp.value = '';
+const _dInp = document.getElementById('ord-delivery'); if (_dInp) _dInp.value = '';
 ordComments = [''];
 renderCommentFields();
 const ivaChk = document.getElementById('ord-iva');
@@ -1706,6 +1774,7 @@ document.getElementById('btn-submit').textContent    = '✅ Registrar Pedido';
 const secTitle = document.getElementById('order-sec-title');
 if (secTitle) { const span = secTitle.querySelector('span'); if (span) span.textContent = 'Crear Nuevo Pedido'; }
 if (_cameFromRoute) { _cameFromRoute = false; onCliChange(); goTab('routes'); return; }
+_cameFromRoute = false;
 if (_cameFromClient !== null) {
   const _returnCid = (S.orders.find(x=>x.id===_cameFromClient)||{}).clientId;
   _cameFromClient = null;
@@ -1802,6 +1871,92 @@ setTimeout(() => {
 }, 10);
 }
 
+function showDeliveryAlert(cid, addr) {
+  // Eliminar alerta anterior si existe
+  const prev = document.getElementById('delivery-alert');
+  if (prev) prev.remove();
+
+  const inp = document.getElementById('ord-delivery');
+  if (!inp) return;
+
+  const alert = document.createElement('div');
+  alert.id = 'delivery-alert';
+  alert.style.cssText = 'background:#1e3a5f;border:1px solid #3b82f6;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#f1f5f9';
+  alert.innerHTML = `
+    <div style="margin-bottom:8px">📍 <strong>Entregar en:</strong> ${addr}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="confirmDelivery('${addr.replace(/'/g,"\\'")}');document.getElementById('delivery-alert').remove();" style="flex:1;padding:7px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✅ Confirmar</button>
+      <button onclick="document.getElementById('delivery-alert').remove();document.getElementById('ord-delivery').value='';document.getElementById('ord-delivery').focus();" style="flex:1;padding:7px;background:#475569;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cambiar</button>
+    </div>`;
+
+  inp.parentNode.insertBefore(alert, inp);
+}
+
+function confirmDelivery(addr) {
+  const inp = document.getElementById('ord-delivery');
+  if (inp) { inp.value = addr; onDeliveryInputChange(); }
+}
+
+function refreshDeliverySel(cid) {
+  const sel = document.getElementById('ord-delivery-sel');
+  const inp = document.getElementById('ord-delivery');
+  const btn = document.getElementById('ord-delivery-save-btn');
+  if (!sel) return;
+  if (!S.savedAddresses) S.savedAddresses = {};
+  const addrs = S.savedAddresses[cid] || [];
+  sel.innerHTML = '<option value="">— Seleccionar dirección guardada —</option>' +
+    addrs.map((a,i) => `<option value="${i}">${a}</option>`).join('');
+  if (btn) btn.style.display = 'none';
+}
+
+function onDeliverySelChange() {
+  const sel = document.getElementById('ord-delivery-sel');
+  const inp = document.getElementById('ord-delivery');
+  const btn = document.getElementById('ord-delivery-save-btn');
+  if (!sel || !inp) return;
+  const idx = sel.value;
+  const cid = Number(document.getElementById('ord-cli')?.value);
+  if (idx === '') {
+    inp.value = '';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  const addrs = (S.savedAddresses && S.savedAddresses[cid]) || [];
+  inp.value = addrs[Number(idx)] || '';
+  if (btn) btn.style.display = 'none';
+}
+
+function onDeliveryInputChange() {
+  const inp = document.getElementById('ord-delivery');
+  const btn = document.getElementById('ord-delivery-save-btn');
+  const sel = document.getElementById('ord-delivery-sel');
+  if (!inp || !btn) return;
+  const txt = inp.value.trim();
+  const cid = Number(document.getElementById('ord-cli')?.value);
+  if (!cid || !txt) { btn.style.display = 'none'; return; }
+  const addrs = (S.savedAddresses && S.savedAddresses[cid]) || [];
+  // Mostrar botón guardar solo si la dirección no está ya guardada
+  btn.style.display = addrs.includes(txt) ? 'none' : 'inline-block';
+}
+
+function saveDeliveryToClient() {
+  const inp = document.getElementById('ord-delivery');
+  const txt = inp ? inp.value.trim() : '';
+  const cid = Number(document.getElementById('ord-cli')?.value);
+  if (!cid || !txt) return;
+  if (!S.savedAddresses) S.savedAddresses = {};
+  let arr = S.savedAddresses[cid] || [];
+  if (!Array.isArray(arr)) arr = [];
+  if (arr.includes(txt)) return toast('Ya existe esa dirección','#f59e0b');
+  arr.push(txt);
+  S.savedAddresses[cid] = arr;
+  save();
+  refreshDeliverySel(cid);
+  const btn = document.getElementById('ord-delivery-save-btn');
+  if (btn) btn.style.display = 'none';
+  toast('📍 Dirección guardada en el cliente','#10b981');
+}
+
 function toggleSavedComments() {
 const bar = document.getElementById('saved-comments-bar');
 if (!bar) return;
@@ -1855,33 +2010,28 @@ renderCommentFields();
 //  DUPLICAR PEDIDO
 // ═══════════════════════════════════════════════════════
 function duplicateOrder(id) {
-const orig = S.orders.find(x => x.id === id); if (!orig) return;
-const copy = {
-id: S.nextOid++,
-clientId:   orig.clientId,
-clientName: orig.clientName,
-items:      orig.items.map(it => ({ ...it })),
-bonusLines: orig.bonusLines ? orig.bonusLines.map(bl=>({...bl})) : [],
-comments:   orig.comments ? [...orig.comments] : (orig.note ? [orig.note] : []),
-note:       orig.note || '',
-quote:      orig.quote || '',
-oc:         orig.oc    || '',
-applyIva:      orig.applyIva,
-pricesIncIva:  orig.pricesIncIva,
-status:     'Cotización',
-date:       new Date().toLocaleString('es-GT'),
-duplicatedFrom: id
-};
-// Si el original pertenece a una ruta, el duplicado también entra en esa ruta
-if (orig.routeId) {
-  copy.routeId = orig.routeId;
-  const route = S.routes.find(r => r.id === orig.routeId);
-  if (route) { if (!route.orders) route.orders = []; route.orders.push(copy.id); }
-}
-S.orders.push(copy);
-save();
-toast('📋 Pedido duplicado como #' + copy.id);
-renderList();
+  const orig = S.orders.find(x => x.id === id); if (!orig) return;
+
+  // Precargar estado antes de abrir el formulario
+  editingOid = null;
+  ordItems = orig.items.map(it => ({ ...it }));
+  ordBonusLines = orig.bonusLines ? orig.bonusLines.map(bl=>({...bl})) : [];
+  _duplicatingFrom = id;
+  if (orig.routeId) _cameFromRoute = true;
+  sessionStorage.removeItem('pendingRouteId');
+  localStorage.removeItem('currentRouteId');
+  _duplicatingData = {
+    clientId:   orig.clientId,
+    quote:      orig.quote      || '',
+    quoteNote:  orig.quoteNote  || '',
+    oc:         orig.oc         || '',
+    delivery:   orig.delivery   || '',
+    applyIva:   orig.applyIva   || false,
+    pricesIncIva: orig.pricesIncIva || false,
+    comments:   orig.comments ? [...orig.comments] : (orig.note ? [orig.note] : [])
+  };
+
+  goTab('order');
 }
 let _orderTab = 'all';
 let _orderAsc = false; // false = recientes primero (default)
@@ -2154,16 +2304,26 @@ function shareOrderReportSel() {
       // Caso 1: mismo cliente, comentarios idénticos — comentarios una sola vez al inicio
       const sharedCmts = getCmts(filtered[0]);
       const cmtBlock = sharedCmts.length ? sharedCmts.join('\n') + '\n\n' : '';
+      // Dirección: si todos tienen la misma va arriba, si no va en cada pedido
+      const firstDelivery = filtered[0].delivery || '';
+      const sameDelivery = filtered.every(o => (o.delivery || '') === firstDelivery);
+      const sharedDelivery = sameDelivery && firstDelivery ? `Entrega: ${firstDelivery}\n\n` : '';
+      // QuoteNote: si todos tienen el mismo va arriba, si no va en cada pedido
+      const firstQNote = filtered[0].quoteNote || '';
+      const sameQNote = filtered.every(o => (o.quoteNote || '') === firstQNote);
+      const sharedQNote = sameQNote && firstQNote ? `${firstQNote}\n\n` : '';
 
       const pedidoLines = filtered.map((o, i) => {
         const cotLine = (!sameQuote && o.quote) ? `Cotización ${o.quote}\n` : '';
         const ocLine = o.oc ? `Orden ${o.oc}\n` : '';
+        const qNoteLine = (!sameQNote && o.quoteNote) ? `${o.quoteNote}\n` : '';
+        const deliveryLine = (!sameDelivery && o.delivery) ? `Entrega: ${o.delivery}\n` : '';
         const prodLines = getProdLines(o);
         const bonusBlock = getBonusBlock(o);
-        return `Pedido #${i+1}\n${cotLine}${ocLine}${prodLines}${bonusBlock}\n\nTOTAL: ${Q(getTotal(o))}`;
+        return `Pedido #${i+1}\n${cotLine}${ocLine}${qNoteLine}${deliveryLine}${prodLines}${bonusBlock}\n\nTOTAL: ${Q(getTotal(o))}`;
       }).join('\n\n');
 
-      body = `Buen día, por favor facturar y coordinar despacho.\n\n${cmtBlock}${pedidoLines}`;
+      body = `Buen día, por favor facturar y coordinar despacho.\n\n${sharedQNote}${sharedDelivery}${cmtBlock}${pedidoLines}`;
 
     } else {
       // Caso 2: comentarios mixtos — comunes arriba, únicos en cada pedido
@@ -2172,18 +2332,28 @@ function shareOrderReportSel() {
         allCmtSets.every(cmts => cmts.includes(c))
       );
       const commonBlock = commonCmts.length ? commonCmts.join('\n') + '\n\n' : '';
+      // Dirección: si todos tienen la misma va arriba, si no va en cada pedido
+      const firstDelivery2 = filtered[0].delivery || '';
+      const sameDelivery2 = filtered.every(o => (o.delivery || '') === firstDelivery2);
+      const sharedDelivery2 = sameDelivery2 && firstDelivery2 ? `Entrega: ${firstDelivery2}\n\n` : '';
+      // QuoteNote: si todos tienen el mismo va arriba, si no va en cada pedido
+      const firstQNote2 = filtered[0].quoteNote || '';
+      const sameQNote2 = filtered.every(o => (o.quoteNote || '') === firstQNote2);
+      const sharedQNote2 = sameQNote2 && firstQNote2 ? `${firstQNote2}\n\n` : '';
 
       const pedidoLines = filtered.map((o, i) => {
         const cotLine = (!sameQuote && o.quote) ? `Cotización ${o.quote}\n` : '';
         const ocLine = o.oc ? `Orden ${o.oc}\n` : '';
+        const qNoteLine = (!sameQNote2 && o.quoteNote) ? `${o.quoteNote}\n` : '';
+        const deliveryLine = (!sameDelivery2 && o.delivery) ? `Entrega: ${o.delivery}\n` : '';
         const uniqueCmts = getCmts(o).filter(c => !commonCmts.includes(c));
         const cmtBlock = uniqueCmts.length ? uniqueCmts.join('\n') + '\n' : '';
         const prodLines = getProdLines(o);
         const bonusBlock = getBonusBlock(o);
-        return `Pedido #${i+1}\n${cotLine}${ocLine}${cmtBlock}${prodLines}${bonusBlock}\n\nTOTAL: ${Q(getTotal(o))}`;
+        return `Pedido #${i+1}\n${cotLine}${ocLine}${qNoteLine}${deliveryLine}${cmtBlock}${prodLines}${bonusBlock}\n\nTOTAL: ${Q(getTotal(o))}`;
       }).join('\n\n');
 
-      body = `Buen día, por favor facturar y coordinar despacho.\n\n${commonBlock}${pedidoLines}`;
+      body = `Buen día, por favor facturar y coordinar despacho.\n\n${sharedQNote2}${sharedDelivery2}${commonBlock}${pedidoLines}`;
     }
 
   } else {
@@ -2193,10 +2363,12 @@ function shareOrderReportSel() {
       const cmts = getCmts(o);
       const cotLine = o.quote ? `Cot: ${o.quote}` : '';
       const ocLine  = o.oc    ? `Orden ${o.oc}` : '';
+      const qNoteLine3 = o.quoteNote ? `${o.quoteNote}` : '';
+      const deliveryLine = o.delivery ? `Entrega: ${o.delivery}` : '';
       const cmtLines = cmts.map(c => `${c}`).join('\n');
       const prodLines = getProdLines(o);
       const bonusBlock = getBonusBlock(o);
-      const parts = [`#${i+1} ${o.clientName}`, cotLine, ocLine, cmtLines, '', prodLines + bonusBlock, '', `TOTAL: ${Q(getTotal(o))}`];
+      const parts = [`Pedido #${i+1}`, `${o.clientName}`, cotLine, ocLine, qNoteLine3, deliveryLine, cmtLines, '', prodLines + bonusBlock, '', `TOTAL: ${Q(getTotal(o))}`];
       return parts.filter(l=>l!==null&&l!==undefined&&l!=='').join('\n');
     }).join('\n\n');
     body = 'Buen día, por favor facturar:\n\n' + mailLines;
@@ -2260,6 +2432,7 @@ function generateOrderReport(selIds) {
     const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
     const stColor = o.status==='Concluido'?'#15803d':o.status==='Confirmado'?'#1d4ed8':'#64748b';
     const metaLine = [o.quote?`<strong>📋 Cot: ${o.quote}</strong>`:'', o.oc?`<strong>📄 OC: ${o.oc}</strong>`:''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    const deliveryHtml = o.delivery ? `<div style="padding:4px 12px;font-size:11px;background:#f0f9ff;border-top:1px solid #bae6fd;color:#0369a1;font-weight:700">📍 Entrega: ${o.delivery}</div>` : '';
     const cmtsHtml = cmts.length ? `<div style="padding:5px 12px;font-size:11px;background:#fffbeb;border-top:1px solid #fde68a">` +
       cmts.map((c,ci) => ci===0
         ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
@@ -2276,6 +2449,7 @@ function generateOrderReport(selIds) {
         </div>
         <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px;white-space:nowrap">${o.status}</span>
       </div>
+      ${deliveryHtml}
       ${cmtsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:#f3f4f6"><th style="padding:5px 8px;text-align:left;font-size:12px">Producto</th><th style="padding:5px 8px;font-size:12px">Cant.</th><th style="padding:5px 8px;font-size:12px">P/Unidad</th><th style="padding:5px 8px;font-size:12px">Subtotal</th></tr></thead>
@@ -2464,7 +2638,7 @@ card.innerHTML = `
 <div>
 <div style="font-weight:800;font-size:15px">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
-${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}
+${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}\n${o.delivery?`<div style="font-size:11px;color:#a78bfa;margin-top:1px">📍 Entrega: ${o.delivery}</div>`:''}
 </div>
 </div>
 </div>
@@ -3616,6 +3790,32 @@ ${(()=>{
   </div>`;
 })()}
 ${(()=>{
+  if (!S.savedAddresses) S.savedAddresses = {};
+  const addrs = S.savedAddresses[c.id] || [];
+  const addrRows = addrs.map((addr,i) => {
+    const isDefault = (S.defaultAddresses && S.defaultAddresses[c.id] === i);
+    return `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;background:#161929;border-radius:7px;padding:6px 10px;border:1px solid ${isDefault?'#f59e0b':'transparent'}">
+      <span style="flex:1;font-size:12px;color:#f1f5f9">${isDefault?'⭐ ':''}${addr}</span>
+      <button onclick="setDefaultAddress(${c.id},${i})" style="background:none;border:none;color:${isDefault?'#f59e0b':'#475569'};cursor:pointer;font-size:13px;padding:0 4px" title="Predeterminada">${isDefault?'⭐':'☆'}</button>
+      <button onclick="editCliAddress(${c.id},${i})" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:13px;padding:0 4px" title="Editar">✏️</button>
+      <button onclick="removeCliAddress(${c.id},${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px" title="Eliminar">✕</button>
+    </div>`}).join('');
+  return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
+    <div onclick="toggleCliSec('csd-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:700">📍 DIRECCIONES DE ENTREGA</span>
+      <span style="color:#64748b;font-size:11px">▼</span>
+    </div>
+    <div id="csd-${c.id}" style="display:none">
+    ${addrRows || '<div style="font-size:11px;color:#64748b;margin-bottom:6px">Sin direcciones guardadas.</div>'}
+    <div style="display:flex;gap:6px;margin-top:4px">
+      <input class="inp" id="new-cli-addr-${c.id}" placeholder="Nueva dirección de entrega..." style="margin-bottom:0;flex:1;font-size:12px"/>
+      <button class="bg" style="padding:8px 12px;white-space:nowrap;font-size:12px" onclick="addCliAddress(${c.id})">+ Agregar</button>
+    </div>
+  </div>
+  </div>`;
+})()}
+${(()=>{
   if (!S.bonuses) S.bonuses = {};
   const rules = S.bonuses[c.id] || [];
   if (!rules.length) return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
@@ -4298,6 +4498,46 @@ function removeCliComment(cid, idx) {
   arr.splice(idx, 1);
   S.savedComments[cid] = arr;
   save(); renderClients();
+}
+
+function setDefaultAddress(cid, idx) {
+  if (!S.defaultAddresses) S.defaultAddresses = {};
+  S.defaultAddresses[cid] = idx;
+  save(); toast('📍 Dirección predeterminada guardada','#10b981'); renderClients();
+}
+
+function addCliAddress(cid) {
+  const inp = document.getElementById('new-cli-addr-'+cid);
+  const txt = inp ? inp.value.trim() : '';
+  if (!txt) return toast('Escribe una dirección','#f59e0b');
+  if (!S.savedAddresses) S.savedAddresses = {};
+  let arr = S.savedAddresses[cid] || [];
+  if (!Array.isArray(arr)) arr = [];
+  if (arr.includes(txt)) return toast('Ya existe esa dirección','#f59e0b');
+  arr.push(txt);
+  S.savedAddresses[cid] = arr;
+  save(); toast('📍 Dirección guardada','#10b981'); renderClients();
+}
+
+function removeCliAddress(cid, idx) {
+  if (!S.savedAddresses || !S.savedAddresses[cid]) return;
+  let arr = S.savedAddresses[cid];
+  if (!Array.isArray(arr)) return;
+  arr.splice(idx, 1);
+  S.savedAddresses[cid] = arr;
+  save(); renderClients();
+}
+
+function editCliAddress(cid, idx) {
+  if (!S.savedAddresses || !S.savedAddresses[cid]) return;
+  const arr = S.savedAddresses[cid];
+  const newVal = prompt('Editar dirección:', arr[idx]);
+  if (newVal === null) return;
+  const txt = newVal.trim();
+  if (!txt) return toast('La dirección no puede estar vacía','#f59e0b');
+  arr[idx] = txt;
+  S.savedAddresses[cid] = arr;
+  save(); toast('📍 Dirección actualizada','#10b981'); renderClients();
 }
 
 function newOrderForClient(cid) {
@@ -5536,7 +5776,7 @@ function renderRoutes() {
             </div>
             <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="editOrderFromRoute(${o.id})">✏️ Editar</button>
             <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="showQuoteFromOrder(${o.id})">📄 Cot.</button>
-            <button class="bv" style="flex:1;font-size:11px;padding:5px 2px" onclick="duplicateOrder(${o.id});renderRoutes()">📋 Dupl.</button>
+            <button class="bv" style="flex:1;font-size:11px;padding:5px 2px" onclick="duplicateOrder(${o.id})">📋 Dupl.</button>
             <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="removeOrderFromRoute(${o.id},${r.id})">✕</button>
           </div>
         </div>` : ''}
@@ -5712,6 +5952,7 @@ if (!window._cliOpen)   window._cliOpen   = {};
 // ── Agregar pedido a ruta ─────────────────────────────
 function addOrderToRoute(rid) {
   sessionStorage.setItem('pendingRouteId', rid);
+  _cameFromRoute = true;
   goTab('order');
   toast('🛒 Crea el pedido. Se asignará a la ruta automáticamente.');
 }
@@ -6026,6 +6267,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
       o.quote ? `<span style="font-size:13px;font-weight:800;color:#111">📋 Cot: <strong>${o.quote}</strong></span>` : '',
       o.oc    ? `<span style="font-size:13px;font-weight:800;color:#111">📄 OC: <strong>${o.oc}</strong></span>`    : ''
     ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    const deliveryHtmlR = o.delivery ? `<div style="padding:4px 12px;font-size:11px;background:#f0f9ff;border-top:1px solid #bae6fd;color:#0369a1;font-weight:700">📍 Entrega: ${o.delivery}</div>` : '';
     // Bonificaciones
     const bonusRows = (o.bonusLines||[]).map(bl => {
       const p  = S.products.find(x=>x.id===Number(bl.productId));
@@ -6058,6 +6300,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
         ${metaExtra ? `<div style="margin-top:5px">${metaExtra}</div>` : ''}
         ${o.quoteNote?`<div style="font-size:11px;color:#374151;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
       </div>
+      ${deliveryHtmlR}
       ${cmtsHtml}
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:#f3f4f6">
