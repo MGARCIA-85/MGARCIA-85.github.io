@@ -1262,6 +1262,7 @@ const _span2 = secTit.querySelector('span'); if (_span2) _span2.textContent = 'C
 // Limpiar campos al iniciar un pedido nuevo
 const _q = document.getElementById('ord-quote'); if (_q) _q.value = '';
 const _o = document.getElementById('ord-oc');    if (_o) _o.value = '';
+const _d = document.getElementById('ord-delivery'); if (_d) _d.value = '';
 // Si viene de duplicar, precargar los datos
 if (_duplicatingData) {
   const d = _duplicatingData;
@@ -1316,12 +1317,16 @@ info.innerHTML = (c.phone ? '📞 '+c.phone : '') + (c.address ? ' &nbsp;📍 '+
 body.style.display = 'block'; ph.style.display = 'none';
 refreshDeliverySel(cid);
 
-// Sugerir dirección predeterminada si existe
+// Sugerir o precargar dirección
 const _defIdx = S.defaultAddresses && S.defaultAddresses[cid] !== undefined ? S.defaultAddresses[cid] : null;
 const _defAddrs = (S.savedAddresses && S.savedAddresses[cid]) || [];
 if (_defIdx !== null && _defAddrs[_defIdx] && !_duplicatingData && !skipAlert && editingOid === null) {
-  const _defAddr = _defAddrs[_defIdx];
-  showDeliveryAlert(cid, _defAddr);
+  // Tiene favorita → mostrar alerta
+  showDeliveryAlert(cid, _defAddrs[_defIdx]);
+} else if (_defIdx === null && _defAddrs.length === 1 && !_duplicatingData && !skipAlert && editingOid === null) {
+  // Exactamente una dirección sin favorita → precargar directamente
+  const inp = document.getElementById('ord-delivery');
+  if (inp) { inp.value = _defAddrs[0]; onDeliveryInputChange(); }
 }
 if (editingOid === null) {
   // Recopilar TODOS los pedidos del cliente (cualquier estado), ordenados del más nuevo al más viejo
