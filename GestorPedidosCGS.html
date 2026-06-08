@@ -1388,9 +1388,9 @@ function renderOrdBonusRows() {
   if (!section || !wrap) return;
   if (!ordBonusLines.length) { section.style.display='none'; return; }
   section.style.display = 'block';
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   wrap.innerHTML = ordBonusLines.map((bl,i) => {
-    const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bl.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bl.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div style="background:#0d0f18;padding:6px;border-radius:7px;margin-bottom:5px">
       <div style="display:grid;grid-template-columns:1fr 45px 65px 28px;gap:4px;align-items:center;margin-bottom:4px">
         <select onchange="ordBonusLines[${i}].productId=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
@@ -4397,20 +4397,20 @@ function openBonusModal(cid, ri) {
   const isEdit = ri !== null && ri !== undefined;
   const r = isEdit ? S.bonuses[cid][ri] : { ruleType:'individual', name:'', targets:[], bonusItems:[], deadline:'', startDate: new Date().toISOString().split('T')[0] };
 
-  const prodOpts = () => S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = () => S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const isPool = r.ruleType === 'pool';
 
   const targetsHtml = (targets) => (targets||[]).map((t,i)=>{
-    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(t.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
-    return `<div class="br-target-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-      <select class="br-tpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
-      <input type="number" class="br-tqty" value="${t.threshold||''}" placeholder="Umbral" min="1" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-      <button onclick="this.closest('.br-target-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(t.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
+    return `<div class="br-target-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px;overflow:hidden">
+      <select class="br-tpid" style="flex:1;min-width:0;width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <input type="number" class="br-tqty" value="${t.threshold||''}" placeholder="Umbral" min="1" style="width:65px;flex-shrink:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-target-row').remove()" style="flex-shrink:0;background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
     </div>`;
   }).join('');
 
   const poolHtml = (r2) => (r2.poolProds||[]).map(pid=>{
-    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div class="br-pool-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
       <select class="br-ppid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
       <button onclick="this.closest('.br-pool-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
@@ -4418,7 +4418,7 @@ function openBonusModal(cid, ri) {
   }).join('');
 
   const bonusItemsHtml = (items) => (items||[]).map(bi=>{
-    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(bi.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(bi.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div class="br-bonus-row" style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px">
       <div style="display:grid;grid-template-columns:1fr 45px 70px 28px;gap:4px;align-items:center;margin-bottom:4px">
         <select class="br-bpid" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${sel}</select>
@@ -4478,17 +4478,17 @@ function setBonusType(type) {
 }
 
 function addTargetRow() {
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const div = document.createElement('div');
-  div.className='br-target-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px';
-  div.innerHTML=`<select class="br-tpid" style="flex:2;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
-    <input type="number" class="br-tqty" placeholder="Umbral" min="1" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-    <button onclick="this.closest('.br-target-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  div.className='br-target-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px;overflow:hidden';
+  div.innerHTML=`<select class="br-tpid" style="flex:1;min-width:0;width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="br-tqty" placeholder="Umbral" min="1" style="width:65px;flex-shrink:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.br-target-row').remove()" style="flex-shrink:0;background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
   document.getElementById('br-target-rows').appendChild(div);
 }
 
 function addPoolRow() {
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const div = document.createElement('div');
   div.className='br-pool-row'; div.style.cssText='display:flex;gap:5px;align-items:center;margin-bottom:5px';
   div.innerHTML=`<select class="br-ppid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
@@ -4497,7 +4497,7 @@ function addPoolRow() {
 }
 
 function addBonusItemRow() {
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const div = document.createElement('div');
   div.className = 'br-bonus-row';
   div.style.cssText = 'background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px';
@@ -4623,9 +4623,9 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
   const { r, ri } = triggered[0];
 
   // Construir filas editables de bonificación
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const bonusRowsHtml = (r.bonusItems||[]).map((bi,i) => {
-    const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bi.productId)?'selected':''}>${p.name} (${p.presentation||''})</option>`).join('');
+    const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bi.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     const defaultPr = bi.price != null ? bi.price : cliPrice(cid, bi.productId, S.products.find(x=>x.id===Number(bi.productId))?.basePrice||0);
     return `<div class="ba-row" style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px">
       <div style="display:grid;grid-template-columns:1fr 45px 70px;gap:4px;align-items:center;margin-bottom:4px">
@@ -4824,7 +4824,7 @@ function newOrderForClient(cid) {
 
 function addManualBonusToOrder(oid) {
   const ord = S.orders.find(o=>o.id===oid); if (!ord) return;
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   document.getElementById('bonus-modal-body').innerHTML = `
     <div style="font-size:15px;font-weight:800;color:#10b981;margin-bottom:12px;text-align:center">🎁 Agregar Bonificación Manual</div>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Cliente: <strong style="color:#f1f5f9">${ord.clientName}</strong></div>
@@ -4846,7 +4846,7 @@ function addManualBonusToOrder(oid) {
 }
 
 function addManualBonusRow() {
-  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name} (${p.presentation||''})</option>`).join('');
+  const prodOpts = S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const div = document.createElement('div');
   div.className = 'mb-row';
   div.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:6px';
@@ -6008,15 +6008,12 @@ function renderRoutes() {
         const ul  = p?.unitLabel || 'unidad';
         const us  = Number(p?.unitSize) || 1;
         const sub = pr * it.qty * us;
-        const ivaText = o.applyIva ? ' + IVA' : '';
-        return `<div style="font-size:12px;color:#94a3b8;padding:4px 0;border-bottom:1px solid #1e2640">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="color:#f1f5f9;font-weight:600">${p ? p.name : '—'}${pres ? ` <span style="color:#64748b;font-weight:400">(${pres})</span>` : ''}</span>
-            <span style="color:#f59e0b;font-weight:700;margin-left:8px">×${it.qty}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:2px">
-            <span style="color:#64748b;font-size:11px">${Q(pr)}/${ul}${ivaText}</span>
-            <span style="color:#10b981;font-size:11px;font-weight:700">${Q(sub)}</span>
+        const ivaText = o.applyIva ? ' <span style="color:#60a5fa;font-size:10px">+IVA</span>' : '';
+        const specText = pres ? ` <span style="color:#64748b;font-weight:400;font-size:11px">(${pres})</span>` : '';
+        return `<div style="font-size:12px;padding:5px 0;border-bottom:1px solid #1e2640">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px">
+            <span style="color:#f1f5f9;font-weight:600;flex:1;min-width:0">${it.qty} ${p?p.name:'—'}${specText} × ${Q(pr)}/${ul}${ivaText}</span>
+            <span style="color:#10b981;font-weight:700;flex-shrink:0">${Q(sub)}</span>
           </div>
         </div>`;
       }).join('');
