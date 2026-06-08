@@ -1791,6 +1791,15 @@ if (ocInp) ocInp.value = ord.oc || '';
 const deliveryInp = document.getElementById('ord-delivery');
 if (deliveryInp) deliveryInp.value = ord.delivery || '';
 onCliChange();
+// Si el pedido no tiene dirección y el cliente tiene favorita → mostrar alerta
+if (!ord.delivery) {
+  const _cid = Number(ord.clientId);
+  const _defIdx = S.defaultAddresses && S.defaultAddresses[_cid] !== undefined ? S.defaultAddresses[_cid] : null;
+  const _defAddrs = (S.savedAddresses && S.savedAddresses[_cid]) || [];
+  if (_defIdx !== null && _defAddrs[_defIdx]) {
+    setTimeout(() => showDeliveryAlert(_cid, _defAddrs[_defIdx]), 100);
+  }
+}
 }, 60);
 }
 
@@ -2779,9 +2788,12 @@ function assignOrderToRoute(oid, sel) {
 function setOrderStatus(id, checked, type) {
   const o = S.orders.find(x=>x.id===id); if (!o) return;
   if (type==='switch') {
-    // Switch: alterna entre Cotización y Confirmado (si ya es Concluido no baja)
-    if (o.status==='Concluido') return; // no deshacer Concluido con el switch
-    o.status = (o.status==='Confirmado') ? 'Cotización' : 'Confirmado';
+    if (o.status==='Concluido') return;
+    const newSt = (o.status==='Confirmado') ? 'Cotización' : 'Confirmado';
+    if (newSt === 'Confirmado' && !o.delivery) {
+      toast('📍 El pedido no tiene dirección de entrega. Edítalo primero.', '#ef4444'); return;
+    }
+    o.status = newSt;
     if (o.status==='Confirmado') {
       save();
       const triggered = checkBonusAlert(o.clientId, o.id, ()=>{ renderList(); renderRoutes(); }, o);
@@ -2789,8 +2801,11 @@ function setOrderStatus(id, checked, type) {
       return;
     }
   } else if (type==='check') {
-    // Check: alterna entre Concluido y Confirmado
-    o.status = (o.status==='Concluido') ? 'Confirmado' : 'Concluido';
+    const newSt = (o.status==='Concluido') ? 'Confirmado' : 'Concluido';
+    if (newSt === 'Concluido' && !o.delivery) {
+      toast('📍 El pedido no tiene dirección de entrega. Edítalo primero.', '#ef4444'); return;
+    }
+    o.status = newSt;
   }
   save(); renderList(); renderRoutes();
 }
@@ -2799,6 +2814,10 @@ function togStatus(id) {
 const o = S.orders.find(x=>x.id===id); if (!o) return;
 const cycle = {'Cotización':'Confirmado','Confirmado':'Concluido','Concluido':'Cotización'};
 const newStatus = cycle[o.status] || 'Cotización';
+// Bloquear si no tiene dirección de entrega
+if (!o.delivery && newStatus !== 'Cotización') {
+  toast('📍 El pedido no tiene dirección de entrega. Edítalo primero.', '#ef4444'); return;
+}
 // Si va a Confirmado, verificar bonificaciones primero
 if (newStatus === 'Confirmado') {
   o.status = 'Confirmado';
@@ -3204,6 +3223,15 @@ function generateRouteOrders(rid, routeTitle, selDepts, selMuns, selRutas) {
       const pinnedComs = (S.savedComments && S.savedComments[c.id]) || [];
       const comments   = Array.isArray(pinnedComs) ? [...pinnedComs] : [];
 
+      // Dirección de entrega: solo precargar si tiene exactamente una dirección sin favorita
+      const _cliAddrs = (S.savedAddresses && S.savedAddresses[c.id]) || [];
+      const _defIdx = S.defaultAddresses && S.defaultAddresses[c.id] !== undefined ? S.defaultAddresses[c.id] : null;
+      let delivery = '';
+      if (_defIdx === null && _cliAddrs.length === 1) {
+        delivery = _cliAddrs[0]; // Solo una dirección → precargar
+      }
+      // Si tiene favorita o varias → dejar vacío para confirmar al editar
+
       const newOrd = {
         id:          S.nextOid++,
         clientId:    c.id,
@@ -3218,6 +3246,7 @@ function generateRouteOrders(rid, routeTitle, selDepts, selMuns, selRutas) {
         pricesIncIva,
         quote:       '',
         oc:          '',
+        delivery,
         comments
       };
       S.orders.push(newOrd);
@@ -6251,7 +6280,11 @@ function editOrderFromRoute(oid) {
 function togRouteOrdStatus(oid, rid) {
   const o = S.orders.find(x=>x.id===oid); if(!o) return;
   const cycle = {'Cotización':'Confirmado','Confirmado':'Concluido','Concluido':'Cotización'};
-  o.status = cycle[o.status] || 'Cotización';
+  const newStatus = cycle[o.status] || 'Cotización';
+  if (!o.delivery && newStatus !== 'Cotización') {
+    toast('📍 El pedido no tiene dirección de entrega. Edítalo primero.', '#ef4444'); return;
+  }
+  o.status = newStatus;
   save(); renderRoutes();
 }
 
@@ -6261,11 +6294,14 @@ function markRouteConcluido(rid) {
   if (!r.orders) r.orders = [];
   const pend = r.orders.map(id=>S.orders.find(o=>o.id===id)).filter(o=>o&&o.status!=='Concluido');
   if (!pend.length) { toast('Todos los pedidos ya están concluidos','#10b981'); return; }
+  const sinDir = pend.filter(o=>!o.delivery);
+  if (sinDir.length) {
+    toast(`📍 ${sinDir.length} pedido(s) sin dirección de entrega. Edítalos primero.`, '#ef4444'); return;
+  }
   askConfirm('¿Concluir '+pend.length+' pedido(s)?', 'Se marcarán como Concluido.', () => {
     pend.forEach(o=>o.status='Concluido');
     save(); renderRoutes(); renderList(); toast('✔ '+pend.length+' pedidos concluidos');
   }, '✔ Confirmar');
-  // Cambiar color del botón a verde
   const btn = document.getElementById('confirm-ok-btn');
   if (btn) { btn.style.background='#10b981'; btn.style.color='#fff'; }
 }
