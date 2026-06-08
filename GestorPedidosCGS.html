@@ -2676,16 +2676,15 @@ const p      = S.products.find(x => x.id===it.productId);
 const pr     = (it.customPrice != null) ? it.customPrice : cliPrice(o.clientId, it.productId, p?.basePrice||0);
 const us     = Number(p?.unitSize)||1;
 const ul     = p?.unitLabel||'unidad';
-const units  = it.qty*us;
-const sub    = pr*units;
+const sub    = pr * it.qty * us;
 const lineDisplay = o.applyIva ? Q(sub*1.12) : Q(sub);
-const ivaLabel = o.applyIva
-  ? ` <span style="font-size:9px;color:#60a5fa">+IVA</span>`
-  : (!o.applyIva && o.pricesIncIva)
-    ? ` <span style="font-size:9px;background:#1e3a5f;color:#60a5fa;border-radius:3px;padding:1px 5px">IVA inc.</span>`
-    : '';
-const nombre = `${p?p.name:'Eliminado'}${p?.presentation?' ('+p.presentation+')':''}`;
-return `<div style="font-size:12px;color:#94a3b8;margin-bottom:4px"><span style="color:#f1f5f9;font-weight:600">${it.qty} ${nombre}</span><br/><span style="font-size:11px">×${Q(pr)}/${ul} = ${lineDisplay}${ivaLabel}</span></div>`;
+const ivaLabel = o.applyIva ? ` <span style="font-size:9px;color:#60a5fa">+IVA</span>` : '';
+const spec = p?.presentation ? ` (${p.presentation})` : '';
+const nombre = `${p?p.name:'Eliminado'}${spec}`;
+return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px;font-size:12px;padding:3px 0;border-bottom:1px solid #1e2640">
+  <span style="color:#f1f5f9;font-weight:600;flex:1;min-width:0">${it.qty} ${nombre} × ${Q(pr)}/${ul}${ivaLabel}</span>
+  <span style="color:#10b981;font-weight:700;flex-shrink:0">${lineDisplay}</span>
+</div>`;
 }).join('');
 const sCls = o.status==='Concluido'?'bp-fact':o.status==='Cotización'?'bp-quot':'bp-pend';
 const card = document.createElement('div');
@@ -4142,7 +4141,20 @@ ${(()=>{
     const tot = orderTotal(o.items,o.clientId);
     const disp = o.applyIva?tot*1.12:tot;
     const sCls = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
-    const prods = o.items.map(it=>{const p=S.products.find(x=>x.id===it.productId);return p?`${p.name} ×${it.qty}`:''}).filter(Boolean).join(', ');
+    const itemsHtml = o.items.map(it=>{
+      const p = S.products.find(x=>x.id===it.productId);
+      if (!p) return '';
+      const pr = (it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId,p.basePrice||0);
+      const ul = p.unitLabel||'unidad';
+      const us = Number(p.unitSize)||1;
+      const sub = pr*it.qty*us;
+      const spec = p.presentation?` (${p.presentation})`:'';
+      const iva = o.applyIva?` <span style="color:#60a5fa;font-size:10px">+IVA</span>`:'';
+      return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px;font-size:11px;padding:3px 0;border-bottom:1px solid #1e2640">
+        <span style="color:#f1f5f9;font-weight:600;flex:1;min-width:0">${it.qty} ${p.name}${spec} × ${Q(pr)}/${ul}${iva}</span>
+        <span style="color:#10b981;font-weight:700;flex-shrink:0">${Q(sub)}</span>
+      </div>`;
+    }).filter(Boolean).join('');
     const cotBtn = `<button onclick="openQuoteFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;font-size:11px;cursor:pointer">📄 Cot.</button>`;
     const editBtn = `<button onclick="openEditFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:11px;cursor:pointer">✏️ Editar</button>`;
     const duplBtn = `<button onclick="openDuplFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #a855f7;border-radius:6px;color:#a855f7;font-size:11px;cursor:pointer">📋 Dupl.</button>`;
@@ -4150,11 +4162,17 @@ ${(()=>{
     return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:8px;border-left:3px solid ${sCls}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
         <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}</div>
-        <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
+        <div style="display:flex;align-items:center;gap:5px">
+          ${o.routeId?`<span style="font-size:10px;color:#f59e0b;font-weight:700">(RUTA)</span>`:''}
+          <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
+        </div>
       </div>
-      <div style="font-size:12px;color:#f1f5f9;margin-bottom:2px">${prods}</div>
-      <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:6px">${Q(disp)}</div>
-      <div style="display:flex;gap:5px">${cotBtn}${editBtn}${duplBtn}${delBtn}</div>
+      ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${o.delivery}</div>`:''}
+      ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">${o.quoteNote}</div>`:''}
+      <div style="background:#0d0f18;border-radius:5px;padding:4px 6px;margin-bottom:4px">${itemsHtml}</div>
+      <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:4px">${Q(disp)}</div>
+      ${(o.comments&&o.comments.length)?o.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic;margin-bottom:3px">💬 ${cm}</div>`).join(''):''}
+      <div style="display:flex;gap:5px;margin-top:4px">${cotBtn}${editBtn}${duplBtn}${delBtn}</div>
     </div>`;
   }).join('');
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
@@ -6040,6 +6058,9 @@ function renderRoutes() {
         </div>
         <!-- DETALLE: colapsable -->
         ${ordOpen ? `<div style="padding:0 10px 10px">
+          <!-- Entrega y quoteNote ARRIBA de productos -->
+          ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:4px;margin-top:4px">📍 ${o.delivery}</div>`:''}
+          ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:6px">${o.quoteNote}</div>`:''}
           <!-- Productos -->
           <div style="background:#0d0f18;border-radius:6px;padding:6px 8px;margin-bottom:8px">
             ${itemsHtml || '<div style="font-size:11px;color:#64748b">Sin productos</div>'}
@@ -6049,9 +6070,7 @@ function renderRoutes() {
             <span style="font-size:13px;font-weight:700;color:#f59e0b">${Q(oDisp)}</span>
             ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
           </div>
-          <!-- Entrega, quoteNote y Comentarios -->
-          ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${o.delivery}</div>`:''}
-          ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:3px">${o.quoteNote}</div>`:''}
+          <!-- Comentarios normales ABAJO -->
           ${(o.comments&&o.comments.length)?o.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic;margin-bottom:3px">💬 ${cm}</div>`).join(''):''}
           <!-- Botones -->
           <div style="display:flex;gap:4px;align-items:center;margin-top:6px" onclick="event.stopPropagation()">
