@@ -291,6 +291,8 @@ table.rep th{background:#f0f0f0!important}
 <input class="inp" id="ord-quote" placeholder="Ej: COT-001"/>
 <label class="lbl">Orden de Compra (OC)</label>
 <input class="inp" id="ord-oc" placeholder="Ej: OC-4587"/>
+<label class="lbl">📅 Fecha del pedido</label>
+<input class="inp" type="date" id="ord-date" style="margin-bottom:8px"/>
 <label class="lbl">Entrega</label>
 <div style="display:flex;gap:6px;margin-bottom:8px">
   <select class="sel" id="ord-delivery-sel" style="flex:1;font-size:13px" onchange="onDeliverySelChange()">
@@ -959,6 +961,17 @@ function save() {
 // ═══════════════════════════════════════════════════════
 //  UTILIDADES
 // ═══════════════════════════════════════════════════════
+function ordDateTs(o) {
+  // Parsear fecha del pedido en formato "d/m/yyyy, ..." o "d/m/yyyy"
+  const raw = (o.date||'').split(',')[0].trim();
+  const parts = raw.split('/');
+  if (parts.length === 3) {
+    const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+    return new Date(y, m-1, d).getTime();
+  }
+  return 0;
+}
+
 function Q(n) {
 return 'Q' + Number(n||0).toLocaleString('es-GT', { minimumFractionDigits:2, maximumFractionDigits:2 });
 }
@@ -1263,6 +1276,9 @@ const _span2 = secTit.querySelector('span'); if (_span2) _span2.textContent = 'C
 const _q = document.getElementById('ord-quote'); if (_q) _q.value = '';
 const _o = document.getElementById('ord-oc');    if (_o) _o.value = '';
 const _d = document.getElementById('ord-delivery'); if (_d) _d.value = '';
+// Precargar fecha actual
+const _fd = document.getElementById('ord-date');
+if (_fd) { const _now = new Date(); _fd.value = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`; }
 // Si viene de duplicar, precargar los datos
 if (_duplicatingData) {
   const d = _duplicatingData;
@@ -1332,7 +1348,7 @@ if (editingOid === null) {
   // Recopilar TODOS los pedidos del cliente (cualquier estado), ordenados del más nuevo al más viejo
   const facturados = [...S.orders]
     .filter(o => Number(o.clientId) === cid && o.items && o.items.length)
-    .sort((a,b) => b.id - a.id);
+    .sort((a,b) => { const td = ordDateTs(b)-ordDateTs(a); return td !== 0 ? td : b.id-a.id; });
   if (facturados.length) {
     // Por cada producto único, guardar el precio del pedido más reciente donde apareció
     const seen = {};   // pid => { pid, qty, price }
@@ -1418,7 +1434,7 @@ function addOrdBonusRow() {
     // Buscar la última bonificación guardada de este cliente
     const facturados = [...(S.orders||[])]
       .filter(o => Number(o.clientId) === cid && o.bonusLines && o.bonusLines.length)
-      .sort((a,b) => b.id - a.id);
+      .sort((a,b) => { const td = ordDateTs(b)-ordDateTs(a); return td !== 0 ? td : b.id-a.id; });
     if (facturados.length) {
       const lastBl = facturados[0].bonusLines[facturados[0].bonusLines.length - 1];
       pid = lastBl.productId;
@@ -1698,7 +1714,14 @@ const newOrd = {
   id:S.nextOid++, clientId:cli.id, clientName:cli.name,
   note, comments, quote, quoteNote, oc, delivery, applyIva, pricesIncIva, items,
   bonusLines: ordBonusLines.length ? ordBonusLines.map(bl=>({...bl})) : undefined,
-  date:new Date().toLocaleString('es-GT'), status:'Cotización'
+  date:(()=>{
+    const fd = document.getElementById('ord-date')?.value;
+    if (fd) {
+      const [y,m,d] = fd.split('-');
+      return `${parseInt(d)}/${parseInt(m)}/${y}, 12:00:00 a.\u00a0m.`;
+    }
+    return new Date().toLocaleString('es-GT');
+  })(), status:'Cotización'
 };
 // Si viene de duplicar, preservar routeId
 if (_duplicatingFrom) {
@@ -1790,6 +1813,15 @@ const ocInp = document.getElementById('ord-oc');
 if (ocInp) ocInp.value = ord.oc || '';
 const deliveryInp = document.getElementById('ord-delivery');
 if (deliveryInp) deliveryInp.value = ord.delivery || '';
+// Cargar fecha del pedido en formato YYYY-MM-DD
+const dateInp = document.getElementById('ord-date');
+if (dateInp && ord.date) {
+  const parts = ord.date.split(',')[0].split('/');
+  if (parts.length === 3) {
+    const d = parts[0].padStart(2,'0'), m = parts[1].padStart(2,'0'), y = parts[2].trim();
+    dateInp.value = `${y}-${m}-${d}`;
+  }
+}
 onCliChange();
 // Si el pedido no tiene dirección y el cliente tiene favorita → mostrar alerta
 if (!ord.delivery) {
@@ -2148,7 +2180,7 @@ function clearReportFilters() {
 
 function getReportFiltered() {
   const ords = S.orders;
-  const base = _orderAsc ? [...ords].filter(o=>!o.routeId) : [...ords].reverse().filter(o=>!o.routeId);
+  const base = _orderAsc ? [...ords].filter(o=>!o.routeId).sort((a,b)=>{ const td=ordDateTs(a)-ordDateTs(b); return td!==0?td:a.id-b.id; }) : [...ords].filter(o=>!o.routeId).sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; });
   let filtered = _orderTab === 'all' ? base : base.filter(o=>o.status===_orderTab);
   const fCli  = (document.getElementById('f-cli-report')?.value||'').trim();
   const fFrom = document.getElementById('f-date-from')?.value;
@@ -2646,8 +2678,8 @@ const ords = S.orders;
   if (el) el.textContent = '('+ords.filter(o=>o.status===st&&!o.routeId).length+')';
 });
 const base = _orderAsc
-  ? [...ords].filter(o => !o.routeId)
-  : [...ords].reverse().filter(o => !o.routeId);
+  ? [...ords].filter(o => !o.routeId).sort((a,b) => { const td=ordDateTs(a)-ordDateTs(b); return td!==0?td:a.id-b.id; })
+  : [...ords].filter(o => !o.routeId).sort((a,b) => { const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; });
 let filtered = _orderTab === 'all' ? base : base.filter(o => o.status === _orderTab);
 // Filtro por cliente (multi-select)
 if (_selectedClients && _selectedClients.length) filtered = filtered.filter(o => _selectedClients.includes(o.clientName));
@@ -3209,7 +3241,7 @@ function generateRouteOrders(rid, routeTitle, selDepts, selMuns, selRutas) {
       // Todos los pedidos históricos del cliente, ordenados por más reciente
       const histOrdenes = [...S.orders]
         .filter(o => Number(o.clientId) === c.id)
-        .sort((a, b) => b.id - a.id);
+        .sort((a,b) => { const td = ordDateTs(b)-ordDateTs(a); return td !== 0 ? td : b.id-a.id; });
 
       // Construir lista de productos únicos de TODO el historial del cliente
       // Para cada producto, usar el precio más reciente
@@ -4126,7 +4158,8 @@ ${(()=>{
       <span style="color:#64748b;font-size:11px">▼</span>
     </div>
     <div id="csb-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['csb-'+c.id])?'block':'none'}">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px">
+        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;cursor:pointer" onclick="showBonusReport(${c.id})">📄 Reporte PDF</button>
         <button class="bg" style="font-size:11px;padding:4px 10px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
       </div>
       ${rulesHtml}
@@ -4190,7 +4223,7 @@ ${(()=>{
 })()}
 
 ${(()=>{
-  const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>b.id-a.id).slice(0,5);
+  const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; }).slice(0,5);
   if (!cliOrds.length) return '';
   const rows = cliOrds.map(o=>{
     const tot = orderTotal(o.items,o.clientId);
@@ -4657,7 +4690,156 @@ function saveBonusRule(cid, ri) {
   window._cliOpen[cid]=true; renderClients();
 }
 
-function addBonusRule(cid)      { openBonusModal(cid, null); }
+function showBonusReport(cid) {
+  const c = S.clients.find(x => x.id === Number(cid));
+  const rules = (S.bonuses && S.bonuses[cid]) || [];
+  if (!rules.length) { toast('No hay reglas de bonificación', '#f59e0b'); return; }
+  const biz = S.biz || {};
+
+  const rulesHtml = rules.map(r => {
+    const startDate = r.startDate || '';
+    const endDate   = r.endDate || r.deadline || '';
+    const progress  = calcBonusProgress(cid, r);
+
+    // Agrupar consumo por mes para cada producto
+    const startDateStr = r.startDate || '2000-01-01';
+    const endDateStr   = r.endDate || r.deadline || '2099-12-31';
+    const orders = S.orders.filter(o =>
+      Number(o.clientId) === Number(cid) &&
+      (o.status === 'Confirmado' || o.status === 'Concluido')
+    ).filter(o => {
+      const parts = (o.date||'').split('/');
+      if (parts.length < 3) return false;
+      const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+      const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      return ds >= startDateStr && ds <= endDateStr;
+    });
+
+    // Construir meses del período
+    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const months = [];
+    if (startDate && endDate) {
+      const [sy,sm] = startDate.split('-').map(Number);
+      const [ey,em] = endDate.split('-').map(Number);
+      let y = sy, m = sm;
+      while (y < ey || (y === ey && m <= em)) {
+        months.push({y, m, label: monthNames[m-1]+' '+y});
+        m++; if (m > 12) { m = 1; y++; }
+        if (months.length > 24) break;
+      }
+    }
+
+    const targetsHtml = progress.map(prog => {
+      const p = S.products.find(x => prog.label && prog.label.startsWith(x.name));
+      // Usar última palabra del nombre como unidad con plural automático
+      function getUnitFromName(name, qty) {
+        if (!name) return qty===1?'unidad':'unidades';
+        const words = name.trim().split(/\s+/);
+        const last = words[words.length-1];
+        // Pluralizar
+        if (qty <= 1) return last;
+        const isUpper = last === last.toUpperCase();
+        const l = last.toLowerCase();
+        let plural;
+        if (l.endsWith('ón')) plural = last.slice(0,-2)+(isUpper?'ONES':'ones');
+        else if (l.endsWith('el')) plural = last+(isUpper?'ES':'es');
+        else if (l.endsWith('ro')) plural = last+(isUpper?'S':'s');
+        else if (l.endsWith('o'))  plural = last.slice(0,-1)+(isUpper?'OS':'os');
+        else if (l.endsWith('a'))  plural = last.slice(0,-1)+(isUpper?'AS':'as');
+        else plural = last+(isUpper?'S':'s');
+        return plural;
+      }
+      const ul = (qty) => getUnitFromName(p?.name, qty);
+      const total = prog.app + prog.manual;
+      const restante = Math.max(0, prog.threshold - total);
+      const pct = Math.min(100, Math.round(total / prog.threshold * 100));
+      const color = pct >= 100 ? '#16a34a' : pct >= 60 ? '#d97706' : '#dc2626';
+
+      // Consumo por mes
+      let monthRows = '';
+      if (months.length) {
+        monthRows = `<tr><td colspan="2" style="padding:4px 0 2px;font-size:11px;color:#64748b;font-weight:600">Consumo por mes:</td></tr>`;
+        months.forEach(({y, m, label}) => {
+          let qty = 0;
+          orders.forEach(o => {
+            const parts = (o.date||'').split('/');
+            if (parts.length < 3) return;
+            const om = parseInt(parts[1]), oy = parseInt(parts[2]);
+            if (oy === y && om === m) {
+              o.items.forEach(it => {
+                if (p && Number(it.productId||it.pid) === p.id) qty += Number(it.qty);
+              });
+            }
+          });
+          if (qty > 0) monthRows += `<tr><td style="padding:2px 0 2px 12px;font-size:12px;color:#374151">${label}</td><td style="padding:2px 0;font-size:12px;color:#374151;text-align:right">${qty} ${ul(qty)}</td></tr>`;
+        });
+      }
+
+      const pBar = `<div style="background:#e2e8f0;border-radius:4px;height:8px;margin:4px 0">
+        <div style="background:${color};width:${pct}%;height:8px;border-radius:4px"></div></div>`;
+
+      return `<div style="margin-bottom:14px;padding:10px;background:#f8fafc;border-radius:8px;border-left:3px solid ${color}">
+        <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px">${prog.label.replace(/\(\)/g,'').trim()}</div>
+        ${pBar}
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Meta:</td><td style="font-size:12px;color:#1e293b;font-weight:700;text-align:right">${prog.threshold} ${ul(prog.threshold)}</td></tr>
+          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Consumido:</td><td style="font-size:12px;color:${color};font-weight:700;text-align:right">${total} ${ul(total)} (${pct}%)</td></tr>
+          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Restante:</td><td style="font-size:12px;color:#dc2626;font-weight:700;text-align:right">${restante} ${ul(restante)}</td></tr>
+          ${monthRows}
+        </table>
+      </div>`;
+    }).join('');
+
+    const bonifItems = (r.bonusItems||[]).map(bi => {
+      const p = S.products.find(x=>x.id===Number(bi.productId));
+      const spec = p?.presentation ? ` (${p.presentation})` : '';
+      return `${bi.qty} ${p?p.name:'—'}${spec}`;
+    }).join(', ');
+
+    return `<div style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+      <div style="background:#1e3a8a;padding:10px 14px">
+        <div style="font-weight:800;font-size:15px;color:#fff">${r.name||'Sin nombre'}</div>
+        ${startDate||endDate ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px">Período: ${startDate||'—'} → ${endDate||'—'}</div>` : ''}
+        ${bonifItems ? `<div style="font-size:11px;color:#6ee7b7;margin-top:2px">🎁 Bonificación: ${bonifItems}</div>` : ''}
+      </div>
+      <div style="padding:12px 14px">${targetsHtml}</div>
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reporte Bonificaciones - ${c?.name||''}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}
+    @media print{body{padding:8px}}
+  </style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a8a">
+    <div>
+      <div style="font-size:20px;font-weight:900;color:#1e3a8a">${biz.name||'Empresa'}</div>
+      ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
+      ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div>
+    </div>
+  </div>
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:800;color:#0369a1">📊 REPORTE DE BONIFICACIONES</div>
+    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
+    ${c?.address?`<div style="font-size:12px;color:#64748b">📍 ${c.address}</div>`:''}
+    ${c?.phone?`<div style="font-size:12px;color:#64748b">📞 ${c.phone}</div>`:''}
+  </div>
+  ${rulesHtml}
+  <script>window.onload=function(){window.print()}<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+function addBonusRule(cid) { openBonusModal(cid, null); }
 function editBonusRule(cid, ri) { openBonusModal(cid, ri); }
 
 function delBonusRule(cid, ri) {
@@ -6155,8 +6337,8 @@ function renderRoutes() {
       if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name.toLowerCase();
       if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name.toLowerCase();
       if (key==='ruta')   return ((S.rutasCliente||[]).find(x=>x.id===cli.rutaClienteId)||{name:''}).name.toLowerCase();
-      if (key==='recent') return -o.id;
-      if (key==='old')    return  o.id;
+      if (key==='recent') return -ordDateTs(o);
+      if (key==='old')    return  ordDateTs(o);
       return '';
     };
     const _cmpR = (a,b,key) => {
@@ -6734,8 +6916,8 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
     if (key==='dept')   return ((S.depts||[]).find(x=>x.id===cli.deptId)||{name:''}).name.toLowerCase();
     if (key==='mun')    return ((S.municipios||[]).find(x=>x.id===cli.municipioId)||{name:''}).name.toLowerCase();
     if (key==='ruta')   return ((S.rutasCliente||[]).find(x=>x.id===cli.rutaClienteId)||{name:''}).name.toLowerCase();
-    if (key==='recent') return -o.id;
-    if (key==='old')    return  o.id;
+    if (key==='recent') return -ordDateTs(o);
+    if (key==='old')    return  ordDateTs(o);
     return '';
   };
   const _cmp = (a,b,key) => {
