@@ -6993,9 +6993,8 @@ function showPriceListDoc(cid) {
 
   const rows = prods.map(p =>
     `<tr>
-      <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px">${p.name}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b">${p.presentation||'—'}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:700;text-align:right">${Qf(p.pr)}<span style="font-size:10px;color:#94a3b8">/${p.ul}</span></td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b">${p.name}${p.presentation ? ` <span style="font-size:11px;color:#64748b">(${p.presentation})</span>` : ''}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:700;text-align:right;color:#1e293b">${Qf(p.pr)}<span style="font-size:10px;color:#64748b">/${p.ul}</span></td>
     </tr>`
   ).join('');
 
@@ -7035,20 +7034,20 @@ function showPriceListDoc(cid) {
         </div>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:800;color:#00c97a">LISTA DE PRECIOS</div>
-          <div style="font-size:11px;color:#94a3b8">Cliente: <strong style="color:#f1f5f9">${c.name}</strong></div>
+          <div style="font-size:11px;color:#94a3b8">Cliente: <strong style="color:#60a5fa">${c.name}</strong></div>
           <div style="font-size:11px;color:#94a3b8">Fecha: ${today}</div>
         </div>
       </div>
       <!-- Body -->
       <div style="padding:20px" id="price-list-printable-${cid}">
         <div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:14px;border:1px solid #e2e8f0">
-          <div style="font-weight:700;font-size:14px">👤 ${c.name}</div>
+          <div style="font-weight:700;font-size:14px;color:#1e3a8a">👤 ${c.name}</div>
           ${c.phone?`<div style="font-size:12px;color:#64748b">📞 ${c.phone}</div>`:''}
           ${c.address?`<div style="font-size:12px;color:#64748b">📍 ${c.address}</div>`:''}
         </div>
         <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden">
           <thead style="background:#0d0f18;color:#f1f5f9">
-            <tr><th style="padding:8px 10px;font-size:12px;text-align:left">Producto</th><th style="padding:8px 10px;font-size:12px;text-align:left">Especificación</th><th style="padding:8px 10px;font-size:12px;text-align:right">Precio</th></tr>
+            <tr><th style="padding:8px 10px;font-size:12px;text-align:left">Producto</th><th style="padding:8px 10px;font-size:12px;text-align:right">Precio</th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
