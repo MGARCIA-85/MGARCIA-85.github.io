@@ -4140,8 +4140,7 @@ ${(()=>{
     const isOpen = window._noteOpen && window._noteOpen[`${c.id}_${i}`];
     return `<div style="background:#0d0f18;border:1px solid #2a3050;border-radius:8px;margin-bottom:6px;overflow:hidden">
       <div onclick="toggleCliNote(${c.id},${i})" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;cursor:pointer">
-        <span style="font-size:12px;color:#f1f5f9;font-weight:600">${n.title||'Sin título'}</span>
-        <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:12px;color:#f1f5f9;font-weight:600">${n.title||'Sin título'}</span>        <div style="display:flex;gap:6px;align-items:center">
           <button onclick="event.stopPropagation();deleteCliNote(${c.id},${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:0 2px">✕</button>
           <span style="color:#64748b;font-size:11px">${isOpen?'▲':'▼'}</span>
         </div>
@@ -4149,8 +4148,28 @@ ${(()=>{
       ${isOpen ? `<div style="padding:8px 10px;border-top:1px solid #2a3050">
         <input id="note-title-${c.id}-${i}" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Título..."
           style="width:100%;background:#161929;border:1px solid #2a3050;border-radius:6px;padding:6px 8px;color:#f1f5f9;font-size:13px;font-weight:600;margin-bottom:8px;box-sizing:border-box"/>
-        <textarea id="note-body-${c.id}-${i}" rows="12" placeholder="Contenido de la nota..."
-          style="width:100%;background:#161929;border:1px solid #2a3050;border-radius:6px;padding:10px;color:#f1f5f9;font-size:14px;resize:vertical;line-height:1.7;box-sizing:border-box;min-height:200px">${n.body||''}</textarea>
+        <!-- Panel flotante de formato -->
+        <div id="note-fmt-panel-${c.id}-${i}" style="display:none;position:fixed;z-index:9999;background:#1e2640;border:1px solid #3b82f6;border-radius:10px;padding:6px 8px;box-shadow:0 4px 20px #0009;flex-wrap:wrap;gap:5px;align-items:center;max-width:320px">
+          <button onclick="noteFormatSaved('bold')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:700;font-size:15px">N</button>
+          <button onclick="noteFormatSaved('italic')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:5px 10px;border-radius:5px;cursor:pointer;font-style:italic;font-size:15px">C</button>
+          <button onclick="noteFormatSaved('underline')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:5px 10px;border-radius:5px;cursor:pointer;text-decoration:underline;font-size:15px">U</button>
+          <button onclick="noteFormatSaved('fontSize','up')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:15px">A↑</button>
+          <button onclick="noteFormatSaved('fontSize','down')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:15px">A↓</button>
+          <button onclick="noteFormatSaved('removeFormat')" style="background:#2a3a5a;border:none;color:#ef4444;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:15px">✕</button>
+          ${['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#f1f5f9','#1e293b'].map(col=>
+            `<button onclick="noteFormatSaved('color','${col}')"
+              style="background:${col};border:2px solid #3b82f6;width:26px;height:26px;border-radius:50%;cursor:pointer;flex-shrink:0"></button>`
+          ).join('')}
+        </div>
+        <!-- Editor contenteditable -->
+        <div id="note-body-${c.id}-${i}" contenteditable="true"
+          style="width:100%;background:#ffffff;border:1px solid #2a3050;border-radius:6px;padding:10px;color:#1e293b;font-size:14px;line-height:1.7;box-sizing:border-box;min-height:200px;outline:none;word-break:break-word"
+          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain');document.execCommand('insertText',false,t);"
+          onmouseup="showNotePanel(this,'note-fmt-panel-${c.id}-${i}')"
+          ontouchend="setTimeout(()=>showNotePanel(this,'note-fmt-panel-${c.id}-${i}'),200)"
+          onfocus="window._savedNoteEditor=this"
+          
+          oninput="">${n.body||'<br>'}</div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <button onclick="saveCliNote(${c.id},${i})" style="flex:1;padding:8px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 Guardar</button>
           <button onclick="toggleCliNote(${c.id},${i})" style="flex:1;padding:8px;background:#475569;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✕ Cancelar</button>
@@ -4818,10 +4837,104 @@ function toggleCliNote(cid, idx) {
   renderClients();
 }
 
+function showNotePanel(editor, panelId) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+    hideNotePanel(panelId); return;
+  }
+  window._savedNoteRange = sel.getRangeAt(0).cloneRange();
+  window._savedNoteEditor = editor;
+
+  let panel = document.getElementById('global-note-fmt-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'global-note-fmt-panel';
+    panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#1e2640;border-top:2px solid #3b82f6;padding:8px 10px;box-shadow:0 -4px 20px #0009;display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-start';
+    document.body.appendChild(panel);
+  }
+
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#f1f5f9','#1e293b'];
+  panel.innerHTML = `
+    <button onclick="noteFormatSaved('bold')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:700;font-size:15px">N</button>
+    <button onclick="noteFormatSaved('italic')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:7px 12px;border-radius:6px;cursor:pointer;font-style:italic;font-size:15px">C</button>
+    <button onclick="noteFormatSaved('underline')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:7px 12px;border-radius:6px;cursor:pointer;text-decoration:underline;font-size:15px">U</button>
+    <button onclick="noteFormatSaved('fontSize','up')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:14px">A↑</button>
+    <button onclick="noteFormatSaved('fontSize','down')" style="background:#2a3a5a;border:none;color:#f1f5f9;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:14px">A↓</button>
+    <button onclick="noteFormatSaved('removeFormat')" style="background:#2a3a5a;border:none;color:#ef4444;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:15px">✕</button>
+    ${colors.map(col=>`<button onclick="noteFormatSaved('color','${col}')"
+      style="background:${col};border:2px solid #475569;width:30px;height:30px;border-radius:50%;cursor:pointer;flex-shrink:0"></button>`).join('')}
+    <button onclick="noteFormatSaved('close')" style="background:#10b981;border:none;color:#fff;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;margin-left:auto">✓ Listo</button>
+  `;
+  panel.style.display = 'flex';
+  window._activePanelId = 'global-note-fmt-panel';
+}
+
+function hideNotePanel(panelId) {
+  const p = document.getElementById('global-note-fmt-panel');
+  if (p) p.style.display = 'none';
+}
+
+function noteFormatSaved(cmd, val) {
+  if (cmd === 'close') {
+    hideNotePanel();
+    window._savedNoteEditor = null;
+    window._savedNoteRange = null;
+    return;
+  }
+
+  const editor = window._savedNoteEditor;
+  if (!editor) return;
+
+  // Restaurar foco y selección
+  editor.focus();
+  const sel = window.getSelection();
+  if (window._savedNoteRange) {
+    sel.removeAllRanges();
+    sel.addRange(window._savedNoteRange);
+  }
+
+  if (cmd === 'fontSize') {
+    const anchor = sel.anchorNode;
+    const el = anchor ? (anchor.nodeType === 3 ? anchor.parentElement : anchor) : editor;
+    const curSize = parseFloat(window.getComputedStyle(el).fontSize) || 14;
+    const sizes = [10,13,16,18,24,32,48];
+    let curIdx = sizes.findIndex(s => curSize <= s);
+    if (curIdx === -1) curIdx = sizes.length - 1;
+    const newIdx = val === 'up' ? Math.min(curIdx+1, 6) : Math.max(curIdx-1, 0);
+    document.execCommand('fontSize', false, String(newIdx+1));
+  } else if (cmd === 'color') {
+    document.execCommand('foreColor', false, val);
+  } else if (cmd === 'removeFormat') {
+    document.execCommand('removeFormat', false, null);
+  } else {
+    document.execCommand(cmd, false, null);
+  }
+
+  const newSel = window.getSelection();
+  if (newSel && newSel.rangeCount > 0) {
+    window._savedNoteRange = newSel.getRangeAt(0).cloneRange();
+  }
+}
+
+// Escuchar selectionchange global para mostrar panel automáticamente
+document.addEventListener('selectionchange', () => {
+  const sel = window.getSelection();
+  const editor = window._savedNoteEditor;
+  if (!editor) return;
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed && editor.contains(sel.anchorNode)) {
+    window._savedNoteRange = sel.getRangeAt(0).cloneRange();
+    const panel = document.getElementById('global-note-fmt-panel');
+    if (panel) panel.style.display = 'flex';
+  }
+});
+
+function noteFormat(cmd, val) { noteFormatSaved(cmd, val); }
+
 function saveCliNote(cid, idx) {
   if (!S.clientNotesArr || !S.clientNotesArr[cid]) return;
   const title = document.getElementById(`note-title-${cid}-${idx}`)?.value.trim() || '';
-  const body  = document.getElementById(`note-body-${cid}-${idx}`)?.value || '';
+  const bodyEl = document.getElementById(`note-body-${cid}-${idx}`);
+  const body = bodyEl ? bodyEl.innerHTML : '';
   S.clientNotesArr[cid][idx] = { title, body };
   if (!window._noteOpen) window._noteOpen = {};
   window._noteOpen[`${cid}_${idx}`] = false;
