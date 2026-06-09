@@ -3811,6 +3811,32 @@ function selectAllCliVisible() {
   updateCliSelBar();
 }
 
+function updateCliOrdSummary(cid) {
+  const chks = document.querySelectorAll(`.cli-ord-chk[data-cid="${cid}"]:checked`);
+  const sumDiv = document.getElementById('cli-ord-summary-' + cid);
+  if (!sumDiv) return;
+  if (!chks.length) { sumDiv.style.display = 'none'; return; }
+  const totals = {}; // key: productId, value: {name, spec, qty}
+  chks.forEach(chk => {
+    const oid = Number(chk.dataset.oid);
+    const o = S.orders.find(x => x.id === oid);
+    if (!o) return;
+    o.items.forEach(it => {
+      const p = S.products.find(x => x.id === it.productId);
+      if (!p) return;
+      const key = it.productId;
+      if (!totals[key]) totals[key] = { name: p.name, spec: p.presentation || '', qty: 0 };
+      totals[key].qty += Number(it.qty);
+    });
+  });
+  const lines = Object.values(totals).map(t => {
+    const spec = t.spec ? ` (${t.spec})` : '';
+    return `<div style="margin-bottom:2px"><span style="color:#f1f5f9;font-weight:600">${t.name}${spec}</span> = <span style="color:#10b981;font-weight:700">${t.qty}</span></div>`;
+  }).join('');
+  sumDiv.innerHTML = `<div style="font-size:11px;color:#4ade80;font-weight:700;margin-bottom:6px">📊 RESUMEN SELECCIONADOS</div>${lines}`;
+  sumDiv.style.display = 'block';
+}
+
 function openQuoteFromCli(oid) {
   showQuoteFromOrder(oid);
 }
@@ -4161,7 +4187,11 @@ ${(()=>{
     const delBtn  = `<button onclick="openDelFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:11px;cursor:pointer">🗑</button>`;
     return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:8px;border-left:3px solid ${sCls}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" class="cli-ord-chk" data-cid="${c.id}" data-oid="${o.id}" onchange="updateCliOrdSummary(${c.id})"
+            style="width:15px;height:15px;accent-color:#10b981;cursor:pointer;flex-shrink:0"/>
+          <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}</div>
+        </div>
         <div style="display:flex;align-items:center;gap:5px">
           ${o.routeId?`<span style="font-size:10px;color:#f59e0b;font-weight:700">(RUTA)</span>`:''}
           <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
@@ -4181,8 +4211,9 @@ ${(()=>{
       <span style="color:#64748b;font-size:11px">▼</span>
     </div>
     <div id="cso-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['cso-'+c.id])?'block':'none'}">
-    ${rows}
-  </div>
+      <div id="cli-ord-summary-${c.id}" style="display:none;background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#f1f5f9"></div>
+      ${rows}
+    </div>
   </div>`;
 })()}
 </div>`;
