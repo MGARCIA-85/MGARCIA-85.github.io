@@ -2721,9 +2721,19 @@ if(o.pricesIncIva) return '<div style=\"font-size:11px;color:#64748b;margin-bott
 if(o.applyIva)    return '<div style=\"font-size:11px;color:#64748b;margin-bottom:2px\">Subtotal: '+Q(tot)+' &nbsp;+&nbsp; IVA 12%: '+Q(tot*0.12)+'</div>';
 return '';
 })()}
-<div style="font-weight:800;font-size:15px;color:#f59e0b">Total: ${Q(o.pricesIncIva ? tot : o.applyIva ? tot*1.12 : tot)}
+<div style="font-weight:800;font-size:15px;color:#f59e0b">TOTAL ${Q(o.pricesIncIva ? tot : o.applyIva ? tot*1.12 : tot)}
 ${(o.pricesIncIva||o.applyIva) ? '<span style=\"font-size:10px;font-weight:600;color:#60a5fa;background:#1e3a5f;padding:1px 6px;border-radius:4px;margin-left:4px\">IVA incl.</span>' : ''}</div>
 </div>
+${(()=>{
+if (!o.bonusLines||!o.bonusLines.length) return '';
+const bLines = o.bonusLines.map(bl=>{
+  const p = S.products.find(x=>x.id===Number(bl.productId));
+  const spec = p?.presentation?` (${p.presentation})`:'';
+  const ul = p?.unitLabel||'unidad';
+  return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #1e2640"><span style="color:#f1f5f9;font-weight:600">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span></div>`;
+}).join('');
+return `<div style="margin-top:6px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
+})()}
 <div class="two">
 <div style="display:flex;align-items:center;gap:10px;flex:1;background:#161929;border-radius:9px;padding:8px 12px;border:1px solid #2a3050">
   ${(()=>{
@@ -4200,8 +4210,18 @@ ${(()=>{
       ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${o.delivery}</div>`:''}
       ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">${o.quoteNote}</div>`:''}
       <div style="background:#0d0f18;border-radius:5px;padding:4px 6px;margin-bottom:4px">${itemsHtml}</div>
-      <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:4px">${Q(disp)}</div>
+      <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:4px">TOTAL ${Q(disp)}</div>
       ${(o.comments&&o.comments.length)?o.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic;margin-bottom:3px">💬 ${cm}</div>`).join(''):''}
+      ${(()=>{
+        if (!o.bonusLines||!o.bonusLines.length) return '';
+        const bLines = o.bonusLines.map(bl=>{
+          const p = S.products.find(x=>x.id===Number(bl.productId));
+          const spec = p?.presentation?` (${p.presentation})`:'';
+          const ul = p?.unitLabel||'unidad';
+          return `<div style="font-size:11px;color:#f1f5f9;font-weight:600;padding:2px 0;border-bottom:1px solid #1e2640">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</div>`;
+        }).join('');
+        return `<div style="margin-top:4px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
+      })()}
       <div style="display:flex;gap:5px;margin-top:4px">${cotBtn}${editBtn}${duplBtn}${delBtn}</div>
     </div>`;
   }).join('');
@@ -6098,11 +6118,22 @@ function renderRoutes() {
           </div>
           <!-- Total y bonif -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <span style="font-size:13px;font-weight:700;color:#f59e0b">${Q(oDisp)}</span>
+            <span style="font-size:13px;font-weight:700;color:#f59e0b">TOTAL ${Q(oDisp)}</span>
             ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
           </div>
           <!-- Comentarios normales ABAJO -->
           ${(o.comments&&o.comments.length)?o.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic;margin-bottom:3px">💬 ${cm}</div>`).join(''):''}
+          <!-- Bonificación -->
+          ${(()=>{
+            if (!o.bonusLines||!o.bonusLines.length) return '';
+            const bLines = o.bonusLines.map(bl=>{
+              const p = S.products.find(x=>x.id===Number(bl.productId));
+              const spec = p?.presentation?` (${p.presentation})`:'';
+              const ul = p?.unitLabel||'unidad';
+              return `<div style="font-size:11px;color:#f1f5f9;font-weight:600;padding:2px 0;border-bottom:1px solid #1e2640">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</div>`;
+            }).join('');
+            return `<div style="margin-top:4px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
+          })()}
           <!-- Botones -->
           <div style="display:flex;gap:4px;align-items:center;margin-top:6px" onclick="event.stopPropagation()">
             <div style="position:relative;width:32px;height:18px;cursor:pointer;flex-shrink:0" onclick="setOrderStatus(${o.id},null,'switch');renderRoutes()">
