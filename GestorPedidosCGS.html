@@ -1654,8 +1654,8 @@ const pricesIncIva   = document.getElementById('ord-iva-inc')?.checked || false;
 const items = valid.map(it => {
 const p = S.products.find(x => x.id===Number(it.pid));
 const defaultPrice = cliPrice(cid, Number(it.pid), p?.basePrice||0);
-const item = { productId:Number(it.pid), qty:Number(it.qty) };
-if (it.price != null && Number(it.price) !== defaultPrice) item.customPrice = Number(it.price);
+const usedPrice = (it.price != null) ? Number(it.price) : defaultPrice;
+const item = { productId:Number(it.pid), qty:Number(it.qty), customPrice:usedPrice };
 return item;
 });
 
