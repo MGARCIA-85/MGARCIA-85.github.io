@@ -3853,12 +3853,30 @@ function selectAllCliVisible() {
   updateCliSelBar();
 }
 
+function toggleCliMonthSec(secId) {
+  if (!window._cliSecOpen) window._cliSecOpen = {};
+  const el = document.getElementById(secId);
+  const arrow = document.getElementById(secId+'-arrow');
+  const isOpen = el && el.style.display !== 'none';
+  window._cliSecOpen[secId] = !isOpen;
+  if (el) el.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
+
 function updateCliOrdSummary(cid) {
   const chks = document.querySelectorAll(`.cli-ord-chk[data-cid="${cid}"]:checked`);
-  const sumDiv = document.getElementById('cli-ord-summary-' + cid);
-  if (!sumDiv) return;
-  if (!chks.length) { sumDiv.style.display = 'none'; return; }
-  const totals = {}; // key: productId, value: {name, spec, qty}
+
+  let panel = document.getElementById('cli-ord-fixed-summary');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'cli-ord-fixed-summary';
+    panel.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:#0d1f0d;border-bottom:2px solid #10b981;padding:8px 12px;display:none;box-shadow:0 2px 12px #0008';
+    document.body.appendChild(panel);
+  }
+
+  if (!chks.length) { panel.style.display = 'none'; return; }
+
+  const totals = {};
   chks.forEach(chk => {
     const oid = Number(chk.dataset.oid);
     const o = S.orders.find(x => x.id === oid);
@@ -3871,12 +3889,33 @@ function updateCliOrdSummary(cid) {
       totals[key].qty += Number(it.qty);
     });
   });
+
   const lines = Object.values(totals).map(t => {
     const spec = t.spec ? ` (${t.spec})` : '';
-    return `<div style="margin-bottom:2px"><span style="color:#f1f5f9;font-weight:600">${t.name}${spec}</span> = <span style="color:#10b981;font-weight:700">${t.qty}</span></div>`;
+    return `<span style="color:#f1f5f9;font-weight:600;margin-right:10px">${t.name}${spec} = <span style="color:#10b981">${t.qty}</span></span>`;
   }).join('');
-  sumDiv.innerHTML = `<div style="font-size:11px;color:#4ade80;font-weight:700;margin-bottom:6px">📊 RESUMEN SELECCIONADOS</div>${lines}`;
-  sumDiv.style.display = 'block';
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;color:#4ade80;font-weight:700">📊 RESUMEN — ${chks.length} pedido(s)</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="selectAllCliOrds(${cid})" style="background:transparent;border:1px solid #10b981;border-radius:5px;color:#10b981;padding:2px 8px;font-size:11px;cursor:pointer">✔ Todos</button>
+        <button onclick="clearCliOrdSel(${cid})" style="background:transparent;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 8px;font-size:11px;cursor:pointer">✕ Limpiar</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;font-size:12px">${lines}</div>`;
+  panel.style.display = 'block';
+}
+
+function selectAllCliOrds(cid) {
+  document.querySelectorAll(`.cli-ord-chk[data-cid="${cid}"]`).forEach(chk => chk.checked = true);
+  updateCliOrdSummary(cid);
+}
+
+function clearCliOrdSel(cid) {
+  document.querySelectorAll(`.cli-ord-chk[data-cid="${cid}"]`).forEach(chk => chk.checked = false);
+  const panel = document.getElementById('cli-ord-fixed-summary');
+  if (panel) panel.style.display = 'none';
 }
 
 function openQuoteFromCli(oid) {
@@ -4225,7 +4264,8 @@ ${(()=>{
 ${(()=>{
   const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; });
   if (!cliOrds.length) return '';
-  const rows = cliOrds.map(o=>{
+  const rows_map = {};
+  cliOrds.forEach(o=>{
     const tot = orderTotal(o.items,o.clientId);
     const disp = o.applyIva?tot*1.12:tot;
     const sCls = o.status==='Concluido'?'#4ade80':o.status==='Cotización'?'#60a5fa':'#fb923c';
@@ -4247,7 +4287,7 @@ ${(()=>{
     const editBtn = `<button onclick="openEditFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:11px;cursor:pointer">✏️ Editar</button>`;
     const duplBtn = `<button onclick="openDuplFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #a855f7;border-radius:6px;color:#a855f7;font-size:11px;cursor:pointer">📋 Dupl.</button>`;
     const delBtn  = `<button onclick="openDelFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:11px;cursor:pointer">🗑</button>`;
-    return `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:8px;border-left:3px solid ${sCls}">
+    const rowHtml = `<div style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:8px;border-left:3px solid ${sCls}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
         <div style="display:flex;align-items:center;gap:6px">
           <input type="checkbox" class="cli-ord-chk" data-cid="${c.id}" data-oid="${o.id}" onchange="updateCliOrdSummary(${c.id})"
@@ -4276,15 +4316,60 @@ ${(()=>{
       })()}
       <div style="display:flex;gap:5px;margin-top:4px">${cotBtn}${editBtn}${duplBtn}${delBtn}</div>
     </div>`;
-  }).join('');
+    rows_map[o.id] = rowHtml;
+  });
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
     <div onclick="toggleCliSec('cso-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
       <span style="font-size:11px;color:${cliOrds.length?'#4ade80':'#94a3b8'};font-weight:700">📦 ÚLTIMOS PEDIDOS${cliOrds.length?` (${cliOrds.length})`:''}</span>
       <span style="color:#64748b;font-size:11px">▼</span>
     </div>
     <div id="cso-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['cso-'+c.id])?'block':'none'}">
-      <div id="cli-ord-summary-${c.id}" style="display:none;background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#f1f5f9"></div>
-      ${rows}
+      ${(()=>{
+        // Agrupar por mes
+        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const groups = {};
+        cliOrds.forEach(o => {
+          const parts = (o.date||'').split(',')[0].split('/');
+          const m = parts.length===3 ? parseInt(parts[1])-1 : new Date().getMonth();
+          const y = parts.length===3 ? parseInt(parts[2]) : new Date().getFullYear();
+          const key = `${y}-${String(m+1).padStart(2,'0')}`;
+          const label = `${monthNames[m]} ${y}`;
+          if (!groups[key]) groups[key] = {label, orders:[]};
+          groups[key].orders.push(o);
+        });
+        return Object.keys(groups).sort().reverse().map(key => {
+          const g = groups[key];
+          const secId = `cso-month-${c.id}-${key}`;
+          const isMonthOpen = window._cliSecOpen && window._cliSecOpen[secId] === true;
+
+          // Resumen de productos del mes
+          const monthTotals = {};
+          g.orders.forEach(o => {
+            o.items.forEach(it => {
+              const p = S.products.find(x=>x.id===it.productId);
+              if (!p) return;
+              if (!monthTotals[it.productId]) monthTotals[it.productId] = {name:p.name, spec:p.presentation||'', qty:0};
+              monthTotals[it.productId].qty += Number(it.qty);
+            });
+          });
+          const summaryLine = Object.values(monthTotals).map(t=>{
+            const spec = t.spec?` (${t.spec})`:'';
+            return `<span style="color:#f1f5f9;font-size:10px;margin-right:8px">${t.name}${spec} = <span style="color:#10b981;font-weight:700">${t.qty}</span></span>`;
+          }).join('');
+
+          const monthRows = g.orders.map(o => rows_map[o.id]||'').join('');
+          return `<div style="margin-bottom:6px">
+            <div onclick="toggleCliMonthSec('${secId}')" style="cursor:pointer;padding:6px 8px;background:#161929;border-radius:6px;margin-bottom:4px;border-left:3px solid #3b82f6">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${summaryLine?'4px':'0'}">
+                <span style="font-size:12px;color:#60a5fa;font-weight:700">📅 ${g.label} <span style="color:#64748b;font-size:10px">(${g.orders.length})</span></span>
+                <span style="color:#64748b;font-size:11px" id="${secId}-arrow">${isMonthOpen?'▲':'▼'}</span>
+              </div>
+              ${summaryLine?`<div style="display:flex;flex-wrap:wrap;gap:2px">${summaryLine}</div>`:''}
+            </div>
+            <div id="${secId}" style="display:${isMonthOpen?'block':'none'}">${monthRows}</div>
+          </div>`;
+        }).join('');
+      })()}
     </div>
   </div>`;
 })()}
@@ -7213,23 +7298,44 @@ function runGlobalSearch() {
     x.items.some(it=>{ const p=S.products.find(p=>p.id===(it.productId||Number(it.pid))); return p&&p.name.toLowerCase().includes(q); })
   );
   if (ords.length) {
-    html += `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;background:#161929;letter-spacing:.5px">📋 Pedidos</div>`;
-    html += ords.slice(0,6).map(x => {
+    html += `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;background:#161929;letter-spacing:.5px">📋 Pedidos (${ords.length})</div>`;
+    html += ords.map(x => {
       const tot  = orderTotal(x.items,x.clientId);
       const disp = x.applyIva ? tot*1.12 : tot;
       const sc   = x.status==='Concluido'?'#4ade80':x.status==='Cotización'?'#60a5fa':'#fb923c';
       const route = x.routeId ? (S.routes||[]).find(r=>r.id===x.routeId) : null;
+      const itemsHtml = x.items.map(it=>{
+        const p = S.products.find(pp=>pp.id===it.productId);
+        if (!p) return '';
+        const pr = (it.customPrice!=null)?it.customPrice:cliPrice(x.clientId,it.productId,p.basePrice||0);
+        const ul = p.unitLabel||'unidad';
+        const us = Number(p.unitSize)||1;
+        const sub = pr*it.qty*us;
+        const spec = p.presentation?` (${p.presentation})`:'';
+        const iva = x.applyIva?` <span style="color:#60a5fa;font-size:10px">+IVA</span>`:'';
+        return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #1e2640">
+          <span style="color:#f1f5f9;font-weight:600;flex:1;min-width:0">${it.qty} ${p.name}${spec} × ${Q(pr)}/${ul}${iva}</span>
+          <span style="color:#10b981;font-weight:700;flex-shrink:0;margin-left:6px">${Q(sub)}</span>
+        </div>`;
+      }).filter(Boolean).join('');
+      const bonusHtml = (x.bonusLines&&x.bonusLines.length)?`<div style="margin-top:4px"><div style="font-size:10px;color:#10b981;font-weight:700">🎁 BONIFICACIÓN</div>${x.bonusLines.map(bl=>{const p=S.products.find(pp=>pp.id===Number(bl.productId));const spec=p?.presentation?` (${p.presentation})`:'';return `<div style="font-size:11px;color:#f1f5f9">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${p?.unitLabel||'u'}</div>`;}).join('')}</div>`:'';
       return `<div class="gs-opt" onclick="gsGoOrder(${x.id})">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:700;color:#f1f5f9">${hl(x.clientName)}</span>
-          <span style="font-size:10px;color:${sc};font-weight:700;border:1px solid ${sc};padding:0 5px;border-radius:8px">${x.status}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:700;color:#f1f5f9;font-size:13px">${hl(x.clientName)}</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            ${route?`<span style="font-size:10px;color:#f59e0b;font-weight:700">(RUTA)</span>`:''}
+            <span style="font-size:10px;color:${sc};font-weight:700;border:1px solid ${sc};padding:0 5px;border-radius:8px">${x.status}</span>
+          </div>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:1px">${x.date}${x.quote?' · <strong>Cot: '+hl(x.quote)+'</strong>':''}${x.oc?' · OC: '+hl(x.oc):''}</div>
-        ${route?`<div style="font-size:10px;color:#a78bfa;margin-top:1px">🚚 ${route.name}</div>`:''}
-        <div style="font-size:12px;color:#f59e0b;font-weight:700;margin-top:1px">${Q(disp)}</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:3px">${x.date.split(',')[0]}${x.quote?' · Cot: '+hl(x.quote):''}${x.oc?' · OC: '+hl(x.oc):''}</div>
+        ${x.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${x.delivery}</div>`:''}
+        ${x.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">${x.quoteNote}</div>`:''}
+        <div style="background:#0d0f18;border-radius:5px;padding:4px 6px;margin-bottom:4px">${itemsHtml}</div>
+        <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:3px">TOTAL ${Q(disp)}</div>
+        ${(x.comments&&x.comments.length)?x.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic">💬 ${cm}</div>`).join(''):''}
+        ${bonusHtml}
       </div>`;
     }).join('');
-    if (ords.length > 6) html += `<div style="padding:6px 12px;font-size:11px;color:#64748b;text-align:center">+${ords.length-6} más — ve a Pedidos para ver todos</div>`;
   }
 
   // ── Rutas ─────────────────────────────────────────
