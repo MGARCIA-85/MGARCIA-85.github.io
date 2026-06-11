@@ -4223,7 +4223,7 @@ ${(()=>{
 })()}
 
 ${(()=>{
-  const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; }).slice(0,5);
+  const cliOrds = [...S.orders].filter(o=>Number(o.clientId)===Number(c.id)).sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; });
   if (!cliOrds.length) return '';
   const rows = cliOrds.map(o=>{
     const tot = orderTotal(o.items,o.clientId);
