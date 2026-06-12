@@ -6123,9 +6123,17 @@ async function driveHandleRedirect() {
 async function driveEnsureToken() {
   if (_driveToken && Date.now() < _driveTokenExpiry) return true;
   const refresh = _driveRefreshToken || localStorage.getItem('gpgt_drive_refresh');
-  if (!refresh) { _driveToken = null; renderDriveStatus(); return false; }
+  if (!refresh) {
+    _driveToken = null; renderDriveStatus();
+    toast('⚠️ Drive: no hay refresh_token guardado', '#ef4444');
+    return false;
+  }
   try {
     const res = await fetch(DRIVE_GAS_URL + '?action=refresh&refresh_token=' + encodeURIComponent(refresh));
+    if (!res.ok) {
+      toast('⚠️ Drive: error HTTP ' + res.status + ' al renovar token', '#ef4444');
+      return false;
+    }
     const data = await res.json();
     if (data.access_token) {
       _driveToken = data.access_token;
@@ -6135,16 +6143,21 @@ async function driveEnsureToken() {
       return true;
     }
     // Token inválido — limpiar y mostrar reconexión
-    if (data.error === 'invalid_grant' || data.error_description) {
+    if (data.error === 'invalid_grant') {
       _driveToken = null;
       _driveRefreshToken = null;
       localStorage.removeItem('gpgt_drive_refresh');
       localStorage.removeItem('gpgt_drive_token');
       renderDriveStatus();
-      toast('⚠️ Drive desconectado — reconecta en Empresa', '#ef4444');
+      toast('⚠️ Drive desconectado (token revocado) — reconecta en Empresa', '#ef4444');
+    } else {
+      toast('⚠️ Drive: respuesta inesperada — ' + JSON.stringify(data).slice(0,80), '#ef4444');
     }
     return false;
-  } catch(e) { return false; }
+  } catch(e) {
+    toast('⚠️ Drive: error de red al renovar token — ' + e.message, '#ef4444');
+    return false;
+  }
 }
 
 async function driveRestoreBackup(skipConfirm = false) {
