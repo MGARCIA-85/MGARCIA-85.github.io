@@ -282,17 +282,27 @@ table.rep th{background:#f0f0f0!important}
 <div id="ord-cli-info" style="font-size:12px;color:#64748b;margin-top:5px"></div>
 </div>
 <div id="ord-body" style="display:none">
+<label class="lbl">📅 Fecha del pedido</label>
+<input class="inp" type="date" id="ord-date" style="margin-bottom:10px"/>
 <div class="sec">Productos del pedido</div>
 <div id="ord-items"></div>
 <button class="bs" style="width:100%;padding:10px;margin-bottom:10px" onclick="addOrdItem()">+ Agregar otro producto</button>
+<!-- Sección de bonificaciones del pedido -->
+<div id="ord-bonus-section" style="display:none;margin-top:4px">
+<div class="card" style="padding:10px;border:1px solid #10b98133">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="font-size:12px;font-weight:700;color:#10b981">🎁 BONIFICACIONES</div>
+    <button onclick="addOrdBonusRow()" style="background:#052e16;border:1px dashed #10b981;border-radius:6px;color:#10b981;padding:3px 10px;font-size:11px;cursor:pointer">+ Agregar</button>
+  </div>
+  <div id="ord-bonus-rows"></div>
+</div>
+</div>
 <div class="card">
 <div class="card">
 <label class="lbl"># Cotización</label>
 <input class="inp" id="ord-quote" placeholder="Ej: COT-001"/>
 <label class="lbl">Orden de Compra (OC)</label>
 <input class="inp" id="ord-oc" placeholder="Ej: OC-4587"/>
-<label class="lbl">📅 Fecha del pedido</label>
-<input class="inp" type="date" id="ord-date" style="margin-bottom:8px"/>
 <label class="lbl">Entrega</label>
 <div style="display:flex;gap:6px;margin-bottom:8px">
   <select class="sel" id="ord-delivery-sel" style="flex:1;font-size:13px" onchange="onDeliverySelChange()">
@@ -301,8 +311,8 @@ table.rep th{background:#f0f0f0!important}
 </div>
 <input class="inp" id="ord-delivery" placeholder="Dirección de entrega..." style="margin-bottom:4px" oninput="onDeliveryInputChange()"/>
 <button class="bs" id="ord-delivery-save-btn" style="display:none;font-size:11px;padding:4px 10px;margin-bottom:8px" onclick="saveDeliveryToClient()">💾 Guardar esta dirección en el cliente</button>
-<label class="lbl">Comentario de cotización (aparece en cotización e informes)</label>
-<input class="inp" id="ord-quote-note" placeholder="Ej: Válido por 5 días"/>
+<label class="lbl">Fecha de entrega</label>
+<input class="inp" type="date" id="ord-quote-note" style="margin-bottom:8px"/>
 </div>
 <label class="lbl">Comentarios</label>
 <div id="ord-comments-list"></div>
@@ -351,16 +361,6 @@ table.rep th{background:#f0f0f0!important}
 <div style="text-align:right">
 <div style="color:#64748b;font-size:12px">TOTAL DEL PEDIDO</div>
 <div id="ord-total-val" style="font-size:22px;font-weight:900;color:#f59e0b">Q0.00</div>
-</div>
-</div>
-<!-- Sección de bonificaciones del pedido -->
-<div id="ord-bonus-section" style="display:none;margin-top:4px">
-<div class="card" style="padding:10px;border:1px solid #10b98133">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div style="font-size:12px;font-weight:700;color:#10b981">🎁 BONIFICACIONES</div>
-    <button onclick="addOrdBonusRow()" style="background:#052e16;border:1px dashed #10b981;border-radius:6px;color:#10b981;padding:3px 10px;font-size:11px;cursor:pointer">+ Agregar</button>
-  </div>
-  <div id="ord-bonus-rows"></div>
 </div>
 </div>
 <div style="display:flex;gap:8px;margin-top:4px">
@@ -961,6 +961,16 @@ function save() {
 // ═══════════════════════════════════════════════════════
 //  UTILIDADES
 // ═══════════════════════════════════════════════════════
+function fmtEntrega(val) {
+  if (!val) return '';
+  // YYYY-MM-DD → d/m/yyyy
+  if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [y,m,d] = val.split('-');
+    return `${parseInt(d)}/${parseInt(m)}/${y}`;
+  }
+  return val;
+}
+
 function ordDateTs(o) {
   // Parsear fecha del pedido en formato "d/m/yyyy, ..." o "d/m/yyyy"
   const raw = (o.date||'').split(',')[0].trim();
@@ -1276,6 +1286,8 @@ const _d = document.getElementById('ord-delivery'); if (_d) _d.value = '';
 // Precargar fecha actual
 const _fd = document.getElementById('ord-date');
 if (_fd) { const _now = new Date(); _fd.value = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`; }
+// Limpiar fecha de entrega
+const _qn = document.getElementById('ord-quote-note'); if (_qn) _qn.value = '';
 // Si viene de duplicar, precargar los datos
 if (_duplicatingData) {
   const d = _duplicatingData;
@@ -1813,7 +1825,19 @@ if (ivaIncChk) ivaIncChk.checked = !!ord.pricesIncIva;
 const quoteInp = document.getElementById('ord-quote');
 if (quoteInp) quoteInp.value = ord.quote || '';
 const quoteNoteInp = document.getElementById('ord-quote-note');
-if (quoteNoteInp) quoteNoteInp.value = ord.quoteNote || '';
+if (quoteNoteInp) {
+  // Si el valor guardado es una fecha en formato d/m/yyyy, convertirla a YYYY-MM-DD
+  const qnVal = ord.quoteNote || '';
+  const qnParts = qnVal.split('/');
+  if (qnParts.length === 3) {
+    const d = qnParts[0].padStart(2,'0'), m = qnParts[1].padStart(2,'0'), y = qnParts[2].trim().split(',')[0];
+    quoteNoteInp.value = `${y}-${m}-${d}`;
+  } else if (qnVal.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    quoteNoteInp.value = qnVal;
+  } else {
+    quoteNoteInp.value = qnVal;
+  }
+}
 const ocInp = document.getElementById('ord-oc');
 if (ocInp) ocInp.value = ord.oc || '';
 const deliveryInp = document.getElementById('ord-delivery');
@@ -2417,7 +2441,7 @@ function shareOrderReportSel() {
       const pedidoLines = filtered.map((o, i) => {
         const cotLine = (!sameQuote && o.quote) ? `Cotización ${o.quote}\n` : '';
         const ocLine = o.oc ? `Orden ${o.oc}\n` : '';
-        const qNoteLine = (!sameQNote && o.quoteNote) ? `${o.quoteNote}\n` : '';
+        const qNoteLine = (!sameQNote && o.quoteNote) ? `Fecha de entrega: ${fmtEntrega(o.quoteNote)}\n` : '';
         const deliveryLine = (!sameDelivery && o.delivery) ? `Entrega: ${o.delivery}\n` : '';
         const prodLines = getProdLines(o);
         const bonusBlock = getBonusBlock(o);
@@ -2445,7 +2469,7 @@ function shareOrderReportSel() {
       const pedidoLines = filtered.map((o, i) => {
         const cotLine = (!sameQuote && o.quote) ? `Cotización ${o.quote}\n` : '';
         const ocLine = o.oc ? `Orden ${o.oc}\n` : '';
-        const qNoteLine = (!sameQNote2 && o.quoteNote) ? `${o.quoteNote}\n` : '';
+        const qNoteLine = (!sameQNote2 && o.quoteNote) ? `Fecha de entrega: ${fmtEntrega(o.quoteNote)}\n` : '';
         const deliveryLine = (!sameDelivery2 && o.delivery) ? `Entrega: ${o.delivery}\n` : '';
         const uniqueCmts = getCmts(o).filter(c => !commonCmts.includes(c));
         const cmtBlock = uniqueCmts.length ? uniqueCmts.join('\n') + '\n' : '';
@@ -2464,7 +2488,7 @@ function shareOrderReportSel() {
       const cmts = getCmts(o);
       const cotLine = o.quote ? `Cot: ${o.quote}` : '';
       const ocLine  = o.oc    ? `Orden ${o.oc}` : '';
-      const qNoteLine3 = o.quoteNote ? `${o.quoteNote}` : '';
+      const qNoteLine3 = o.quoteNote ? `Fecha de entrega: ${fmtEntrega(o.quoteNote)}` : '';
       const deliveryLine = o.delivery ? `Entrega: ${o.delivery}` : '';
       const cmtLines = cmts.map(c => `${c}`).join('\n');
       const prodLines = getProdLines(o);
@@ -2545,7 +2569,7 @@ function generateOrderReport(selIds) {
         <div>
           <div style="font-size:16px;font-weight:900;color:#1e3a8a">#${i+1} ${o.clientName}</div>
           ${metaLine?`<div style="font-size:13px;color:#111;margin-top:3px">${metaLine}</div>`:''}
-          ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
+          ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
         </div>
         <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px;white-space:nowrap">${o.status}</span>
       </div>
@@ -2738,7 +2762,7 @@ card.innerHTML = `
 <div style="font-weight:800;font-size:15px;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
 ${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}\n${o.delivery?`<div style="font-size:11px;color:#a78bfa;margin-top:1px">📍 Entrega: ${o.delivery}</div>`:''}
-${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:1px">${o.quoteNote}</div>`:''}
+${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:1px">📅 Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
 </div>
 </div>
 </div>
@@ -3453,7 +3477,7 @@ return `<div class="qt">
 <div style="font-size:16px;font-weight:900;margin-bottom:4px;color:#111">N° ${qNum}</div>
 <div style="font-size:12px;color:#6b7280;margin-bottom:2px">Fecha: ${ord.date}</div>
 <div style="font-size:13px;margin-top:2px">Cliente: <strong>${ord.clientName}</strong></div>
-${ord.quoteNote?`<div style="font-size:12px;color:#374151;margin-top:4px;padding:5px 8px;background:#f9fafb;border-left:3px solid #f59e0b;border-radius:3px">${ord.quoteNote}</div>`:''}
+${ord.quoteNote?`<div style="font-size:12px;color:#374151;margin-top:4px;padding:5px 8px;background:#f9fafb;border-left:3px solid #f59e0b;border-radius:3px"><strong>Fecha de entrega:</strong> ${fmtEntrega(ord.quoteNote)}</div>`:''}
 ${ord.delivery?`<div style="font-size:12px;color:#0369a1;margin-top:4px;padding:5px 8px;background:#f0f9ff;border-left:3px solid #bae6fd;border-radius:3px">📍 Entrega: ${ord.delivery}</div>`:''}
 ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="color:#6b7280;margin-left:6px">${cliInfo}</span></div>`:''}
 ${cmtsQuote}
@@ -3585,7 +3609,7 @@ const cmts = (ord.comments && ord.comments.length ? ord.comments : (ord.note ? [
 const comentariosTexto = cmts.map(c => `•${c}`).join('\n');
 
 const ocLine = ord.oc ? `Pedido #${ord.oc}` : '';
-const qNoteLine = ord.quoteNote ? ord.quoteNote : '';
+const qNoteLine = ord.quoteNote ? `Fecha de entrega: ${fmtEntrega(ord.quoteNote)}` : '';
 const deliveryLine = ord.delivery ? `Entrega: ${ord.delivery}` : '';
 
 const parts = [
@@ -3639,7 +3663,7 @@ t += `Cliente: ${ord.clientName}\n`;
 
 // Comentario de cotización y comentarios normales
 const cmts = ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : []);
-if (ord.quoteNote) t += `\n${ord.quoteNote}\n`;
+if (ord.quoteNote) t += `\nFecha de entrega: ${fmtEntrega(ord.quoteNote)}\n`;
 cmts.filter(Boolean).forEach(c => { t += `💬 ${c}\n`; });
 
 // Productos
@@ -4305,7 +4329,7 @@ ${(()=>{
         </div>
       </div>
       ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${o.delivery}</div>`:''}
-      ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">${o.quoteNote}</div>`:''}
+      ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">📅 Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
       <div style="background:#0d0f18;border-radius:5px;padding:4px 6px;margin-bottom:4px">${itemsHtml}</div>
       <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:4px">TOTAL ${Q(disp)}</div>
       ${(o.comments&&o.comments.length)?o.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic;margin-bottom:3px">💬 ${cm}</div>`).join(''):''}
@@ -6528,7 +6552,7 @@ function renderRoutes() {
         ${ordOpen ? `<div style="padding:0 10px 10px">
           <!-- Entrega y quoteNote ARRIBA de productos -->
           ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:4px;margin-top:4px">📍 ${o.delivery}</div>`:''}
-          ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:6px">${o.quoteNote}</div>`:''}
+          ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:6px">📅 Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
           <!-- Productos -->
           <div style="background:#0d0f18;border-radius:6px;padding:6px 8px;margin-bottom:8px">
             ${itemsHtml || '<div style="font-size:11px;color:#64748b">Sin productos</div>'}
@@ -7107,7 +7131,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
           <span style="font-size:11px;font-weight:700;color:${sc};border:1px solid ${sc};padding:1px 8px;border-radius:10px">${o.status}</span>
         </div>
         ${metaExtra ? `<div style="margin-top:5px">${metaExtra}</div>` : ''}
-        ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">${o.quoteNote}</div>`:''}
+        ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:4px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
       </div>
       ${deliveryHtmlR}
       ${cmtsHtml}
@@ -7439,7 +7463,7 @@ function runGlobalSearch() {
         </div>
         <div style="font-size:11px;color:#64748b;margin-bottom:3px">${x.date.split(',')[0]}${x.quote?' · Cot: '+hl(x.quote):''}${x.oc?' · OC: '+hl(x.oc):''}</div>
         ${x.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${x.delivery}</div>`:''}
-        ${x.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">${x.quoteNote}</div>`:''}
+        ${x.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:4px">📅 Fecha de entrega: ${fmtEntrega(x.quoteNote)}</div>`:''}
         <div style="background:#0d0f18;border-radius:5px;padding:4px 6px;margin-bottom:4px">${itemsHtml}</div>
         <div style="font-size:13px;font-weight:700;color:#f59e0b;margin-bottom:3px">TOTAL ${Q(disp)}</div>
         ${(x.comments&&x.comments.length)?x.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic">💬 ${cm}</div>`).join(''):''}
