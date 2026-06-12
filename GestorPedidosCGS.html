@@ -1127,8 +1127,8 @@ function acBlur(dropId){ setTimeout(()=>acClose(dropId), 200); }
 function acCliInput() {
   const txt = document.getElementById('ord-cli-txt');
   const drop = document.getElementById('ac-cli-drop');
-  const q = txt.value.trim().toLowerCase();
-  const matches = S.clients.filter(c => c.name.toLowerCase().includes(q));
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.clients.filter(c => normalizeStr(c.name).includes(q) || normalizeStr(c.phone||'').includes(q));
   drop.innerHTML = '';
   if (!matches.length) {
     drop.innerHTML = '<div class="ac-empty">Sin resultados</div>';
@@ -1154,30 +1154,27 @@ function acProdInput(i) {
   const drop = document.getElementById('ac-prod-drop-'+i);
   if (!txt || !drop) return;
   const cid = Number(document.getElementById('ord-cli').value);
-  const q = txt.value.trim().toLowerCase();
+  const q = normalizeStr(txt.value.trim());
   const cp = (S.cp[cid] || S.cp[String(cid)] || {});
   const assigned = cp._visible;
   const hasAssigned = assigned && assigned.length > 0;
 
-  // Pool asignados al cliente
   const pool = hasAssigned
     ? S.products.filter(p => assigned.includes(p.id) || assigned.includes(String(p.id)))
     : S.products;
 
-  // Matches dentro de la lista del cliente
   const matches = pool.filter(p =>
-    p.name.toLowerCase().includes(q) ||
-    (p.presentation||'').toLowerCase().includes(q) ||
-    (p.family||'').toLowerCase().includes(q)
+    normalizeStr(p.name).includes(q) ||
+    normalizeStr(p.presentation||'').includes(q) ||
+    normalizeStr(p.family||'').includes(q)
   );
 
-  // Matches fuera de la lista (solo si tiene lista asignada)
   const outsideMatches = hasAssigned
     ? S.products.filter(p =>
         !(assigned.includes(p.id) || assigned.includes(String(p.id))) &&
-        (q.length === 0 || p.name.toLowerCase().includes(q) ||
-         (p.presentation||'').toLowerCase().includes(q) ||
-         (p.family||'').toLowerCase().includes(q))
+        (q.length === 0 || normalizeStr(p.name).includes(q) ||
+         normalizeStr(p.presentation||'').includes(q) ||
+         normalizeStr(p.family||'').includes(q))
       )
     : [];
 
@@ -6124,9 +6121,7 @@ async function driveHandleRedirect() {
 }
 
 async function driveEnsureToken() {
-  // Si el token no ha expirado, usar el actual
   if (_driveToken && Date.now() < _driveTokenExpiry) return true;
-  // Intentar renovar con refresh token
   const refresh = _driveRefreshToken || localStorage.getItem('gpgt_drive_refresh');
   if (!refresh) { _driveToken = null; renderDriveStatus(); return false; }
   try {
@@ -6138,6 +6133,15 @@ async function driveEnsureToken() {
       localStorage.setItem('gpgt_drive_token', data.access_token);
       localStorage.setItem('gpgt_drive_expiry', String(_driveTokenExpiry));
       return true;
+    }
+    // Token inválido — limpiar y mostrar reconexión
+    if (data.error === 'invalid_grant' || data.error_description) {
+      _driveToken = null;
+      _driveRefreshToken = null;
+      localStorage.removeItem('gpgt_drive_refresh');
+      localStorage.removeItem('gpgt_drive_token');
+      renderDriveStatus();
+      toast('⚠️ Drive desconectado — reconecta en Empresa', '#ef4444');
     }
     return false;
   } catch(e) { return false; }
