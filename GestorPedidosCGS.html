@@ -7197,7 +7197,40 @@ function toggleGlobalSearch(e) {
   const inp  = document.getElementById('global-search-inp');
   const isOpen = wrap.style.display !== 'none';
   wrap.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) { inp.value = ''; document.getElementById('global-search-results').style.display='none'; setTimeout(()=>inp.focus(),100); }
+  if (!isOpen) {
+    inp.value = '';
+    const res = document.getElementById('global-search-results');
+    if (_searchHistory.length) {
+      const _hicons = {client:'👥',order:'📋',product:'🏷️',route:'🚚'};
+      const _hicons2 = {client:'👥',order:'📋',product:'🏷️',route:'🚚'};
+      res.innerHTML = `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;background:#161929;letter-spacing:.5px">🕐 BÚSQUEDAS RECIENTES</div>` +
+        _searchHistory.map(h=>{
+          const e = typeof h==='object'?h:{label:h,type:'',id:null};
+          const icon = _hicons2[e.type]||'🔍';
+          const nav = e.type==='client'?'gsGoClient('+e.id+')'
+            :e.type==='order'?'gsGoOrder('+e.id+')'
+            :e.type==='product'?'gsGoProd('+e.id+')'
+            :e.type==='route'?'gsGoRoute('+e.id+')'
+            :'runGlobalSearch()';
+          return '<div class="gs-opt" onclick="'+nav+'" style="display:flex;justify-content:space-between;align-items:center"><span style="color:#94a3b8;font-size:13px">'+icon+' '+e.label+'</span><span style="color:#475569;font-size:11px">↗</span></div>';
+        }).join('');
+      res.innerHTML = `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;background:#161929;letter-spacing:.5px">🕐 BÚSQUEDAS RECIENTES</div>` +
+        _searchHistory.map(h=>{
+          const e = typeof h==='object'?h:{label:h,type:'',id:null};
+          const icon = _hicons[e.type]||'🔍';
+          const nav = e.type==='client'?'gsGoClient('+e.id+')'
+            :e.type==='order'?'gsGoOrder('+e.id+')'
+            :e.type==='product'?'gsGoProd('+e.id+')'
+            :e.type==='route'?'gsGoRoute('+e.id+')'
+            :'runGlobalSearch()';
+          return '<div class="gs-opt" onclick="'+nav+'" style="display:flex;justify-content:space-between;align-items:center"><span style="color:#94a3b8;font-size:13px">'+icon+' '+e.label+'</span><span style="color:#475569;font-size:11px">↗</span></div>';
+        }).join('');
+      res.style.display = 'block';
+    } else {
+      res.style.display = 'none';
+    }
+    setTimeout(()=>inp.focus(),100);
+  }
 }
 
 function highlightMatch(text, q) {
@@ -7208,6 +7241,8 @@ function highlightMatch(text, q) {
 }
 
 function gsGoClient(cid) {
+  const c = S.clients.find(x=>x.id===Number(cid));
+  if (c) saveSearchHistory(c.name, 'client', cid);
   const wrap = document.getElementById('global-search-wrap');
   if (wrap) wrap.style.display = 'none';
   goTab('clients');
@@ -7221,6 +7256,8 @@ function gsGoClient(cid) {
 }
 
 function gsGoOrder(oid) {
+  const o = S.orders.find(x=>x.id===Number(oid));
+  if (o) saveSearchHistory(o.clientName+(o.quote?' · '+o.quote:''), 'order', oid);
   const wrap = document.getElementById('global-search-wrap');
   if (wrap) wrap.style.display = 'none';
   const fCli = document.getElementById('f-cli');
@@ -7243,6 +7280,8 @@ function gsGoOrder(oid) {
 }
 
 function gsGoProd(pid) {
+  const p = S.products.find(x=>x.id===Number(pid));
+  if (p) saveSearchHistory(p.name+(p.presentation?' ('+p.presentation+')':''), 'product', pid);
   const wrap = document.getElementById('global-search-wrap');
   if (wrap) wrap.style.display = 'none';
   goTab('products');
@@ -7261,6 +7300,8 @@ function gsGoProd(pid) {
 }
 
 function gsGoRoute(rid) {
+  const r = (S.routes||[]).find(x=>x.id===Number(rid));
+  if (r) saveSearchHistory(r.name, 'route', rid);
   const wrap = document.getElementById('global-search-wrap');
   if (wrap) wrap.style.display = 'none';
   goTab('routes');
@@ -7278,16 +7319,46 @@ function gsGoRoute(rid) {
   }, 250);
 }
 
+// Normalizar texto quitando tildes para búsqueda
+function normalizeStr(s) {
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+
+let _searchHistory = JSON.parse(localStorage.getItem('gs_history')||'[]');
+
+function saveSearchHistory(label, type, id) {
+  if (!label) return;
+  const entry = { label, type, id };
+  _searchHistory = [entry, ..._searchHistory.filter(h=>!(h.label===label&&h.type===type))].slice(0,8);
+  localStorage.setItem('gs_history', JSON.stringify(_searchHistory));
+}
+
 function runGlobalSearch() {
-  const q   = document.getElementById('global-search-inp').value.trim().toLowerCase();
+  const raw = document.getElementById('global-search-inp').value.trim();
+  const q   = normalizeStr(raw);
   const res = document.getElementById('global-search-results');
-  if (!q) { res.style.display = 'none'; return; }
+
+  // Sin texto — mostrar historial
+  if (!raw) {
+    if (_searchHistory.length) {
+      res.innerHTML = `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;background:#161929;letter-spacing:.5px">🕐 BÚSQUEDAS RECIENTES</div>` +
+        _searchHistory.map(h=>`<div class="gs-opt" onclick="document.getElementById('global-search-inp').value='${h.replace(/'/g,"\\'")}';runGlobalSearch()" style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#94a3b8;font-size:13px">${h}</span>
+          <span style="color:#475569;font-size:11px">↗</span>
+        </div>`).join('');
+      res.style.display = 'block';
+    } else {
+      res.style.display = 'none';
+    }
+    return;
+  }
 
   let html = '';
-  const hl = t => highlightMatch(t, q);
+  const hl = t => highlightMatch(t, raw);
+  const match = s => normalizeStr(s).includes(q);
 
   // ── Clientes ──────────────────────────────────────
-  const clis = S.clients.filter(x => x.name.toLowerCase().includes(q) || (x.phone||'').includes(q));
+  const clis = S.clients.filter(x => match(x.name) || match(x.phone||''));
   if (clis.length) {
     html += `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;background:#161929;letter-spacing:.5px">👥 Clientes</div>`;
     html += clis.slice(0,6).map(x =>
@@ -7298,8 +7369,7 @@ function runGlobalSearch() {
   }
 
   // ── Productos ─────────────────────────────────────
-  const prods = S.products.filter(x =>
-    x.name.toLowerCase().includes(q) || (x.presentation||'').toLowerCase().includes(q) || (x.family||'').toLowerCase().includes(q));
+  const prods = S.products.filter(x => match(x.name) || match(x.presentation||'') || match(x.family||''));
   if (prods.length) {
     html += `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;background:#161929;letter-spacing:.5px">🏷️ Productos</div>`;
     html += prods.slice(0,6).map(x =>
@@ -7309,13 +7379,16 @@ function runGlobalSearch() {
       </div>`).join('');
   }
 
+  // ── Rutas ─────────────────────────────────────────
+  const rts = (S.routes||[]).filter(x => match(x.name));
+
   // ── Pedidos ───────────────────────────────────────
-  const ords = [...S.orders].reverse().filter(x =>
-    x.clientName.toLowerCase().includes(q) ||
-    (x.quote||'').toLowerCase().includes(q) ||
-    (x.oc||'').toLowerCase().includes(q) ||
-    ((x.comments||[]).some(cm=>cm.toLowerCase().includes(q))) ||
-    x.items.some(it=>{ const p=S.products.find(p=>p.id===(it.productId||Number(it.pid))); return p&&p.name.toLowerCase().includes(q); })
+  const ords = [...S.orders].sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; }).filter(x =>
+    match(x.clientName) ||
+    match(x.quote||'') ||
+    match(x.oc||'') ||
+    ((x.comments||[]).some(cm=>match(cm))) ||
+    x.items.some(it=>{ const p=S.products.find(p=>p.id===(it.productId||Number(it.pid))); return p&&match(p.name); })
   );
   if (ords.length) {
     html += `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;background:#161929;letter-spacing:.5px">📋 Pedidos (${ords.length})</div>`;
@@ -7359,10 +7432,9 @@ function runGlobalSearch() {
   }
 
   // ── Rutas ─────────────────────────────────────────
-  const ruts = (S.routes||[]).filter(x => x.name.toLowerCase().includes(q) || (x.desc||'').toLowerCase().includes(q));
-  if (ruts.length) {
+  if (rts.length) {
     html += `<div style="padding:5px 12px;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;background:#161929;letter-spacing:.5px">🚚 Rutas</div>`;
-    html += ruts.slice(0,5).map(x => {
+    html += rts.slice(0,5).map(x => {
       const tot = (x.orders||[]).map(id=>S.orders.find(o=>o.id===id)).filter(Boolean)
         .reduce((s,o)=>{const b=orderTotal(o.items,o.clientId);return s+(o.applyIva?b*1.12:b);},0);
       return `<div class="gs-opt" onclick="gsGoRoute(${x.id})">
@@ -7373,7 +7445,7 @@ function runGlobalSearch() {
     }).join('');
   }
 
-  if (!html) html = '<div style="padding:14px;text-align:center;color:#64748b;font-size:13px">Sin resultados para "<strong>${q}</strong>"</div>'.replace('${q}',q);
+  if (!html) html = `<div style="padding:14px;text-align:center;color:#64748b;font-size:13px">Sin resultados para "<strong>${raw}</strong>"</div>`;
   res.innerHTML = html;
   res.style.display = 'block';
 }
