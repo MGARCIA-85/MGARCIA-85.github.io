@@ -5158,13 +5158,13 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
           const ul = p?.unitLabel||'unidad';
           const sub = (bl.qty||0) * us * (bl.price||0);
           const spec = p?.presentation?` (${p.presentation})`:'';
-          return `<div style="display:flex;justify-content:space-between;font-size:12px;color:#065f46">
+          return `<div style="display:flex;justify-content:space-between;font-size:12px;color:#1e3a8a">
             <span>${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span>
             <span style="font-weight:700">${Q(sub)}</span>
           </div>`;
         }).join('');
-        bonifRow = `<div style="margin-top:6px;padding:6px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:5px">
-          <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:3px">🎁 Bonificación correspondiente (${fmtD(o.date)}):</div>
+        bonifRow = `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px">
+          <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:3px">🎁 Bonificación correspondiente (${fmtD(o.date)}):</div>
           ${bItems}
         </div>`;
       }
@@ -5197,16 +5197,16 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
   <title>Reporte Bonificaciones - ${c?.name||''}</title>
   <style>body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}@media print{body{padding:8px}}</style>
   </head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #065f46">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a8a">
     <div>
-      <div style="font-size:20px;font-weight:900;color:#065f46">${biz.name||'Empresa'}</div>
+      <div style="font-size:20px;font-weight:900;color:#1e3a8a">${biz.name||'Empresa'}</div>
       ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
       ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
     </div>
     <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div></div>
   </div>
-  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px">
-    <div style="font-size:16px;font-weight:800;color:#065f46">📋 REPORTE DE BONIFICACIONES</div>
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE BONIFICACIONES</div>
     <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
     <div style="font-size:11px;color:#64748b;margin-top:2px">Período: ${fmtD(fromStr)} → ${fmtD(toStr)} · ${entregaNum} entrega(s)</div>
   </div>
@@ -5350,7 +5350,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
           }));
           const meta = t.threshold||0;
           const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 100;
-          const col  = pct>=100?'#16a34a':pct>=60?'#d97706':'#dc2626';
+          const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
           return `<div style="margin-bottom:6px">
             <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
               <span>Meta: ${meta} ${getUnit(tName,meta)}</span>
@@ -5367,9 +5367,9 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
           const spec = p?.presentation?` (${p.presentation})`:'';
           return `${bl.qty} ${p?p.name:'—'}${spec}`;
         }).join('<br>');
-        bonifHtml = `<div style="margin-top:8px;padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px">
+        bonifHtml = `<div style="margin-top:8px;padding:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px">
           ${barHtml}
-          <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:3px">🎁 Bonificación correspondiente (${fmtD(g.bonusOrd.date)}):</div>
+          <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:3px">🎁 Bonificación correspondiente (${fmtD(g.bonusOrd.date)}):</div>
           <div style="font-size:12px;color:#1e293b">${items}</div>
         </div>`;
       }
@@ -5396,7 +5396,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             }));
             const meta = t.threshold||0;
             const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 0;
-            const col  = pct>=100?'#16a34a':pct>=60?'#d97706':'#dc2626';
+            const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
             const restante = Math.max(0, meta - logro);
             return `<div style="margin-bottom:4px">
               <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
@@ -5422,10 +5422,10 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
 
     const vigs = rule.vigenciaStart ? `Vigencia: ${fmtD(rule.vigenciaStart)} → ${rule.vigenciaEnd?fmtD(rule.vigenciaEnd):'activa'}` : '';
     return `<div style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
-      <div style="background:#065f46;padding:10px 14px">
+      <div style="background:#1e3a8a;padding:10px 14px">
         <div style="font-weight:800;font-size:14px;color:#fff">${rule.name||'Sin nombre'}${rule.inactive?' (inactiva)':''}</div>
-        ${vigs?`<div style="font-size:11px;color:#6ee7b7;margin-top:2px">\uD83D\uDCC5 ${vigs}</div>`:''}
-        <div style="font-size:11px;color:#6ee7b7;margin-top:2px">${groups.filter(g=>g.bonusOrd).length} entrega(s)</div>
+        ${vigs?`<div style="font-size:11px;color:#93c5fd;margin-top:2px">\uD83D\uDCC5 ${vigs}</div>`:''}
+        <div style="font-size:11px;color:#93c5fd;margin-top:2px">${groups.filter(g=>g.bonusOrd).length} entrega(s)</div>
       </div>
       <div style="padding:12px 14px">${groupsHtml||'<div style="font-size:12px;color:#64748b">Sin pedidos en el período.</div>'}</div>
     </div>`;
@@ -5436,16 +5436,16 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
   <title>Reporte Bonificaciones - ${c?.name||''}</title>
   <style>body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}@media print{body{padding:8px}}</style>
   </head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #065f46">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a8a">
     <div>
-      <div style="font-size:20px;font-weight:900;color:#065f46">${biz.name||'Empresa'}</div>
+      <div style="font-size:20px;font-weight:900;color:#1e3a8a">${biz.name||'Empresa'}</div>
       ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
       ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
     </div>
     <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div></div>
   </div>
-  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px">
-    <div style="font-size:16px;font-weight:800;color:#065f46">📋 REPORTE DE PEDIDOS</div>
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE PEDIDOS</div>
     <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
     <div style="font-size:11px;color:#64748b;margin-top:2px">Período del reporte: ${fmtD(fromStr)} → ${fmtD(toStr)}</div>
   </div>
@@ -5888,7 +5888,7 @@ function addManualBonusToOrder(oid) {
         <input type="number" class="mb-price" value="0" min="0" step="0.01" placeholder="Precio" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
       </div>
     </div>
-    <button onclick="addManualBonusRow()" style="width:100%;background:#052e16;border:1px dashed #10b981;border-radius:7px;color:#10b981;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Otra línea</button>
+    <button onclick="addManualBonusRow()" style="width:100%;background:#1e3a8a;border:1px dashed #10b981;border-radius:7px;color:#10b981;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Otra línea</button>
     <input id="mb-note" placeholder="Nota (ej: Por consumo Trim. Q2)" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:12px;font-size:12px"/>
     <div style="display:flex;gap:8px">
       <button onclick="closeBonusModal()" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer">Cancelar</button>
@@ -7136,7 +7136,7 @@ function renderRoutes() {
           <!-- Total y bonif -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
             <span style="font-size:13px;font-weight:700;color:#f59e0b">TOTAL ${Q(oDisp)}</span>
-            ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
+            ${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#1e3a8a;color:#10b981;padding:1px 6px;border-radius:6px;font-weight:700">🎁 Bonif.</span>`:''}
           </div>
           <!-- Comentarios normales ABAJO -->
           ${(o.comments&&o.comments.length)?o.comments.filter(Boolean).map(cm=>`<div style="font-size:11px;color:#60a5fa;font-style:italic;margin-bottom:3px">💬 ${cm}</div>`).join(''):''}
@@ -7183,7 +7183,7 @@ function renderRoutes() {
         <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">
           <span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:1px 7px;border-radius:8px">${orders.length} pedidos</span>
           ${pend?`<span style="font-size:10px;background:#422006;color:#fb923c;padding:1px 7px;border-radius:8px">${pend} pend.</span>`:''}
-          ${fact?`<span style="font-size:10px;background:#052e16;color:#4ade80;padding:1px 7px;border-radius:8px">${fact} concl.</span>`:''}
+          ${fact?`<span style="font-size:10px;background:#1e3a8a;color:#4ade80;padding:1px 7px;border-radius:8px">${fact} concl.</span>`:''}
           <span style="font-size:10px;font-weight:700;color:#f59e0b">Total: ${Q(tot)}</span>
           <span style="font-size:11px;color:#64748b">${isOpen?'▲':'▼'}</span>
         </div>
@@ -7684,7 +7684,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
       const ul = p?.unitLabel||'unidad';
       const us = Number(p?.unitSize)||1;
       const sub = (bl.price||0)*bl.qty*us;
-      return `<tr style="background:#f0fdf4">
+      return `<tr style="background:#eff6ff">
         <td style="padding:5px 8px;color:#15803d"><small style="font-weight:700">${p?p.name+' ('+p.presentation+')':'—'}</small>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><small style="color:#6b7280">${bl.ruleName}</small>`:''}</td>
         <td style="padding:5px 8px;text-align:center;color:#15803d">${bl.qty}</td>
         <td style="padding:5px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
@@ -7697,7 +7697,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
         ? `<span style="color:#92400e;font-weight:800;background:#fef08a;padding:1px 4px;border-radius:3px">💬 ${c}</span>`
         : `<span style="color:#374151;font-weight:600">💬 ${c}</span>`
       ).join('<br>') + '</div>' : '';
-    const bonusSep = bonusRows ? `<tr><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700;background:#f0fdf4">─── BONIFICACIONES ───</td></tr>` : '';
+    const bonusSep = bonusRows ? `<tr><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700;background:#eff6ff">─── BONIFICACIONES ───</td></tr>` : '';
     return `<div style="break-inside:avoid;margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
       <div style="background:#f9fafb;padding:8px 12px;border-bottom:1px solid #e5e7eb">
         <div style="display:flex;justify-content:space-between;align-items:center">
