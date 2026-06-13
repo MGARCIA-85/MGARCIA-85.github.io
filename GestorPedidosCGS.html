@@ -1377,15 +1377,7 @@ if (editingOid === null) {
       });
     });
     ordItems = Object.values(seen);
-    // Precargar última bonificación SOLO del cliente actual
-    const lastWithBonus = facturados.find(o =>
-      Number(o.clientId) === cid && o.bonusLines && o.bonusLines.length
-    );
-    if (lastWithBonus) {
-      ordBonusLines = lastWithBonus.bonusLines.map(bl => ({...bl}));
-    } else {
-      ordBonusLines = [];
-    }
+    ordBonusLines = [];
     const prodNames = ordItems.map(it=>{
       const p = S.products.find(x=>String(x.id)===String(it.pid));
       return p ? p.name : '—';
@@ -1421,10 +1413,10 @@ function renderOrdBonusRows() {
     const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bl.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div style="background:#0d0f18;padding:6px;border-radius:7px;margin-bottom:5px">
       <div style="display:grid;grid-template-columns:1fr 45px 65px 28px;gap:4px;align-items:center;margin-bottom:4px">
-        <select onchange="ordBonusLines[${i}].productId=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
-        <input type="number" value="${bl.qty||1}" min="1" onchange="ordBonusLines[${i}].qty=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
-        <input type="number" value="${bl.price||0}" min="0" step="0.01" onchange="ordBonusLines[${i}].price=Number(this.value)" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
-        <button onclick="ordBonusLines.splice(${i},1);renderOrdBonusRows()" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">✕</button>
+        <select onchange="ordBonusLines[${i}].productId=Number(this.value);window._bonusConfirmed=true" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
+        <input type="number" value="${bl.qty||1}" min="1" onchange="ordBonusLines[${i}].qty=Number(this.value);window._bonusConfirmed=true" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <input type="number" value="${bl.price||0}" min="0" step="0.01" onchange="ordBonusLines[${i}].price=Number(this.value);window._bonusConfirmed=true" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <button onclick="ordBonusLines.splice(${i},1);window._bonusConfirmed=true;renderOrdBonusRows()" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">✕</button>
       </div>
       <input value="${bl.ruleName&&bl.ruleName!=='Manual'?bl.ruleName:''}" placeholder="Comentario (ej: Por consumo Trim. Q2)" onchange="ordBonusLines[${i}].ruleName=this.value||'Manual'" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;font-size:11px"/>
     </div>`;
@@ -1437,33 +1429,24 @@ function addOrdBonusRow() {
   const cid = Number(document.getElementById('ord-cli').value);
 
   // Si ya hay bonificaciones en el formulario actual, copiar la última
-  let pid, pr;
+  let pid = 0, pr = 0;
   if (ordBonusLines.length > 0) {
     const last = ordBonusLines[ordBonusLines.length - 1];
     pid = last.productId;
     pr  = last.price != null ? last.price : cliPrice(cid, pid, (S.products.find(p=>p.id===pid)||{}).basePrice||0);
   } else {
-    // Buscar la última bonificación guardada de este cliente
-    const facturados = [...(S.orders||[])]
-      .filter(o => Number(o.clientId) === cid && o.bonusLines && o.bonusLines.length)
-      .sort((a,b) => { const td = ordDateTs(b)-ordDateTs(a); return td !== 0 ? td : b.id-a.id; });
-    if (facturados.length) {
-      const lastBl = facturados[0].bonusLines[facturados[0].bonusLines.length - 1];
-      pid = lastBl.productId;
-      pr  = lastBl.price != null ? lastBl.price : cliPrice(cid, pid, (S.products.find(p=>p.id===Number(pid))||{}).basePrice||0);
-    } else {
-      // Sin historial: usar primer producto de la lista del cliente o el primero global
-      const cp = S.cp[cid] || S.cp[String(cid)] || {};
-      const vis = cp._visible;
-      const firstProd = (vis && vis.length)
-        ? S.products.find(p => vis.includes(p.id) || vis.includes(String(p.id)))
-        : S.products[0];
-      pid = firstProd?.id || 0;
-      pr  = cliPrice(cid, pid, firstProd?.basePrice || 0);
-    }
+    // Sin bonificación previa — usar primer producto disponible
+    const cp = S.cp[cid] || S.cp[String(cid)] || {};
+    const vis = cp._visible;
+    const firstProd = (vis && vis.length)
+      ? S.products.find(p => vis.includes(p.id) || vis.includes(String(p.id)))
+      : S.products[0];
+    pid = firstProd?.id || 0;
+    pr  = cliPrice(cid, pid, firstProd?.basePrice || 0);
   }
 
   ordBonusLines.push({ productId: pid, qty:1, price:pr, ruleName:'Manual' });
+  window._bonusConfirmed = true;
   renderOrdBonusRows();
 }
 
@@ -1660,6 +1643,34 @@ if (!valid.length) return alert('Agrega al menos un producto.');
 const delivery = document.getElementById('ord-delivery')?.value.trim() || '';
 if (!delivery) return toast('El campo Entrega no puede estar vacío.', '#ef4444');
 if (document.getElementById('delivery-alert')) return toast('Confirma o cambia la dirección de entrega sugerida.', '#f59e0b');
+
+// Alerta de bonificación al duplicar
+if (_duplicatingFrom && ordBonusLines.length > 0 && !window._bonusConfirmed) {
+  const bonusDesc = ordBonusLines.map(bl => {
+    const p = S.products.find(x=>x.id===Number(bl.productId));
+    const spec = p?.presentation ? ` (${p.presentation})` : '';
+    return `<div style="font-size:13px;color:#f1f5f9;margin-bottom:2px">🎁 ${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}</div>`;
+  }).join('');
+  // Mostrar modal
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #f59e0b;border-radius:14px;padding:20px;max-width:360px;width:100%">
+    <div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:8px">🎁 Pedido con bonificación</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">Este pedido incluye bonificación:</div>
+    ${bonusDesc}
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+      <button onclick="this.closest('div[style*=fixed]').remove();window._bonusConfirmed=true;submitOrder(${isQuote})"
+        style="padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">✅ Confirmar y registrar</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()"
+        style="padding:10px;background:#2a3050;border:1px solid #f59e0b;border-radius:8px;color:#f59e0b;font-weight:700;font-size:14px;cursor:pointer">✏️ Editar bonificación</button>
+      <button onclick="ordBonusLines=[];renderOrdBonusRows();this.closest('div[style*=fixed]').remove();window._bonusConfirmed=true;submitOrder(${isQuote})"
+        style="padding:10px;background:transparent;border:1px solid #ef4444;border-radius:8px;color:#ef4444;font-weight:700;font-size:14px;cursor:pointer">🗑 Eliminar bonificación y registrar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  return;
+}
+window._bonusConfirmed = false;
 const cli  = S.clients.find(c => c.id===cid);
 const comments = getComments();
 const note = comments.join(' | ');  // backward compat field
@@ -2565,13 +2576,16 @@ function generateOrderReport(selIds) {
       ).join('<br>') + '</div>' : '';
     const bonusSeparator = bonusRowsHtml ? `<tr style="background:#f0fdf4"><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700">─── BONIFICACIONES ───</td></tr>` : '';
     return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;overflow:hidden;page-break-inside:avoid">
-      <div style="background:#f9fafb;padding:8px 12px;display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div style="font-size:16px;font-weight:900;color:#1e3a8a">#${i+1} ${o.clientName}</div>
-          ${metaLine?`<div style="font-size:13px;color:#111;margin-top:3px">${metaLine}</div>`:''}
-          ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
+      <div style="background:#f9fafb;padding:8px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:16px;font-weight:900;color:#1e3a8a">#${i+1} ${o.clientName}</div>
+            ${o.quote?`<div style="font-size:13px;color:#111;margin-top:2px">📋 Cot: <strong>${o.quote}</strong></div>`:''}
+            ${o.oc?`<div style="font-size:13px;color:#111;margin-top:2px">📄 OC: <strong>${o.oc}</strong></div>`:''}
+            ${o.quoteNote?`<div style="font-size:16px;color:#f59e0b;font-weight:700;margin-top:3px;padding:3px 7px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px">Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px;white-space:nowrap;margin-left:8px">${o.status}</span>
         </div>
-        <span style="font-size:11px;font-weight:700;color:${stColor};border:1px solid ${stColor};border-radius:12px;padding:2px 8px;white-space:nowrap">${o.status}</span>
       </div>
       ${deliveryHtml}
       ${cmtsHtml}
@@ -2761,7 +2775,9 @@ card.innerHTML = `
 <div>
 <div style="font-weight:800;font-size:15px;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
-${(o.quote||o.oc)?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">${o.quote?'Cot: '+o.quote:''}${o.quote&&o.oc?' · ':''}${o.oc?'OC: '+o.oc:''}</div>`:''}\n${o.delivery?`<div style="font-size:11px;color:#a78bfa;margin-top:1px">📍 Entrega: ${o.delivery}</div>`:''}
+${o.quote?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">Cot: ${o.quote}</div>`:''}
+${o.oc?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">OC: ${o.oc}</div>`:''}
+${o.delivery?`<div style="font-size:11px;color:#a78bfa;margin-top:1px">📍 Entrega: ${o.delivery}</div>`:''}
 ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:1px">📅 Fecha de entrega: ${fmtEntrega(o.quoteNote)}</div>`:''}
 </div>
 </div>
@@ -4171,7 +4187,7 @@ ${(()=>{
   </div>`;
   const rulesHtml = rules.map((r,ri) => {
     const progress = calcBonusProgress(c.id, r);
-    const complete = isBonusComplete(c.id, r);
+    const complete = !r.inactive && isBonusComplete(c.id, r);
     const readyBadge = complete ? `<span style="font-size:10px;background:#052e16;color:#10b981;padding:2px 7px;border-radius:8px;font-weight:700">🎁 Lista!</span>` : '';
     // Descripción de productos a acumular
     let accumDesc = '';
@@ -4206,13 +4222,15 @@ ${(()=>{
     return `<div style="background:#161929;border-radius:8px;padding:10px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="flex:1">
-          <div style="font-size:11px;font-weight:700;color:#f1f5f9">${r.name||accumDesc}</div>
-          <div style="font-size:10px;color:#10b981;margin-top:1px">🎁 ${bonusDesc}</div>
-          ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Vence: ${r.deadline}</div>`:''}
+          <div style="font-size:11px;font-weight:700;color:${r.inactive?'#64748b':'#f1f5f9'}">${r.name||accumDesc}${r.inactive?' (inactiva)':''}</div>
+          <div style="font-size:10px;color:${r.inactive?'#475569':'#10b981'};margin-top:1px">🎁 ${bonusDesc}</div>
+          ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Período: ${r.startDate||''}→${r.deadline}</div>`:''}
+          ${r.vigenciaStart?`<div style="font-size:10px;color:#60a5fa">Vigencia: ${r.vigenciaStart}${r.vigenciaEnd?' → '+r.vigenciaEnd:' → activa'}</div>`:''}
         </div>
         <div style="display:flex;gap:4px;align-items:center;margin-left:6px">
           ${readyBadge}
           <button onclick="editBonusRule(${c.id},${ri})" style="background:none;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:2px 6px;font-size:11px;cursor:pointer">✏️</button>
+          <button onclick="toggleBonusActive(${c.id},${ri})" style="background:none;border:1px solid ${r.inactive?'#10b981':'#f59e0b'};border-radius:6px;color:${r.inactive?'#10b981':'#f59e0b'};padding:2px 6px;font-size:11px;cursor:pointer">${r.inactive?'▶ Activar':'⏸'}</button>
           <button onclick="delBonusRule(${c.id},${ri})" style="background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:2px 6px;font-size:11px;cursor:pointer">✕</button>
         </div>
       </div>
@@ -4227,7 +4245,8 @@ ${(()=>{
     </div>
     <div id="csb-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['csb-'+c.id])?'block':'none'}">
       <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px">
-        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;cursor:pointer" onclick="showBonusReport(${c.id})">📄 Reporte PDF</button>
+        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;cursor:pointer" onclick="showBonusReport(${c.id})">📄 Generar detalle de progreso</button>
+        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #10b981;border-radius:6px;color:#10b981;cursor:pointer" onclick="showBonusEntregasReport(${c.id})">📋 Generar reporte bonificaciones</button>
         <button class="bg" style="font-size:11px;padding:4px 10px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
       </div>
       ${rulesHtml}
@@ -4321,7 +4340,7 @@ ${(()=>{
         <div style="display:flex;align-items:center;gap:6px">
           <input type="checkbox" class="cli-ord-chk" data-cid="${c.id}" data-oid="${o.id}" onchange="updateCliOrdSummary(${c.id})"
             style="width:15px;height:15px;accent-color:#10b981;cursor:pointer;flex-shrink:0"/>
-          <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}</div>
+          <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}${o.oc?' · OC: '+o.oc:''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:5px">
           ${o.routeId?`<span style="font-size:10px;color:#f59e0b;font-weight:700">(RUTA)</span>`:''}
@@ -4350,7 +4369,10 @@ ${(()=>{
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
     <div onclick="toggleCliSec('cso-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
       <span style="font-size:11px;color:${cliOrds.length?'#4ade80':'#94a3b8'};font-weight:700">📦 ÚLTIMOS PEDIDOS${cliOrds.length?` (${cliOrds.length})`:''}</span>
-      <span style="color:#64748b;font-size:11px">▼</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="event.stopPropagation();showBonusHistoryReport(${c.id})" style="font-size:10px;padding:2px 8px;background:transparent;border:1px solid #10b981;border-radius:5px;color:#10b981;cursor:pointer">📋 Generar reporte</button>
+        <span style="color:#64748b;font-size:11px">▼</span>
+      </div>
     </div>
     <div id="cso-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['cso-'+c.id])?'block':'none'}">
       ${(()=>{
@@ -4577,16 +4599,21 @@ function calcBonusProgress(cid, r, extraOrd) {
   // Convierte fecha del pedido a timestamp usando el ID del pedido como proxy de orden
   // El ID es autoincremental, así que pedidos más nuevos tienen ID mayor
   function orderPassesFilter(o) {
+    const parts = (o.date||'').split('/');
+    let oDateStr = '';
+    if (parts.length >= 3) {
+      const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+      oDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+    // Filtrar por vigencia de la regla
+    if (r.vigenciaStart && oDateStr && oDateStr < r.vigenciaStart) return false;
+    if (r.vigenciaEnd   && oDateStr && oDateStr > r.vigenciaEnd)   return false;
+
     if (resetTs) {
-      // Usar ID del pedido como fuente de verdad (autoincremental)
-      // Pedidos con ID mayor al que causó el reset son del nuevo ciclo
       const resetOid = r._resetOid || 0;
       return o.id > resetOid;
     }
-    const parts = (o.date||'').split('/');
-    if (parts.length < 3) return true;
-    const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
-    const oDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (!oDateStr) return true;
     return oDateStr >= startDateStr;
   }
 
@@ -4695,6 +4722,13 @@ function openBonusModal(cid, ri) {
       <div style="flex:1"><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Fecha limite:</div>
         <input type="date" id="br-deadline" value="${r.deadline||''}" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:6px;font-size:12px"/></div>
     </div>
+    <div style="font-size:11px;color:#60a5fa;font-weight:700;margin-bottom:5px;margin-top:4px">VIGENCIA DE LA REGLA:</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1"><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Vigencia inicio:</div>
+        <input type="date" id="br-vigencia-start" value="${r.vigenciaStart||new Date().toISOString().split('T')[0]}" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #3b82f6;border-radius:8px;padding:6px;font-size:12px"/></div>
+      <div style="flex:1"><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Vigencia fin:</div>
+        <input type="date" id="br-vigencia-end" value="${r.vigenciaEnd||''}" placeholder="Sin fecha fin" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #3b82f6;border-radius:8px;padding:6px;font-size:12px"/></div>
+    </div>
     <div style="display:flex;gap:8px">
       <button onclick="closeBonusModal()" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer">Cancelar</button>
       <button onclick="saveBonusRule(${cid},${isEdit?ri:'null'})" style="flex:1;padding:10px;border-radius:9px;border:none;background:#f59e0b;color:#000;font-weight:800;cursor:pointer">Guardar</button>
@@ -4751,6 +4785,8 @@ function saveBonusRule(cid, ri) {
   const name = document.getElementById('br-name').value.trim();
   const startDate = document.getElementById('br-start').value;
   const deadline  = document.getElementById('br-deadline').value;
+  const vigenciaStart = document.getElementById('br-vigencia-start').value;
+  const vigenciaEnd   = document.getElementById('br-vigencia-end').value;
   const isPool = document.getElementById('br-pool-section').style.display !== 'none';
   const bonusRows = document.querySelectorAll('.br-bonus-row');
   const bonusItems = [];
@@ -4771,7 +4807,7 @@ function saveBonusRule(cid, ri) {
     const threshold = Number(document.getElementById('br-pool-threshold').value);
     if (!poolProds.length) return toast('Agrega productos al pool','#f59e0b');
     if (!threshold) return toast('Ingresa el umbral total','#f59e0b');
-    rule = { ruleType:'pool', name, poolProds, threshold, bonusItems, startDate, deadline, manualUnits:0 };
+    rule = { ruleType:'pool', name, poolProds, threshold, bonusItems, startDate, deadline, vigenciaStart, vigenciaEnd, manualUnits:0 };
   } else {
     const targetRows = document.querySelectorAll('.br-target-row');
     const targets = [];
@@ -4781,7 +4817,7 @@ function saveBonusRule(cid, ri) {
       if (pid && thr) targets.push({ productId:Number(pid), threshold:thr, manualUnits:0 });
     });
     if (!targets.length) return toast('Agrega al menos un producto con umbral','#f59e0b');
-    rule = { ruleType:'individual', name, targets, bonusItems, startDate, deadline };
+    rule = { ruleType:'individual', name, targets, bonusItems, startDate, deadline, vigenciaStart, vigenciaEnd };
   }
   if (!S.bonuses) S.bonuses = {};
   if (!S.bonuses[cid]) S.bonuses[cid] = [];
@@ -4795,6 +4831,10 @@ function saveBonusRule(cid, ri) {
     if (old && old.resetTs)      rule.resetTs      = old.resetTs;
     if (old && old._resetOid)    rule._resetOid    = old._resetOid;
     if (old && old._cycleCount)  rule._cycleCount  = old._cycleCount;
+    if (old && old.history)      rule.history      = old.history;
+    if (old && old.inactive)     rule.inactive     = old.inactive;
+    if (old && old.vigenciaStart && !vigenciaStart) rule.vigenciaStart = old.vigenciaStart;
+    if (old && old.vigenciaEnd   && !vigenciaEnd)   rule.vigenciaEnd   = old.vigenciaEnd;
     S.bonuses[cid][ri] = rule;
   } else {
     S.bonuses[cid].push(rule);
@@ -4953,8 +4993,495 @@ function showBonusReport(cid) {
   window.open(url, '_blank');
 }
 
+function showBonusEntregasReport(cid) {
+  const c = S.clients.find(x => x.id === Number(cid));
+  const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
+  if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const firstDay = `${today.getFullYear()}-01-01`;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #10b981;border-radius:14px;padding:20px;max-width:360px;width:100%">
+    <div style="font-size:15px;font-weight:800;color:#10b981;margin-bottom:16px">📋 Reporte de Entregas</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">CLIENTE</div>
+    <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:14px">${c?.name||''}</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <div style="flex:1">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA INICIO</div>
+        <input type="date" id="ber-from" value="${firstDay}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA FIN</div>
+        <input type="date" id="ber-to" value="${todayStr}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:13px;cursor:pointer">Cancelar</button>
+      <button onclick="generateBonusHistoryReport(${cid},document.getElementById('ber-from').value,document.getElementById('ber-to').value);this.closest('div[style*=fixed]').remove()" style="flex:2;padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer">📋 Generar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function showBonusHistoryReport(cid) {
+  const c = S.clients.find(x => x.id === Number(cid));
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const firstDay = `${today.getFullYear()}-01-01`;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #10b981;border-radius:14px;padding:20px;max-width:360px;width:100%">
+    <div style="font-size:15px;font-weight:800;color:#10b981;margin-bottom:16px">📋 Reporte de Pedidos</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">CLIENTE</div>
+    <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:14px">${c?.name||''}</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <div style="flex:1">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA INICIO</div>
+        <input type="date" id="bhr-from" value="${firstDay}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA FIN</div>
+        <input type="date" id="bhr-to" value="${todayStr}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+      <input type="checkbox" id="bhr-include-bonus" checked style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
+      <span style="font-size:13px;color:#f1f5f9">Incluir bonificaciones en el reporte</span>
+    </label>
+    <div style="display:flex;gap:8px">
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:13px;cursor:pointer">Cancelar</button>
+      <button onclick="generateBonusSimpleReport(${cid},document.getElementById('bhr-from').value,document.getElementById('bhr-to').value,document.getElementById('bhr-include-bonus').checked);this.closest('div[style*=fixed]').remove()" style="flex:2;padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer">📋 Generar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
+  const c   = S.clients.find(x => x.id === Number(cid));
+  const biz = S.biz || {};
+
+  function fmtD(d) {
+    if (!d) return '—';
+    if (String(d).includes('/')) return String(d).split(',')[0];
+    const p = String(d).split('-');
+    return p.length===3 ? `${parseInt(p[2])}/${parseInt(p[1])}/${p[0]}` : d;
+  }
+  function toYMD(d) {
+    if (!d) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(d))) return d;
+    const p = String(d).split(',')[0].split('/');
+    return p.length===3 ? `${p[2].trim()}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : d;
+  }
+  function getUnit(name, qty) {
+    if (!name) return qty===1?'unidad':'unidades';
+    const words = name.trim().split(/\s+/);
+    const last = words[words.length-1];
+    if (qty<=1) return last;
+    const isUp = last===last.toUpperCase();
+    const l = last.toLowerCase();
+    if (l.endsWith('ón')) return last.slice(0,-2)+(isUp?'ONES':'ones');
+    if (l.endsWith('el')||l.endsWith('al')||l.endsWith('on')) return last+(isUp?'ES':'es');
+    if (l.endsWith('o')) return last.slice(0,-1)+(isUp?'OS':'os');
+    if (l.endsWith('a')) return last.slice(0,-1)+(isUp?'AS':'as');
+    return last+(isUp?'S':'s');
+  }
+
+  // Todos los pedidos del cliente en el rango
+  const allOrders = S.orders
+    .filter(o => Number(o.clientId)===Number(cid) &&
+      (o.status==='Confirmado'||o.status==='Concluido'))
+    .sort((a,b)=>ordDateTs(a)-ordDateTs(b))
+    .filter(o => { const ds=toYMD(o.date); return ds>=fromStr && ds<=toStr; });
+
+  if (!allOrders.length) { toast('No hay pedidos en el rango seleccionado', '#f59e0b'); return; }
+
+  // Agrupar todos los pedidos por mes y mostrar con etiqueta de mes
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // Construir lista plana de pedidos con bonificación marcada
+  let grandTotal = 0;
+  let entregaNum = 0;
+
+  // Agrupar pedidos por mes
+  const byMonth = {};
+  allOrders.forEach(o => {
+    const ds = toYMD(o.date);
+    const key = ds ? ds.slice(0,7) : 'sin-fecha'; // YYYY-MM
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(o);
+  });
+
+  // Detectar cuáles pedidos tienen bonificación para numerar entregas
+  const bonusOids = new Set(allOrders.filter(o=>o.bonusLines&&o.bonusLines.length).map(o=>o.id));
+
+  const groupsHtml = Object.keys(byMonth).sort().map(monthKey => {
+    const [y, m] = monthKey.split('-');
+    const mesLabel = m ? `${MESES[parseInt(m)-1]} ${y}` : 'Sin fecha';
+    const monthOrders = byMonth[monthKey];
+    let monthTotal = 0;
+
+    const ordersHtml = monthOrders.map(o => {
+      let ordTotal = 0;
+      const itemsHtml = o.items.map(it => {
+        const pid = Number(it.productId||it.pid);
+        const p = S.products.find(x=>x.id===pid);
+        const us = Number(p?.unitSize)||1;
+        const ul = p?.unitLabel||'unidad';
+        const pr = it.customPrice!=null ? Number(it.customPrice)
+                 : it.price!=null ? Number(it.price)
+                 : cliPrice(cid, pid, p?.basePrice||0);
+        const qty = Number(it.qty)||0;
+        const sub = qty * us * pr;
+        ordTotal += sub;
+        const unitDesc = us > 1 ? ` × ${us} ${ul}` : '';
+        return `<tr>
+          <td style="padding:2px 0 2px 6px;font-size:12px;color:#1e293b">${p?p.name:'—'}</td>
+          <td style="padding:2px 0;font-size:12px;color:#374151;text-align:center">${qty} ${getUnit(p?p.name:'',qty)}</td>
+          <td style="padding:2px 0;font-size:11px;color:#64748b;text-align:center">${Q(pr)}/${ul}${unitDesc}</td>
+          <td style="padding:2px 0;font-size:12px;font-weight:600;color:#1e293b;text-align:right">${Q(sub)}</td>
+        </tr>`;
+      }).join('');
+      monthTotal += ordTotal;
+      grandTotal += ordTotal;
+
+      const ocPart = o.oc ? ` · OC: ${o.oc}` : '';
+      let bonifRow = '';
+      if (includeBonus && o.bonusLines && o.bonusLines.length) {
+        entregaNum++;
+        const bItems = o.bonusLines.map(bl => {
+          const p = S.products.find(x=>x.id===Number(bl.productId));
+          const us = Number(p?.unitSize)||1;
+          const ul = p?.unitLabel||'unidad';
+          const sub = (bl.qty||0) * us * (bl.price||0);
+          const spec = p?.presentation?` (${p.presentation})`:'';
+          return `<div style="display:flex;justify-content:space-between;font-size:12px;color:#065f46">
+            <span>${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span>
+            <span style="font-weight:700">${Q(sub)}</span>
+          </div>`;
+        }).join('');
+        bonifRow = `<div style="margin-top:6px;padding:6px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:5px">
+          <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:3px">🎁 Bonificación correspondiente (${fmtD(o.date)}):</div>
+          ${bItems}
+        </div>`;
+      }
+
+      return `<div style="margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px;border-left:3px solid #94a3b8">
+        <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">${fmtD(o.date)}${ocPart}</div>
+        <table style="width:100%;border-collapse:collapse">
+          ${itemsHtml}
+          <tr style="border-top:1px solid #e2e8f0">
+            <td colspan="3" style="font-size:12px;font-weight:600;color:#374151;padding:3px 0">Total pedido:</td>
+            <td style="font-size:12px;font-weight:700;color:#1e293b;text-align:right">${Q(ordTotal)}</td>
+          </tr>
+        </table>
+        ${bonifRow}
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:16px">
+      <div style="background:#1e3a8a;padding:6px 12px;border-radius:6px;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:800;color:#fff">${mesLabel}</span>
+        <span style="font-size:11px;color:#93c5fd;margin-left:8px">Total: ${Q(monthTotal)}</span>
+      </div>
+      ${ordersHtml}
+    </div>`;
+  }).join('');
+
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reporte Bonificaciones - ${c?.name||''}</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}@media print{body{padding:8px}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #065f46">
+    <div>
+      <div style="font-size:20px;font-weight:900;color:#065f46">${biz.name||'Empresa'}</div>
+      ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
+      ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
+    </div>
+    <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div></div>
+  </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:800;color:#065f46">📋 REPORTE DE BONIFICACIONES</div>
+    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px">Período: ${fmtD(fromStr)} → ${fmtD(toStr)} · ${entregaNum} entrega(s)</div>
+  </div>
+  ${groupsHtml}
+  <div style="background:#1e3a8a;padding:10px 14px;border-radius:8px;display:flex;justify-content:space-between;margin-top:8px">
+    <span style="font-size:14px;font-weight:800;color:#fff">TOTAL GENERAL:</span>
+    <span style="font-size:14px;font-weight:800;color:#fde68a">${Q(grandTotal)}</span>
+  </div>
+  <script>window.onload=function(){window.print()}<\/script>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+}
+function generateBonusHistoryReport(cid, fromStr, toStr) {
+  const c   = S.clients.find(x => x.id === Number(cid));
+  const biz = S.biz || {};
+
+  function fmtD(d) {
+    if (!d) return '—';
+    if (String(d).includes('/')) return String(d).split(',')[0];
+    const p = String(d).split('-');
+    return p.length===3 ? `${parseInt(p[2])}/${parseInt(p[1])}/${p[0]}` : d;
+  }
+  function toYMD(d) {
+    if (!d) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(d))) return d;
+    const p = String(d).split(',')[0].split('/');
+    return p.length===3 ? `${p[2].trim()}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : d;
+  }
+  function getUnit(name, qty) {
+    if (!name) return qty===1?'unidad':'unidades';
+    const words = name.trim().split(/\s+/);
+    const last = words[words.length-1];
+    if (qty<=1) return last;
+    const isUp = last===last.toUpperCase();
+    const l = last.toLowerCase();
+    if (l.endsWith('ón')) return last.slice(0,-2)+(isUp?'ONES':'ones');
+    if (l.endsWith('el')||l.endsWith('al')||l.endsWith('on')) return last+(isUp?'ES':'es');
+    if (l.endsWith('o')) return last.slice(0,-1)+(isUp?'OS':'os');
+    if (l.endsWith('a')) return last.slice(0,-1)+(isUp?'AS':'as');
+    return last+(isUp?'S':'s');
+  }
+
+  // Obtener todos los pedidos del cliente ordenados por fecha
+  const allOrders = S.orders
+    .filter(o => Number(o.clientId)===Number(cid) &&
+      (o.status==='Confirmado'||o.status==='Concluido'))
+    .sort((a,b)=>ordDateTs(a)-ordDateTs(b));
+
+  // Obtener reglas del cliente — activas e inactivas
+  const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
+
+  if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
+
+  // Construir secciones por regla
+  const sectionsHtml = rules.map(rule => {
+    const ruleProds = rule.ruleType==='pool'
+      ? (rule.poolProds||[]).map(Number)
+      : (rule.targets||[]).map(t=>Number(t.productId));
+
+    const vigStart = rule.vigenciaStart || fromStr;
+    const vigEnd   = rule.vigenciaEnd   || toStr;
+    const effectiveFrom = vigStart > fromStr ? vigStart : fromStr;
+    const effectiveTo   = vigEnd   < toStr   ? vigEnd   : toStr;
+
+    const rangeOrders = allOrders.filter(o => {
+      const ds = toYMD(o.date);
+      return ds >= effectiveFrom && ds <= effectiveTo &&
+        o.items.some(it => ruleProds.includes(Number(it.productId||it.pid)));
+    });
+
+    if (!rangeOrders.length) return '';
+
+    const groups = [];
+    let currentGroup = [];
+    rangeOrders.forEach(o => {
+      currentGroup.push(o);
+      if (o.bonusLines && o.bonusLines.length &&
+          o.bonusLines.some(bl => rule.bonusItems && rule.bonusItems.some(bi=>Number(bi.productId)===Number(bl.productId)))) {
+        groups.push({ orders: [...currentGroup], bonusOrd: o });
+        currentGroup = [];
+      }
+    });
+    if (currentGroup.length) groups.push({ orders: currentGroup, bonusOrd: null });
+
+    let entregaNum = 0;
+    const groupsHtml = groups.map(g => {
+      const isCurrent = !g.bonusOrd;
+      entregaNum++;
+      const startDate = fmtD(g.orders[0].date);
+      const endDate   = g.bonusOrd ? fmtD(g.bonusOrd.date) : '...';
+
+      const prodTotals = {};
+      g.orders.forEach(o => {
+        o.items.forEach(it => {
+          const pid = Number(it.productId||it.pid);
+          if (!ruleProds.includes(pid)) return;
+          const p = S.products.find(x=>x.id===pid);
+          if (!prodTotals[pid]) prodTotals[pid] = { name:p?p.name:'—', qty:0, orders:[] };
+          prodTotals[pid].qty += Number(it.qty);
+          const existing = prodTotals[pid].orders.find(x=>x.oid===o.id);
+          if (existing) existing.qty += Number(it.qty);
+          else prodTotals[pid].orders.push({ oid:o.id, date:o.date, oc:o.oc||'', qty:Number(it.qty) });
+        });
+      });
+
+      const prodsHtml = Object.values(prodTotals).map(pt => {
+        const rows = pt.orders.map(po =>
+          `<tr>
+            <td style="padding:2px 0 2px 10px;font-size:12px;color:#374151">${fmtD(po.date)}${po.oc?' · OC: '+po.oc:''}</td>
+            <td style="padding:2px 0;font-size:12px;color:#1e293b;font-weight:600;text-align:right">${po.qty} ${getUnit(pt.name,po.qty)}</td>
+          </tr>`
+        ).join('');
+        return `<div style="margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px;border-left:3px solid #64748b">
+          <div style="font-weight:700;font-size:12px;color:#1e293b;margin-bottom:4px">${pt.name}</div>
+          <table style="width:100%;border-collapse:collapse">
+            ${rows}
+            <tr style="border-top:1px solid #e2e8f0">
+              <td style="font-size:12px;font-weight:600;color:#374151;padding:3px 0">Total:</td>
+              <td style="font-size:12px;font-weight:700;color:#1e293b;text-align:right">${pt.qty} ${getUnit(pt.name,pt.qty)}</td>
+            </tr>
+          </table>
+        </div>`;
+      }).join('');
+
+      let bonifHtml = '';
+      if (g.bonusOrd && g.bonusOrd.bonusLines && g.bonusOrd.bonusLines.length) {
+        // Barra de cumplimiento
+        const rTargets = rule.ruleType==='pool'
+          ? [{productId:null,threshold:rule.threshold,isPool:true,poolProds:rule.poolProds||[]}]
+          : (rule.targets||[]);
+        const barHtml = rTargets.map(t => {
+          const tp = t.isPool ? null : S.products.find(x=>x.id===Number(t.productId));
+          const tName = tp?tp.name:(t.label||'Total');
+          let logro = 0;
+          g.orders.forEach(o => o.items.forEach(it => {
+            const pid = Number(it.productId||it.pid);
+            if (t.isPool) { if((t.poolProds||[]).includes(pid)) logro+=Number(it.qty); }
+            else { if(pid===Number(t.productId)) logro+=Number(it.qty); }
+          }));
+          const meta = t.threshold||0;
+          const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 100;
+          const col  = pct>=100?'#16a34a':pct>=60?'#d97706':'#dc2626';
+          return `<div style="margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
+              <span>Meta: ${meta} ${getUnit(tName,meta)}</span>
+              <span style="color:${col};font-weight:700">Logro: ${logro} ${getUnit(tName,logro)} (${pct}%)${pct>=100?' ✅':''}</span>
+            </div>
+            <div style="background:#e2e8f0;border-radius:4px;height:7px">
+              <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
+            </div>
+          </div>`;
+        }).join('');
+        // Sin precio
+        const items = g.bonusOrd.bonusLines.map(bl => {
+          const p = S.products.find(x=>x.id===Number(bl.productId));
+          const spec = p?.presentation?` (${p.presentation})`:'';
+          return `${bl.qty} ${p?p.name:'—'}${spec}`;
+        }).join('<br>');
+        bonifHtml = `<div style="margin-top:8px;padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px">
+          ${barHtml}
+          <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:3px">🎁 Bonificación correspondiente (${fmtD(g.bonusOrd.date)}):</div>
+          <div style="font-size:12px;color:#1e293b">${items}</div>
+        </div>`;
+      }
+      const headerBg  = isCurrent ? '#fef9c3' : '#dbeafe';
+      const headerCol = isCurrent ? '#854d0e' : '#1d4ed8';
+      const label     = isCurrent ? `En curso — ${startDate} → ...` : `Entrega #${entregaNum} — ${startDate} → ${endDate}`;
+      const badge     = isCurrent ? '⏳' : '✅';
+
+      // Barra de progreso para período en curso
+      let cursoBarHtml = '';
+      if (isCurrent) {
+        const rTargets = rule.ruleType==='pool'
+          ? [{productId:null,threshold:rule.threshold,isPool:true,poolProds:rule.poolProds||[]}]
+          : (rule.targets||[]);
+        cursoBarHtml = `<div style="margin-top:8px;padding:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px">` +
+          rTargets.map(t => {
+            const tp = t.isPool ? null : S.products.find(x=>x.id===Number(t.productId));
+            const tName = tp?tp.name:(t.label||'Total');
+            let logro = 0;
+            g.orders.forEach(o => o.items.forEach(it => {
+              const pid = Number(it.productId||it.pid);
+              if (t.isPool) { if((t.poolProds||[]).includes(pid)) logro+=Number(it.qty); }
+              else { if(pid===Number(t.productId)) logro+=Number(it.qty); }
+            }));
+            const meta = t.threshold||0;
+            const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 0;
+            const col  = pct>=100?'#16a34a':pct>=60?'#d97706':'#dc2626';
+            const restante = Math.max(0, meta - logro);
+            return `<div style="margin-bottom:4px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
+                <span>Meta: ${meta} ${getUnit(tName,meta)}</span>
+                <span style="color:${col};font-weight:700">${logro} / ${meta} (${pct}%)${pct>=100?' ✅':''}</span>
+              </div>
+              <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:3px">
+                <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
+              </div>
+              ${restante>0?`<div style="font-size:11px;color:#dc2626">Restante: ${restante} ${getUnit(tName,restante)}</div>`:''}
+            </div>`;
+          }).join('') + `</div>`;
+      }
+
+      return `<div style="margin-bottom:12px">
+        <div style="background:${headerBg};padding:6px 10px;border-radius:6px;margin-bottom:6px;display:flex;justify-content:space-between">
+          <span style="font-size:12px;font-weight:700;color:${headerCol}">${label}</span>
+          <span>${badge}</span>
+        </div>
+        ${prodsHtml}${bonifHtml}${cursoBarHtml}
+      </div>`;
+    }).join('');
+
+    const vigs = rule.vigenciaStart ? `Vigencia: ${fmtD(rule.vigenciaStart)} → ${rule.vigenciaEnd?fmtD(rule.vigenciaEnd):'activa'}` : '';
+    return `<div style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+      <div style="background:#065f46;padding:10px 14px">
+        <div style="font-weight:800;font-size:14px;color:#fff">${rule.name||'Sin nombre'}${rule.inactive?' (inactiva)':''}</div>
+        ${vigs?`<div style="font-size:11px;color:#6ee7b7;margin-top:2px">\uD83D\uDCC5 ${vigs}</div>`:''}
+        <div style="font-size:11px;color:#6ee7b7;margin-top:2px">${groups.filter(g=>g.bonusOrd).length} entrega(s)</div>
+      </div>
+      <div style="padding:12px 14px">${groupsHtml||'<div style="font-size:12px;color:#64748b">Sin pedidos en el período.</div>'}</div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reporte Bonificaciones - ${c?.name||''}</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}@media print{body{padding:8px}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #065f46">
+    <div>
+      <div style="font-size:20px;font-weight:900;color:#065f46">${biz.name||'Empresa'}</div>
+      ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
+      ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
+    </div>
+    <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div></div>
+  </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:800;color:#065f46">📋 REPORTE DE PEDIDOS</div>
+    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px">Período del reporte: ${fmtD(fromStr)} → ${fmtD(toStr)}</div>
+  </div>
+  ${sectionsHtml}
+  <script>window.onload=function(){window.print()}<\/script>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  window.open(URL.createObjectURL(blob),'_blank');
+}
+
 function addBonusRule(cid) { openBonusModal(cid, null); }
 function editBonusRule(cid, ri) { openBonusModal(cid, ri); }
+
+function toggleBonusActive(cid, ri) {
+  const rules = S.bonuses?.[cid] || S.bonuses?.[String(cid)];
+  const r = rules?.[ri]; if (!r) return;
+  if (r.inactive) {
+    // Reactivar — resetear contadores y empezar período nuevo
+    askConfirm('¿Activar regla?', 'El conteo empezará desde cero. El historial se conserva.', () => {
+      r.inactive = false;
+      resetBonusRule(r, 0, new Date().toISOString().split('T')[0]);
+      save(); toast('✅ Regla activada — nuevo período iniciado', '#10b981');
+      if (!window._cliOpen) window._cliOpen = {};
+      window._cliOpen[Number(cid)] = true;
+      renderClients();
+    }, 'Activar', '#10b981');
+  } else {
+    // Desactivar
+    r.inactive = true;
+    save(); toast('⏸ Regla desactivada', '#f59e0b');
+    if (!window._cliOpen) window._cliOpen = {};
+    window._cliOpen[Number(cid)] = true;
+    renderClients();
+  }
+}
 
 function delBonusRule(cid, ri) {
   askConfirm('Eliminar esta regla?', 'Se perdera el progreso acumulado.', () => {
@@ -4980,19 +5507,68 @@ function addBonusManual(cid, ri, tidx, sign=1) {
   window._cliOpen[cid]=true; renderClients();
 }
 
+function resetBonusRule(r, deliveredOid, deliveredDate) {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  // Parsear fecha del pedido que completó el umbral como startDate del nuevo ciclo
+  let startStr = todayStr;
+  if (deliveredDate) {
+    const raw = String(deliveredDate).split(',')[0].trim();
+    const parts = raw.split('/');
+    if (parts.length === 3) {
+      startStr = `${parts[2].trim()}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`;
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      startStr = raw;
+    }
+  }
+
+  // Guardar historial
+  if (!r.history) r.history = [];
+  r.history.push({
+    startDate: r.startDate || '',
+    endDate:   r.deadline  || '',
+    deliveredOid,
+    deliveredDate: deliveredDate || todayStr
+  });
+
+  // Calcular nuevo período con la misma duración, iniciando en la fecha del pedido
+  if (r.deadline && r.startDate) {
+    const origStart = new Date(r.startDate + 'T00:00:00');
+    const origEnd   = new Date(r.deadline  + 'T00:00:00');
+    const durDays   = Math.round((origEnd - origStart) / (1000*60*60*24));
+    const newStart  = new Date(startStr + 'T00:00:00');
+    const newEnd    = new Date(newStart);
+    newEnd.setDate(newEnd.getDate() + durDays);
+    r.startDate = startStr;
+    r.deadline  = `${newEnd.getFullYear()}-${String(newEnd.getMonth()+1).padStart(2,'0')}-${String(newEnd.getDate()).padStart(2,'0')}`;
+  } else {
+    r.startDate = startStr;
+  }
+
+  // Resetear contadores — _resetOid para que calcBonusProgress filtre correctamente
+  r.manualUnits = 0;
+  if (r.targets) r.targets.forEach(t => { t.manualUnits = 0; });
+  r.resetTs   = today.toISOString();
+  r._resetOid = Number(deliveredOid) || 0;
+}
+
 function deliverBonus(cid, ri) {
-  askConfirm('¿Marcar bonificación como entregada?', 'El contador reiniciará desde cero.', () => {
-    const r = S.bonuses?.[cid]?.[ri]; if (!r) return;
-    const resetTs = new Date().toISOString();
-    r.manualUnits=0;
-    // Solo reinicia startDate si hay fecha límite definida
-    if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
-    r.resetTs=resetTs;
-    r._resetOid = Math.max(...(S.orders.filter(o=>Number(o.clientId)===Number(cid)).map(o=>o.id)||[0]));
-    r._cycleCount = (r._cycleCount||0) + 1;
-    if (r.targets) r.targets.forEach(t=>t.manualUnits=0);
-    save(); toast('🎁 Bonificación entregada — contador reiniciado','#10b981');
-    window._cliOpen[cid]=true; renderClients();
+  askConfirm('¿Marcar bonificación como entregada?', 'El contador reiniciará desde hoy con el mismo período.', () => {
+    const _cid = Number(cid);
+    const _ri  = Number(ri);
+    const rules = S.bonuses?.[_cid] || S.bonuses?.[String(_cid)];
+    const r = rules?.[_ri];
+    if (!r) { toast('No se encontró la regla', '#ef4444'); return; }
+    const lastOrd = [...S.orders].filter(o=>Number(o.clientId)===_cid).sort((a,b)=>b.id-a.id)[0];
+    const lastOid = lastOrd?.id || 0;
+    resetBonusRule(r, lastOid, new Date().toISOString().split('T')[0]);
+    // Asegurar que se guarda en la key correcta
+    if (!S.bonuses[_cid]) S.bonuses[_cid] = S.bonuses[String(_cid)];
+    save(); toast('🎁 Bonificación entregada — nuevo período iniciado','#10b981');
+    if (!window._cliOpen) window._cliOpen = {};
+    window._cliOpen[_cid] = true;
+    renderClients();
   }, 'Confirmar');
   const btn = document.getElementById('confirm-ok-btn');
   if (btn) btn.style.background='#10b981';
@@ -5001,7 +5577,11 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
   if (!S.bonuses || !S.bonuses[cid]) return false;
   const rules = S.bonuses[cid];
   const declined = extraOrd?.bonusDeclined || [];
-  const triggered = rules.map((r,ri)=>({r,ri})).filter(({r,ri})=>!declined.includes(ri) && isBonusComplete(cid, r, extraOrd));
+  const triggered = rules.map((r,ri)=>({r,ri})).filter(({r,ri})=>
+    !r.inactive &&
+    !declined.includes(ri) &&
+    isBonusComplete(cid, r, extraOrd)
+  );
   if (!triggered.length) return false;
 
   const { r, ri } = triggered[0];
@@ -5037,34 +5617,28 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
     const ord = S.orders.find(o=>o.id===oid); if (!ord) return;
     const rows = document.querySelectorAll('.ba-row');
     if (!ord.bonusLines) ord.bonusLines = [];
+    const deliveredItems = [];
     rows.forEach(row => {
-      const pid     = Number(row.querySelector('.ba-pid')?.value);
-      const qty     = Number(row.querySelector('.ba-qty')?.value)||1;
+      const pid      = Number(row.querySelector('.ba-pid')?.value);
+      const qty      = Number(row.querySelector('.ba-qty')?.value)||1;
       const priceRaw = row.querySelector('.ba-price')?.value;
-      const pr      = priceRaw !== '' && priceRaw != null ? Number(priceRaw) : cliPrice(cid, pid, S.products.find(x=>x.id===pid)?.basePrice||0);
-      const comment = row.querySelector('.ba-comment')?.value.trim() || '';
+      const pr       = priceRaw !== '' && priceRaw != null ? Number(priceRaw) : cliPrice(cid, pid, S.products.find(x=>x.id===pid)?.basePrice||0);
+      const comment  = row.querySelector('.ba-comment')?.value.trim() || '';
       const ruleLabel = comment || r.name || '';
       ord.bonusLines.push({ productId:pid, qty, price:pr, ruleName:ruleLabel });
+      deliveredItems.push({ productId:pid, qty, price:pr });
     });
     ord.status = 'Confirmado';
-    const resetTs = new Date().toISOString();
-    if (r.ruleType==='pool') {
-      r.manualUnits = 0;
-      // Solo reinicia startDate si hay fecha límite definida
-      if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
-      r.resetTs = resetTs;
-      r._resetOid = oid;
-      r._cycleCount = (r._cycleCount||0) + 1;
-    } else {
-      if (r.targets) r.targets.forEach(t => { t.manualUnits=0; });
-      // Solo reinicia startDate si hay fecha límite definida
-      if (r.deadline) r.startDate = new Date().toISOString().split('T')[0];
-      r.resetTs = resetTs;
-      r._resetOid = oid;
-      r._cycleCount = (r._cycleCount||0) + 1;
+
+    // Reset automático con nuevo período desde hoy
+    resetBonusRule(r, oid, ord.date);
+    // Agregar items entregados al último historial
+    if (r.history && r.history.length) {
+      r.history[r.history.length - 1].deliveredItems = deliveredItems;
     }
+
     document.getElementById('bonus-modal').style.display = 'none';
-    save(); toast('🎁 Bonificación agregada — pedido confirmado','#10b981');
+    save(); toast('🎁 Bonificación agregada — nuevo período iniciado','#10b981');
     if (onDone) onDone();
   };
 
@@ -6537,8 +7111,10 @@ function renderRoutes() {
               style="width:16px;height:16px;cursor:pointer;accent-color:#10b981;flex-shrink:0"
               ${(window._routeSel[r.id]||new Set()).has(o.id)?'checked':''}
               onclick="event.stopPropagation();toggleRouteOrdSel(${r.id},${o.id},this.checked)"/>
-            <span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} </span><span style="font-size:13px;font-weight:700;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</span>
-            <div style="font-size:10px;color:#64748b;margin-top:1px">${o.date.split(',')[0]}${(o.quote||o.oc)?` · ${o.quote?'Cot: '+o.quote:''}${o.oc?'· OC: '+o.oc:''}`:''}</div>
+            <div style="display:flex;flex-direction:column;min-width:0">
+              <div><span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} </span><span style="font-size:13px;font-weight:700;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</span></div>
+              <div style="font-size:10px;color:#64748b;margin-top:2px">${o.date.split(',')[0]}${o.quote?' · Cot: '+o.quote:''}${o.oc?' · OC: '+o.oc:''}</div>
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
             <span style="font-size:10px;color:${statusColor};font-weight:700">${o.status}</span>
