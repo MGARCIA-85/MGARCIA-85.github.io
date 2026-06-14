@@ -6607,7 +6607,7 @@ const ul   = document.getElementById('np-ul').value.trim() || 'unidad';
 const us   = Number(document.getElementById('np-us').value) || 1;
 const pr   = Number(document.getElementById('np-pr').value);
 if (!name) return alert('Ingresa el nombre del producto.');
-if (!pr)   return alert('Ingresa el precio por unidad.');
+if (pr == null || isNaN(pr) || document.getElementById('np-pr').value.trim() === '') return alert('Ingresa el precio por unidad.');
 const dup = S.products.find(p => p.name.toLowerCase() === name.toLowerCase() && (p.presentation||'').toLowerCase() === (pres||'').toLowerCase());
 if (dup) { toast('⚠️ Ya existe este producto', '#ef4444'); return; }
 const id = S.nextPid++;
