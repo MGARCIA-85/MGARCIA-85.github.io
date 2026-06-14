@@ -5400,7 +5400,7 @@ function setModalDrpPreset(preset) {
 function showBonusEntregasReport(cid) {
   const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
   if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
-  buildReportModal(cid, '📋 Reporte de Entregas', '#10b981',
+  buildReportModal(cid, '📋 Reporte de Bonificaciones', '#10b981',
     `generateBonusHistoryReport(${cid},window._mdrpFrom,window._mdrpTo);document.getElementById('report-modal-overlay').remove()`);
 }
 
@@ -5434,17 +5434,7 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
     return p.length===3 ? `${p[2].trim()}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : d;
   }
   function getUnit(name, qty) {
-    if (!name) return qty===1?'unidad':'unidades';
-    const words = name.trim().split(/\s+/);
-    const last = words[words.length-1];
-    if (qty<=1) return last;
-    const isUp = last===last.toUpperCase();
-    const l = last.toLowerCase();
-    if (l.endsWith('ón')) return last.slice(0,-2)+(isUp?'ONES':'ones');
-    if (l.endsWith('el')||l.endsWith('al')||l.endsWith('on')) return last+(isUp?'ES':'es');
-    if (l.endsWith('o')) return last.slice(0,-1)+(isUp?'OS':'os');
-    if (l.endsWith('a')) return last.slice(0,-1)+(isUp?'AS':'as');
-    return last+(isUp?'S':'s');
+    return '';
   }
 
   // Todos los pedidos del cliente en el rango
@@ -5551,7 +5541,7 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Reporte Bonificaciones - ${c?.name||''}</title>
+  <title>Reporte de Pedidos - ${c?.name||''}</title>
   <style>body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}@media print{body{padding:8px}}</style>
   </head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a8a">
@@ -5563,7 +5553,7 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
     <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div></div>
   </div>
   <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
-    <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE BONIFICACIONES</div>
+    <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE PEDIDOS</div>
     <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
     <div style="font-size:11px;color:#64748b;margin-top:2px">Período: ${fmtD(fromStr)} → ${fmtD(toStr)} · ${entregaNum} entrega(s)</div>
   </div>
@@ -5599,17 +5589,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
     return p.length===3 ? `${p[2].trim()}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : d;
   }
   function getUnit(name, qty) {
-    if (!name) return qty===1?'unidad':'unidades';
-    const words = name.trim().split(/\s+/);
-    const last = words[words.length-1];
-    if (qty<=1) return last;
-    const isUp = last===last.toUpperCase();
-    const l = last.toLowerCase();
-    if (l.endsWith('ón')) return last.slice(0,-2)+(isUp?'ONES':'ones');
-    if (l.endsWith('el')||l.endsWith('al')||l.endsWith('on')) return last+(isUp?'ES':'es');
-    if (l.endsWith('o')) return last.slice(0,-1)+(isUp?'OS':'os');
-    if (l.endsWith('a')) return last.slice(0,-1)+(isUp?'AS':'as');
-    return last+(isUp?'S':'s');
+    return '';
   }
 
   // Obtener todos los pedidos del cliente ordenados por fecha
@@ -5794,7 +5774,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Reporte Bonificaciones - ${c?.name||''}</title>
+  <title>Reporte de Bonificaciones - ${c?.name||''}</title>
   <style>body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b}@media print{body{padding:8px}}</style>
   </head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a8a">
@@ -5806,7 +5786,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
     <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div></div>
   </div>
   <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
-    <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE PEDIDOS</div>
+    <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE BONIFICACIONES</div>
     <div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:4px">${c?.name||''}</div>
     <div style="font-size:11px;color:#64748b;margin-top:2px">Período del reporte: ${fmtD(fromStr)} → ${fmtD(toStr)}</div>
   </div>
@@ -8307,14 +8287,7 @@ function gsGoClient(cid) {
   if (c) saveSearchHistory(c.name, 'client', cid);
   const wrap = document.getElementById('global-search-wrap');
   if (wrap) wrap.style.display = 'none';
-  goTab('clients');
-  setTimeout(()=>{
-    if (!window._cliOpen) window._cliOpen = {};
-    window._cliOpen[cid] = true;
-    renderClients();
-    const el = document.getElementById('cc-'+cid);
-    if (el) el.scrollIntoView({behavior:'smooth',block:'center'});
-  }, 250);
+  openClientCard(cid);
 }
 
 function gsGoOrder(oid) {
