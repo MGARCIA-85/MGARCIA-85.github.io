@@ -6246,19 +6246,35 @@ function saveManualBonus(oid) {
 
 function toggleCli(cid) {
   const opening = !window._cliOpen[cid];
-  // Si se va a abrir, colapsar todas las demás
+  // Si se va a abrir, colapsar todas las demás y fijar arriba
   if (opening) {
     Object.keys(window._cliOpen).forEach(k => { window._cliOpen[k] = false; });
+    window._cliOpen[cid] = true;
+    renderClients();
+    setTimeout(() => {
+      document.querySelectorAll('[id^="cc-"]').forEach(el => {
+        const elCid = Number(el.id.replace('cc-', ''));
+        el.style.opacity = elCid === Number(cid) ? '1' : '0.35';
+      });
+      const el = document.getElementById('cc-' + cid);
+      if (el) {
+        el.dataset.floatCid = cid;
+        el.style.cssText += ';position:fixed;top:0;left:0;right:0;z-index:800;background:#1e2236;border-bottom:2px solid #f59e0b;box-shadow:0 8px 24px #000a;max-height:85vh;overflow-y:auto;margin:0;border-radius:0';
+        if (!el.querySelector('#float-close-btn')) {
+          const closeBtn = document.createElement('button');
+          closeBtn.id = 'float-close-btn';
+          closeBtn.textContent = '✕ Cerrar';
+          closeBtn.style.cssText = 'position:sticky;top:4px;float:right;background:#1e2236;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:4px 10px;font-size:11px;cursor:pointer;z-index:801;margin:4px 4px 0 0';
+          closeBtn.onclick = closeFloatingCard;
+          el.insertBefore(closeBtn, el.firstChild);
+        }
+      }
+    }, 150);
+  } else {
+    window._cliOpen[cid] = false;
+    closeFloatingCard();
+    renderClients();
   }
-  window._cliOpen[cid] = opening;
-  renderClients();
-  setTimeout(() => {
-    const anyOpen = Object.values(window._cliOpen).some(v => v);
-    document.querySelectorAll('[id^="cc-"]').forEach(el => {
-      const elCid = Number(el.id.replace('cc-', ''));
-      el.style.opacity = anyOpen && !window._cliOpen[elCid] ? '0.35' : '1';
-    });
-  }, 50);
 }
 function editCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
