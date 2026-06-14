@@ -399,10 +399,26 @@ Selecciona un cliente para continuar.<br><br>
     <div id="f-cli-drop" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #2a3050;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px #0006;margin-top:2px"></div>
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <input type="date" id="f-date-from" class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
-    <input type="date" id="f-date-to"   class="inp" style="margin-bottom:0;font-size:12px;flex:1" onchange="renderList()"/>
+    <div style="position:relative;flex:1">
+      <input type="text" id="date-range-display" readonly placeholder="📅 Rango de fechas"
+        onclick="toggleDateRangePicker()"
+        style="background:#0d0f18;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:13px;color:#f1f5f9;cursor:pointer;width:100%;box-sizing:border-box"/>
+      <div id="date-range-picker" onclick="event.stopPropagation()" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#1e2640;border:1px solid #f59e0b;border-radius:12px;padding:12px;z-index:300;box-shadow:0 8px 24px #0008;min-width:280px">
+        <div id="drp-state" style="font-size:11px;color:#f59e0b;margin-bottom:8px;font-weight:700">Selecciona fecha inicio</div>
+        <div id="drp-calendar" style="user-select:none"></div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+          <button onclick="setDateRangePreset('hoy')" style="font-size:11px;padding:4px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Hoy</button>
+          <button onclick="setDateRangePreset('semana')" style="font-size:11px;padding:4px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Esta semana</button>
+          <button onclick="setDateRangePreset('mes')" style="font-size:11px;padding:4px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Este mes</button>
+          <button onclick="setDateRangePreset('mes_ant')" style="font-size:11px;padding:4px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Mes anterior</button>
+          <button onclick="clearDateRange()" style="font-size:11px;padding:4px 8px;background:transparent;border:1px solid #ef4444;border-radius:5px;color:#ef4444;cursor:pointer">✕ Limpiar</button>
+        </div>
+      </div>
+    </div>
+    <!-- inputs ocultos para mantener compatibilidad con filtros existentes -->
+    <input type="date" id="f-date-from" style="display:none" onchange="renderList()"/>
+    <input type="date" id="f-date-to"   style="display:none" onchange="renderList()"/>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
-<button class="bg" style="padding:8px 14px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:700" onclick="generateOrderReportSel()" title="Reporte pedidos seleccionados">☑️ Seleccionados</button>
   </div>
 </div>
 <!-- Pestañas de estado -->
@@ -963,12 +979,178 @@ function save() {
 // ═══════════════════════════════════════════════════════
 function fmtEntrega(val) {
   if (!val) return '';
-  // YYYY-MM-DD → d/m/yyyy
+  // YYYY-MM-DD → dd/mm/yyyy
   if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [y,m,d] = val.split('-');
-    return `${parseInt(d)}/${parseInt(m)}/${y}`;
+    return `${d}/${m}/${y}`;
+  }
+  // d/m/yyyy → dd/mm/yyyy
+  if (val.includes('/')) {
+    const parts = val.split(',')[0].split('/');
+    if (parts.length === 3) {
+      return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[2].trim()}`;
+    }
   }
   return val;
+}
+
+// Formatear fecha de pedido (d/m/yyyy,... → dd/mm/yyyy)
+function fmtOrdDate(dateStr) {
+  if (!dateStr) return '';
+  const raw = String(dateStr).split(',')[0].trim();
+  const parts = raw.split('/');
+  if (parts.length === 3) {
+    return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[2].trim()}`;
+  }
+  return raw;
+}
+
+// ── Calendario de rango de fechas ────────────────────────────────
+let _drpFrom = null, _drpTo = null, _drpStep = 'from'; // 'from' o 'to'
+let _drpViewYear, _drpViewMonth;
+
+function toggleDateRangePicker() {
+  const picker = document.getElementById('date-range-picker');
+  if (picker.style.display === 'none') {
+    const now = new Date();
+    _drpViewYear  = now.getFullYear();
+    _drpViewMonth = now.getMonth();
+    renderDrpCalendar();
+    picker.style.display = 'block';
+    setTimeout(() => document.addEventListener('click', closeDrpOutside), 100);
+  } else {
+    picker.style.display = 'none';
+    document.removeEventListener('click', closeDrpOutside);
+  }
+}
+
+function closeDrpOutside(e) {
+  const picker = document.getElementById('date-range-picker');
+  const inp    = document.getElementById('date-range-display');
+  if (picker && !picker.contains(e.target) && e.target !== inp) {
+    picker.style.display = 'none';
+    document.removeEventListener('click', closeDrpOutside);
+  }
+}
+
+function drpSelectDay(ds) {
+  if (_drpStep === 'from') {
+    _drpFrom = ds; _drpTo = null; _drpStep = 'to';
+    renderDrpCalendar();
+  } else {
+    if (ds < _drpFrom) { _drpTo = _drpFrom; _drpFrom = ds; }
+    else _drpTo = ds;
+    _drpStep = 'from';
+    applyDateRange();
+  }
+}
+
+function renderDrpCalendar() {
+  const cal = document.getElementById('drp-calendar');
+  const state = document.getElementById('drp-state');
+  if (!cal) return;
+
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DIAS  = ['D','L','M','X','J','V','S'];
+  const y = _drpViewYear, m = _drpViewMonth;
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+
+  const pad = n => String(n).padStart(2,'0');
+  const toStr = d => `${y}-${pad(m+1)}-${pad(d)}`;
+
+  state.textContent = _drpStep === 'from' ? 'Selecciona fecha inicio' :
+    `Inicio: ${fmtEntrega(_drpFrom)} — Selecciona fecha fin`;
+  state.style.color = _drpStep === 'from' ? '#f59e0b' : '#60a5fa';
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <button onclick="drpPrevMonth()" style="background:none;border:none;color:#f1f5f9;font-size:16px;cursor:pointer;padding:4px 8px">‹</button>
+    <span style="font-size:13px;font-weight:700;color:#f1f5f9">${MESES[m]} ${y}</span>
+    <button onclick="drpNextMonth()" style="background:none;border:none;color:#f1f5f9;font-size:16px;cursor:pointer;padding:4px 8px">›</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">`;
+
+  DIAS.forEach(d => { html += `<div style="font-size:10px;color:#64748b;padding:2px">${d}</div>`; });
+
+  for (let i = 0; i < firstDay; i++) html += '<div></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = toStr(d);
+    const isFrom = ds === _drpFrom;
+    const isTo   = ds === _drpTo;
+    const inRange = _drpFrom && _drpTo && ds > _drpFrom && ds < _drpTo;
+    const todayNow = new Date(); const todayDsNow = `${todayNow.getFullYear()}-${String(todayNow.getMonth()+1).padStart(2,'0')}-${String(todayNow.getDate()).padStart(2,'0')}`;
+    const isToday = ds === todayDsNow;
+    const bg = isFrom||isTo ? '#f59e0b' : inRange ? '#2a3050' : 'transparent';
+    const color = isFrom||isTo ? '#000' : isToday ? '#f59e0b' : '#f1f5f9';
+    const fw = isFrom||isTo||isToday ? '700' : '400';
+    const brd = isToday&&!isFrom&&!isTo ? '1px solid #f59e0b' : 'none';
+    html += `<div onclick="drpSelectDay('${ds}')" style="padding:5px 2px;border-radius:5px;cursor:pointer;background:${bg};color:${color};font-size:12px;font-weight:${fw};border:${brd}">${d}</div>`;
+  }
+
+  html += '</div>';
+  cal.innerHTML = html;
+}
+
+function drpPrevMonth() {
+  if (_drpViewMonth === 0) { _drpViewMonth = 11; _drpViewYear--; }
+  else _drpViewMonth--;
+  renderDrpCalendar();
+}
+function drpNextMonth() {
+  if (_drpViewMonth === 11) { _drpViewMonth = 0; _drpViewYear++; }
+  else _drpViewMonth++;
+  renderDrpCalendar();
+}
+
+function applyDateRange() {
+  const fi = document.getElementById('f-date-from');
+  const ti = document.getElementById('f-date-to');
+  const disp = document.getElementById('date-range-display');
+  if (fi) fi.value = _drpFrom || '';
+  if (ti) ti.value = _drpTo   || '';
+  if (disp) disp.value = _drpFrom && _drpTo
+    ? `${fmtEntrega(_drpFrom)} → ${fmtEntrega(_drpTo)}`
+    : _drpFrom ? fmtEntrega(_drpFrom) : '';
+  renderList();
+  if (_drpFrom && _drpTo) {
+    document.getElementById('date-range-picker').style.display = 'none';
+    document.removeEventListener('click', closeDrpOutside);
+  }
+}
+
+function setDateRangePreset(preset) {
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  if (preset === 'hoy') { _drpFrom = fmt(today); _drpTo = fmt(today); }
+  else if (preset === 'semana') {
+    const s = new Date(today); s.setDate(today.getDate() - today.getDay());
+    _drpFrom = fmt(s); _drpTo = fmt(today);
+  } else if (preset === 'mes') {
+    const s = new Date(today.getFullYear(), today.getMonth(), 1);
+    _drpFrom = fmt(s); _drpTo = fmt(today);
+  } else if (preset === 'mes_ant') {
+    const s = new Date(today.getFullYear(), today.getMonth()-1, 1);
+    const e = new Date(today.getFullYear(), today.getMonth(), 0);
+    _drpFrom = fmt(s); _drpTo = fmt(e);
+  }
+  _drpStep = 'from';
+  applyDateRange();
+  renderDrpCalendar();
+  document.getElementById('date-range-picker').style.display = 'none';
+}
+
+function clearDateRange() {
+  _drpFrom = null; _drpTo = null; _drpStep = 'from';
+  const fi = document.getElementById('f-date-from');
+  const ti = document.getElementById('f-date-to');
+  const disp = document.getElementById('date-range-display');
+  if (fi) fi.value = '';
+  if (ti) ti.value = '';
+  if (disp) disp.value = '';
+  renderList();
+  document.getElementById('date-range-picker').style.display = 'none';
 }
 
 function ordDateTs(o) {
@@ -2210,9 +2392,12 @@ function clearReportFilters() {
   _selectedClients = [];
   renderCliTags();
   const f = document.getElementById('f-cli-report');
+  const disp = document.getElementById('date-range-display');
+  if (f) f.value = '';
+  if (disp) disp.value = '';
+  _drpFrom = null; _drpTo = null; _drpStep = 'from';
   const d1 = document.getElementById('f-date-from');
   const d2 = document.getElementById('f-date-to');
-  if (f)  f.value  = '';
   if (d1) d1.value = '';
   if (d2) d2.value = '';
   renderList();
@@ -2530,7 +2715,7 @@ function generateOrderReport(selIds) {
   const fFrom = document.getElementById('f-date-from')?.value;
   const fTo   = document.getElementById('f-date-to')?.value;
   const title = fCli ? `Informe: ${fCli}` : 'Informe de Pedidos';
-  const periodo = (fFrom||fTo) ? `${fFrom||'inicio'} → ${fTo||'hoy'}` : new Date().toLocaleDateString('es-GT');
+  const periodo = (fFrom||fTo) ? `${fFrom||'inicio'} → ${fTo||'hoy'}` : fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })());
   const tot = filtered.reduce((s,o)=>{const t=orderTotal(o.items,o.clientId);return s+(o.applyIva?t*1.12:t);},0);
 
   // Resumen de productos
@@ -4340,7 +4525,7 @@ ${(()=>{
         <div style="display:flex;align-items:center;gap:6px">
           <input type="checkbox" class="cli-ord-chk" data-cid="${c.id}" data-oid="${o.id}" onchange="updateCliOrdSummary(${c.id})"
             style="width:15px;height:15px;accent-color:#10b981;cursor:pointer;flex-shrink:0"/>
-          <div style="font-size:11px;color:#94a3b8">${o.date.split(',')[0]}${o.quote?' · '+o.quote:''}${o.oc?' · OC: '+o.oc:''}</div>
+          <div style="font-size:11px;color:#94a3b8">${fmtOrdDate(o.date)}${o.quote?' · '+o.quote:''}${o.oc?' · OC: '+o.oc:''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:5px">
           ${o.routeId?`<span style="font-size:10px;color:#f59e0b;font-weight:700">(RUTA)</span>`:''}
@@ -4975,7 +5160,7 @@ function showBonusReport(cid) {
       ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
     </div>
     <div style="text-align:right">
-      <div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div>
+      <div style="font-size:11px;color:#64748b">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div>
     </div>
   </div>
   <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:16px">
@@ -4993,71 +5178,133 @@ function showBonusReport(cid) {
   window.open(url, '_blank');
 }
 
-function showBonusEntregasReport(cid) {
+function buildReportModal(cid, title, color, onGenerate, extraHtml='') {
   const c = S.clients.find(x => x.id === Number(cid));
-  const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
-  if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
-
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const firstDay = `${today.getFullYear()}-01-01`;
-
   const overlay = document.createElement('div');
+  overlay.id = 'report-modal-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
-  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #10b981;border-radius:14px;padding:20px;max-width:360px;width:100%">
-    <div style="font-size:15px;font-weight:800;color:#10b981;margin-bottom:16px">📋 Reporte de Entregas</div>
-    <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">CLIENTE</div>
-    <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:14px">${c?.name||''}</div>
-    <div style="display:flex;gap:10px;margin-bottom:16px">
-      <div style="flex:1">
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA INICIO</div>
-        <input type="date" id="ber-from" value="${firstDay}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
-      </div>
-      <div style="flex:1">
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA FIN</div>
-        <input type="date" id="ber-to" value="${todayStr}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
+  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid ${color};border-radius:14px;padding:20px;max-width:360px;width:100%">
+    <div style="font-size:15px;font-weight:800;color:${color};margin-bottom:8px">${title}</div>
+    <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:12px">${c?.name||''}</div>
+    <input type="text" id="modal-drp-display" readonly placeholder="📅 Selecciona rango de fechas"
+      onclick="toggleModalDrp()"
+      style="width:100%;background:#0d0f18;border:1px solid ${color};border-radius:8px;padding:8px 12px;font-size:13px;color:#f1f5f9;cursor:pointer;box-sizing:border-box;margin-bottom:10px"/>
+    <div id="modal-drp-picker" onclick="event.stopPropagation()" style="display:none;background:#161929;border:1px solid #2a3050;border-radius:10px;padding:10px;margin-bottom:10px">
+      <div id="modal-drp-state" style="font-size:11px;color:#f59e0b;margin-bottom:6px;font-weight:700">Selecciona fecha inicio</div>
+      <div id="modal-drp-calendar"></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+        <button onclick="setModalDrpPreset('hoy')" style="font-size:10px;padding:3px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Hoy</button>
+        <button onclick="setModalDrpPreset('semana')" style="font-size:10px;padding:3px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Esta semana</button>
+        <button onclick="setModalDrpPreset('mes')" style="font-size:10px;padding:3px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Este mes</button>
+        <button onclick="setModalDrpPreset('mes_ant')" style="font-size:10px;padding:3px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Mes anterior</button>
+        <button onclick="setModalDrpPreset('anio')" style="font-size:10px;padding:3px 8px;background:#2a3050;border:none;border-radius:5px;color:#f1f5f9;cursor:pointer">Este año</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:13px;cursor:pointer">Cancelar</button>
-      <button onclick="generateBonusHistoryReport(${cid},document.getElementById('ber-from').value,document.getElementById('ber-to').value);this.closest('div[style*=fixed]').remove()" style="flex:2;padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer">📋 Generar</button>
+    ${extraHtml}
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="document.getElementById('report-modal-overlay').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:13px;cursor:pointer">Cancelar</button>
+      <button id="modal-gen-btn" onclick="${onGenerate}" style="flex:2;padding:10px;background:${color};border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer">📋 Generar</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
+  // Inicializar el calendario del modal
+  window._mdrpFrom = null; window._mdrpTo = null; window._mdrpStep = 'from';
+  const now = new Date();
+  window._mdrpYear = now.getFullYear(); window._mdrpMonth = now.getMonth();
+  renderModalDrpCalendar();
+}
+
+function toggleModalDrp() {
+  const p = document.getElementById('modal-drp-picker');
+  if (p) p.style.display = p.style.display==='none' ? 'block' : 'none';
+}
+
+function renderModalDrpCalendar() {
+  const cal = document.getElementById('modal-drp-calendar');
+  const state = document.getElementById('modal-drp-state');
+  if (!cal) return;
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DIAS  = ['D','L','M','X','J','V','S'];
+  const y = window._mdrpYear, m = window._mdrpMonth;
+  const firstDay = new Date(y,m,1).getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const pad = n => String(n).padStart(2,'0');
+  const toStr = d => `${y}-${pad(m+1)}-${pad(d)}`;
+
+  state.textContent = window._mdrpStep==='from' ? 'Selecciona fecha inicio'
+    : `Inicio: ${fmtEntrega(window._mdrpFrom)} — Selecciona fecha fin`;
+  state.style.color = window._mdrpStep==='from' ? '#f59e0b' : '#60a5fa';
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <button onclick="mdrpPrev()" style="background:none;border:none;color:#f1f5f9;font-size:16px;cursor:pointer;padding:2px 8px">‹</button>
+    <span style="font-size:12px;font-weight:700;color:#f1f5f9">${MESES[m]} ${y}</span>
+    <button onclick="mdrpNext()" style="background:none;border:none;color:#f1f5f9;font-size:16px;cursor:pointer;padding:2px 8px">›</button>
+  </div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">`;
+  DIAS.forEach(d=>{ html+=`<div style="font-size:10px;color:#64748b;padding:2px">${d}</div>`; });
+  for(let i=0;i<firstDay;i++) html+='<div></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=toStr(d);
+    const isFrom=ds===window._mdrpFrom, isTo=ds===window._mdrpTo;
+    const inRange=window._mdrpFrom&&window._mdrpTo&&ds>window._mdrpFrom&&ds<window._mdrpTo;
+    const todayM = new Date(); const todayDsM = `${todayM.getFullYear()}-${String(todayM.getMonth()+1).padStart(2,'0')}-${String(todayM.getDate()).padStart(2,'0')}`;
+    const isTodayM = ds === todayDsM;
+    const bg=isFrom||isTo?'#f59e0b':inRange?'#2a3050':'transparent';
+    const col=isFrom||isTo?'#000':isTodayM?'#f59e0b':'#f1f5f9';
+    const fw=isFrom||isTo||isTodayM?'700':'400';
+    const border=isTodayM&&!isFrom&&!isTo?'1px solid #f59e0b':'none';
+    html+=`<div onclick="mdrpSelectDay('${ds}')" style="padding:5px 2px;border-radius:5px;cursor:pointer;background:${bg};color:${col};font-size:12px;font-weight:${fw};border:${border}">${d}</div>`;
+  }
+  html+='</div>';
+  cal.innerHTML=html;
+}
+
+function mdrpPrev(){ if(window._mdrpMonth===0){window._mdrpMonth=11;window._mdrpYear--;}else window._mdrpMonth--; renderModalDrpCalendar(); }
+function mdrpNext(){ if(window._mdrpMonth===11){window._mdrpMonth=0;window._mdrpYear++;}else window._mdrpMonth++; renderModalDrpCalendar(); }
+
+function mdrpSelectDay(ds) {
+  if(window._mdrpStep==='from'){
+    window._mdrpFrom=ds; window._mdrpTo=null; window._mdrpStep='to';
+    renderModalDrpCalendar();
+  } else {
+    if(ds<window._mdrpFrom){window._mdrpTo=window._mdrpFrom;window._mdrpFrom=ds;}
+    else window._mdrpTo=ds;
+    window._mdrpStep='from';
+    const disp=document.getElementById('modal-drp-display');
+    if(disp) disp.value=`${fmtEntrega(window._mdrpFrom)} → ${fmtEntrega(window._mdrpTo)}`;
+    document.getElementById('modal-drp-picker').style.display='none';
+    renderModalDrpCalendar();
+  }
+}
+
+function setModalDrpPreset(preset) {
+  const today=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  if(preset==='hoy'){window._mdrpFrom=fmt(today);window._mdrpTo=fmt(today);}
+  else if(preset==='semana'){const s=new Date(today);s.setDate(today.getDate()-today.getDay());window._mdrpFrom=fmt(s);window._mdrpTo=fmt(today);}
+  else if(preset==='mes'){window._mdrpFrom=`${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;window._mdrpTo=fmt(today);}
+  else if(preset==='mes_ant'){const s=new Date(today.getFullYear(),today.getMonth()-1,1);const e=new Date(today.getFullYear(),today.getMonth(),0);window._mdrpFrom=fmt(s);window._mdrpTo=fmt(e);}
+  else if(preset==='anio'){window._mdrpFrom=`${today.getFullYear()}-01-01`;window._mdrpTo=fmt(today);}
+  const disp=document.getElementById('modal-drp-display');
+  if(disp) disp.value=`${fmtEntrega(window._mdrpFrom)} → ${fmtEntrega(window._mdrpTo)}`;
+  document.getElementById('modal-drp-picker').style.display='none';
+  renderModalDrpCalendar();
+}
+
+function showBonusEntregasReport(cid) {
+  const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
+  if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
+  buildReportModal(cid, '📋 Reporte de Entregas', '#10b981',
+    `generateBonusHistoryReport(${cid},window._mdrpFrom,window._mdrpTo);document.getElementById('report-modal-overlay').remove()`);
 }
 
 function showBonusHistoryReport(cid) {
-  const c = S.clients.find(x => x.id === Number(cid));
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const firstDay = `${today.getFullYear()}-01-01`;
-
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
-  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #10b981;border-radius:14px;padding:20px;max-width:360px;width:100%">
-    <div style="font-size:15px;font-weight:800;color:#10b981;margin-bottom:16px">📋 Reporte de Pedidos</div>
-    <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">CLIENTE</div>
-    <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:14px">${c?.name||''}</div>
-    <div style="display:flex;gap:10px;margin-bottom:16px">
-      <div style="flex:1">
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA INICIO</div>
-        <input type="date" id="bhr-from" value="${firstDay}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
-      </div>
-      <div style="flex:1">
-        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">FECHA FIN</div>
-        <input type="date" id="bhr-to" value="${todayStr}" style="width:100%;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:6px;color:#f1f5f9;font-size:13px;box-sizing:border-box"/>
-      </div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+  buildReportModal(cid, '📋 Reporte de Pedidos', '#10b981',
+    `generateBonusSimpleReport(${cid},window._mdrpFrom,window._mdrpTo,document.getElementById('bhr-include-bonus').checked);document.getElementById('report-modal-overlay').remove()`,
+    `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
       <input type="checkbox" id="bhr-include-bonus" checked style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
       <span style="font-size:13px;color:#f1f5f9">Incluir bonificaciones en el reporte</span>
-    </label>
-    <div style="display:flex;gap:8px">
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;background:transparent;border:1px solid #475569;border-radius:8px;color:#94a3b8;font-size:13px;cursor:pointer">Cancelar</button>
-      <button onclick="generateBonusSimpleReport(${cid},document.getElementById('bhr-from').value,document.getElementById('bhr-to').value,document.getElementById('bhr-include-bonus').checked);this.closest('div[style*=fixed]').remove()" style="flex:2;padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer">📋 Generar</button>
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
+    </label>`);
 }
 
 function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
@@ -5066,9 +5313,13 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
 
   function fmtD(d) {
     if (!d) return '—';
-    if (String(d).includes('/')) return String(d).split(',')[0];
+    if (String(d).includes('/')) {
+      const parts = String(d).split(',')[0].split('/');
+      if (parts.length===3) return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[2].trim()}`;
+      return String(d).split(',')[0];
+    }
     const p = String(d).split('-');
-    return p.length===3 ? `${parseInt(p[2])}/${parseInt(p[1])}/${p[0]}` : d;
+    return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
   }
   function toYMD(d) {
     if (!d) return '';
@@ -5203,7 +5454,7 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
       ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
       ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
     </div>
-    <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div></div>
+    <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div></div>
   </div>
   <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
     <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE BONIFICACIONES</div>
@@ -5227,9 +5478,13 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
 
   function fmtD(d) {
     if (!d) return '—';
-    if (String(d).includes('/')) return String(d).split(',')[0];
+    if (String(d).includes('/')) {
+      const parts = String(d).split(',')[0].split('/');
+      if (parts.length===3) return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[2].trim()}`;
+      return String(d).split(',')[0];
+    }
     const p = String(d).split('-');
-    return p.length===3 ? `${parseInt(p[2])}/${parseInt(p[1])}/${p[0]}` : d;
+    return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
   }
   function toYMD(d) {
     if (!d) return '';
@@ -5442,7 +5697,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
       ${biz.exec?`<div style="font-size:12px;color:#64748b">${biz.exec}</div>`:''}
       ${biz.phone?`<div style="font-size:12px;color:#64748b">📞 ${biz.phone}</div>`:''}
     </div>
-    <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${new Date().toLocaleDateString('es-GT')}</div></div>
+    <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div></div>
   </div>
   <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
     <div style="font-size:16px;font-weight:800;color:#1e3a8a">📋 REPORTE DE PEDIDOS</div>
@@ -7113,7 +7368,7 @@ function renderRoutes() {
               onclick="event.stopPropagation();toggleRouteOrdSel(${r.id},${o.id},this.checked)"/>
             <div style="display:flex;flex-direction:column;min-width:0">
               <div><span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} </span><span style="font-size:13px;font-weight:700;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</span></div>
-              <div style="font-size:10px;color:#64748b;margin-top:2px">${o.date.split(',')[0]}${o.quote?' · Cot: '+o.quote:''}${o.oc?' · OC: '+o.oc:''}</div>
+              <div style="font-size:10px;color:#64748b;margin-top:2px">${fmtOrdDate(o.date)}${o.quote?' · Cot: '+o.quote:''}${o.oc?' · OC: '+o.oc:''}</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
@@ -8086,7 +8341,7 @@ function showPriceListDoc(cid) {
 
   const biz = S.biz || {};
   const Qf  = v => 'Q' + Number(v).toFixed(2);
-  const today = new Date().toLocaleDateString('es-GT');
+  const today = fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })());
 
   // Leer texto personalizado guardado en la app principal
   const FOOTER_KEY = 'priceListFooter_' + cid;
