@@ -311,7 +311,7 @@ table.rep th{background:#f0f0f0!important}
 </div>
 <input class="inp" id="ord-delivery" placeholder="Dirección de entrega..." style="margin-bottom:4px" oninput="onDeliveryInputChange()"/>
 <button class="bs" id="ord-delivery-save-btn" style="display:none;font-size:11px;padding:4px 10px;margin-bottom:8px" onclick="saveDeliveryToClient()">💾 Guardar esta dirección en el cliente</button>
-<label class="lbl">Fecha de entrega</label>
+<label class="lbl">📅 Fecha de entrega</label>
 <input class="inp" type="date" id="ord-quote-note" style="margin-bottom:8px"/>
 </div>
 <label class="lbl">Comentarios</label>
@@ -1666,11 +1666,10 @@ opts += `<option value="${p.id}" ${sel}>${p.name} (${p.presentation||'—'}) —
 });
 opts += '</optgroup>';
 });
-const remBtn = ordItems.length > 1
-? `<button class="br" style="align-self:flex-end;padding:10px 11px;flex-shrink:0" onclick="remItem(${i})">✕</button>` : '';
+const remBtn = '';
 card.innerHTML = `
 <div style="display:flex;gap:8px;align-items:flex-end">
-<div style="flex:2"><label class="lbl">Producto</label>
+<div style="flex:3"><label class="lbl">Producto</label>
 <div class="ac-wrap" style="position:relative">
 <input class="inp ac-inp" id="prod-txt-${i}" autocomplete="off" placeholder="Buscar producto..." value="${it.pid ? (S.products.find(p=>String(p.id)===String(it.pid))||{name:''}).name : ''}" oninput="acProdInput(${i})" onfocus="acProdInput(${i})" onblur="acBlur('ac-prod-drop-${i}')" style="margin-bottom:0"/>
 <div class="ac-drop" id="ac-prod-drop-${i}"></div>
@@ -1685,9 +1684,9 @@ style="margin-bottom:0" oninput="setQty(${i},this.value)"/></div>
 value="${(it && it.price!=null)?it.price:cliPrice(cid, it.pid, 0)}"
 oninput="setPrice(${i}, this.value)" style="margin-bottom:0"/>
 </div>
-${remBtn}
 </div>
-<div id="sub${i}" style="margin-top:8px"></div>`;
+<div id="sub${i}" style="margin-top:8px"></div>
+${remBtn}`;
 wrap.appendChild(card);
 refreshSub(i, cid);
 });
@@ -1749,9 +1748,14 @@ const ivaRow = ivaIncGlobal ? `
 Sin IVA: <span style="color:#94a3b8">${Q(prBase)}/${ul}</span> &nbsp;·&nbsp;
 IVA 12%: <span style="color:#60a5fa">${Q(ivaAmt)}</span>
 </div>` : '';
+const remBtnInline = ordItems.length > 1
+  ? `<button class="br" style="padding:4px 10px;font-size:12px;margin-left:8px" onclick="remItem(${i})">✕</button>` : '';
 el.innerHTML = `<div style="background:#161929;border-radius:8px;padding:8px 10px">
-${p.presentation?`<span class="tag" style="margin-bottom:4px;display:inline-block">${p.presentation}</span>`:''}
-${conv}<span style="color:#10b981;font-weight:700;font-size:14px">Subtotal: ${Q(sub)}</span>
+${p.presentation?`<span class="tag" style="margin-bottom:4px;display:inline-block">${p.presentation}`:''}</span>
+${conv}<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="color:#10b981;font-weight:700;font-size:14px">Subtotal: ${Q(sub)}</span>
+${remBtnInline}
+</div>
 ${ivaRow}</div>`;
 }
 
