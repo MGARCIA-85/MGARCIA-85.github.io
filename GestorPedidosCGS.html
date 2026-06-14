@@ -2432,44 +2432,36 @@ function getReportFiltered() {
 if (!window._ordSel) window._ordSel = new Set();
 function openClientCard(cid) {
   if (!window._cliOpen) window._cliOpen = {};
-
-  // Cerrar cualquier ficha flotante anterior
   closeFloatingCard();
-
-  // Colapsar todas las demás fichas
   Object.keys(window._cliOpen).forEach(k => { window._cliOpen[k] = false; });
   window._cliOpen[Number(cid)] = true;
-
+  window._floatCid = Number(cid);
   goTab('clients');
   setTimeout(() => {
     renderClients();
-    setTimeout(() => {
-      // Opacidad en fichas cerradas
-      document.querySelectorAll('[id^="cc-"]').forEach(el => {
-        const elCid = Number(el.id.replace('cc-', ''));
-        el.style.opacity = elCid === Number(cid) ? '1' : '0.35';
-      });
-      // Hacer la ficha flotante fija en la parte superior
-      const el = document.getElementById('cc-' + cid);
-      if (el) {
-        el.dataset.floatCid = cid;
-        el.style.cssText += ';position:fixed;top:0;left:0;right:0;z-index:800;background:#1e2236;border-bottom:2px solid #f59e0b;box-shadow:0 8px 24px #000a;max-height:85vh;overflow-y:auto;margin:0;border-radius:0';
-        // Agregar botón cerrar si no existe
-        if (!el.querySelector('#float-close-btn')) {
-          const closeBtn = document.createElement('button');
-          closeBtn.id = 'float-close-btn';
-          closeBtn.textContent = '✕ Cerrar';
-          closeBtn.style.cssText = 'position:sticky;top:4px;float:right;background:#1e2236;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:4px 10px;font-size:11px;cursor:pointer;z-index:801;margin:4px 4px 0 0';
-          closeBtn.onclick = closeFloatingCard;
-          el.insertBefore(closeBtn, el.firstChild);
-        }
-      }
-    }, 150);
+    setTimeout(() => restoreFloatingCard(cid), 150);
   }, 100);
 }
 
 function closeFloatingCard() {
-  // Restaurar cualquier ficha que esté flotante
+  const cid = window._floatCid;
+  window._floatCid = null;
+
+  // Colapsar ficha del cliente
+  if (cid && window._cliOpen) window._cliOpen[cid] = false;
+
+  // Colapsar todas las secciones internas
+  if (cid && window._cliSecOpen) {
+    const prefixes = ['csp','csc','csd','csb','csn','cso'];
+    prefixes.forEach(p => {
+      const secId = `${p}-${cid}`;
+      window._cliSecOpen[secId] = false;
+      const secEl = document.getElementById(secId);
+      if (secEl) secEl.style.display = 'none';
+    });
+  }
+
+  // Restaurar estilos
   document.querySelectorAll('[id^="cc-"]').forEach(el => {
     if (el.dataset.floatCid) {
       el.removeAttribute('style');
@@ -2479,6 +2471,8 @@ function closeFloatingCard() {
     }
     el.style.opacity = '1';
   });
+
+  renderClients();
 }
 
 function toggleOrdSel(oid, checked) {
@@ -4245,12 +4239,60 @@ function openDelFromCli(oid) {
 
 function toggleCliSec(id) {
   if (!window._cliSecOpen) window._cliSecOpen = {};
-  window._cliSecOpen[id] = !window._cliSecOpen[id];
-  var el = document.getElementById(id);
-  if (el) el.style.display = window._cliSecOpen[id] ? 'block' : 'none';
+  const opening = !window._cliSecOpen[id];
+
+  if (opening) {
+    // Extraer cid del id (ej: 'csp-42' → '42')
+    const cid = id.split('-').pop();
+    const prefixes = ['csp','csc','csd','csb','csn','cso'];
+    // Colapsar todas las demás secciones del mismo cliente
+    prefixes.forEach(p => {
+      const secId = `${p}-${cid}`;
+      if (secId !== id && window._cliSecOpen[secId]) {
+        window._cliSecOpen[secId] = false;
+        const secEl = document.getElementById(secId);
+        if (secEl) secEl.style.display = 'none';
+      }
+    });
+  }
+
+  window._cliSecOpen[id] = opening;
+  const el = document.getElementById(id);
+  if (el) el.style.display = opening ? 'block' : 'none';
 }
 
 function renderClients() {
+  // Recordar si hay ficha flotante activa
+  const floatCid = window._floatCid || null;
+  _renderClientsInternal();
+  if (floatCid) {
+    setTimeout(() => restoreFloatingCard(floatCid), 50);
+  }
+}
+
+function restoreFloatingCard(cid) {
+  // Aplicar opacidad
+  document.querySelectorAll('[id^="cc-"]').forEach(el => {
+    const elCid = Number(el.id.replace('cc-', ''));
+    el.style.opacity = elCid === Number(cid) ? '1' : '0.35';
+  });
+  // Restaurar posición fija
+  const el = document.getElementById('cc-' + cid);
+  if (el && !el.dataset.floatCid) {
+    el.dataset.floatCid = cid;
+    el.style.cssText += ';position:fixed;top:0;left:0;right:0;z-index:800;background:#1e2236;border-bottom:2px solid #f59e0b;box-shadow:0 8px 24px #000a;max-height:85vh;overflow-y:auto;margin:0;border-radius:0';
+    if (!el.querySelector('#float-close-btn')) {
+      const closeBtn = document.createElement('button');
+      closeBtn.id = 'float-close-btn';
+      closeBtn.textContent = '✕ Cerrar';
+      closeBtn.style.cssText = 'position:sticky;top:4px;float:right;background:#1e2236;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:4px 10px;font-size:11px;cursor:pointer;z-index:801;margin:4px 4px 0 0';
+      closeBtn.onclick = closeFloatingCard;
+      el.insertBefore(closeBtn, el.firstChild);
+    }
+  }
+}
+
+function _renderClientsInternal() {
 if (!window._cliOpen) window._cliOpen = {};
 const _ct = document.getElementById('cli-title-top'); if (_ct) _ct.textContent = '(' + S.clients.length + ')';
 document.getElementById('cli-title').value = S.clients.length;
@@ -6246,32 +6288,15 @@ function saveManualBonus(oid) {
 
 function toggleCli(cid) {
   const opening = !window._cliOpen[cid];
-  // Si se va a abrir, colapsar todas las demás y fijar arriba
   if (opening) {
     Object.keys(window._cliOpen).forEach(k => { window._cliOpen[k] = false; });
     window._cliOpen[cid] = true;
+    window._floatCid = Number(cid);
     renderClients();
-    setTimeout(() => {
-      document.querySelectorAll('[id^="cc-"]').forEach(el => {
-        const elCid = Number(el.id.replace('cc-', ''));
-        el.style.opacity = elCid === Number(cid) ? '1' : '0.35';
-      });
-      const el = document.getElementById('cc-' + cid);
-      if (el) {
-        el.dataset.floatCid = cid;
-        el.style.cssText += ';position:fixed;top:0;left:0;right:0;z-index:800;background:#1e2236;border-bottom:2px solid #f59e0b;box-shadow:0 8px 24px #000a;max-height:85vh;overflow-y:auto;margin:0;border-radius:0';
-        if (!el.querySelector('#float-close-btn')) {
-          const closeBtn = document.createElement('button');
-          closeBtn.id = 'float-close-btn';
-          closeBtn.textContent = '✕ Cerrar';
-          closeBtn.style.cssText = 'position:sticky;top:4px;float:right;background:#1e2236;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:4px 10px;font-size:11px;cursor:pointer;z-index:801;margin:4px 4px 0 0';
-          closeBtn.onclick = closeFloatingCard;
-          el.insertBefore(closeBtn, el.firstChild);
-        }
-      }
-    }, 150);
+    setTimeout(() => restoreFloatingCard(cid), 150);
   } else {
     window._cliOpen[cid] = false;
+    window._floatCid = null;
     closeFloatingCard();
     renderClients();
   }
