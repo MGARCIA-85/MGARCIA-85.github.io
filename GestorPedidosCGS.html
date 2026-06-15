@@ -1904,7 +1904,11 @@ document.getElementById('ord-iva').checked = false;
 document.getElementById('ord-iva-inc').checked = true;
 refreshTotalWithIVA();
 onCliChange();
-if (_cameFromRoute) {
+if (_cameFromClient !== null) {
+  const _retCid = _cameFromClient;
+  _cameFromClient = null;
+  openClientCard(_retCid);
+} else if (_cameFromRoute) {
   _cameFromRoute = false; goTab('routes');
 } else {
   goTab('list');
