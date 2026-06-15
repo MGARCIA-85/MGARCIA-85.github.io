@@ -4153,9 +4153,42 @@ function toggleCliMonthSec(secId) {
   const el = document.getElementById(secId);
   const arrow = document.getElementById(secId+'-arrow');
   const isOpen = el && el.style.display !== 'none';
-  window._cliSecOpen[secId] = !isOpen;
-  if (el) el.style.display = isOpen ? 'none' : 'block';
-  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+  const opening = !isOpen;
+
+  if (opening) {
+    // Extraer cid del secId: cso-month-{cid}-{key}
+    const parts = secId.split('-');
+    const cid = parts[2];
+    // Colapsar todos los demás meses del mismo cliente
+    document.querySelectorAll(`[id^="cso-month-${cid}-"]`).forEach(monthEl => {
+      if (monthEl.id !== secId) {
+        monthEl.style.display = 'none';
+        monthEl.style.opacity = '1';
+        window._cliSecOpen[monthEl.id] = false;
+        const a = document.getElementById(monthEl.id + '-arrow');
+        if (a) a.textContent = '▼';
+      }
+    });
+    // Opacidad en encabezados de meses no abiertos
+    setTimeout(() => {
+      document.querySelectorAll(`[id^="cso-month-${cid}-"]`).forEach(monthEl => {
+        const header = monthEl.previousElementSibling;
+        if (header) header.style.opacity = monthEl.id === secId ? '1' : '0.4';
+      });
+    }, 30);
+  } else {
+    // Al cerrar, restaurar opacidad de todos
+    const parts = secId.split('-');
+    const cid = parts[2];
+    document.querySelectorAll(`[id^="cso-month-${cid}-"]`).forEach(monthEl => {
+      const header = monthEl.previousElementSibling;
+      if (header) header.style.opacity = '1';
+    });
+  }
+
+  window._cliSecOpen[secId] = opening;
+  if (el) el.style.display = opening ? 'block' : 'none';
+  if (arrow) arrow.textContent = opening ? '▲' : '▼';
 }
 
 function updateCliOrdSummary(cid) {
