@@ -2624,7 +2624,8 @@ function shareOrderReportSel() {
       const p = S.products.find(x=>x.id===Number(bl.productId));
       const ul = p?.unitLabel||'unidad';
       const spec = p?.presentation ? ` (${p.presentation})` : '';
-      return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}`;
+      const comment = bl.ruleName ? `\n${bl.ruleName}` : '';
+      return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}${comment}`;
     }).join('\n');
     return `\n》BONIFICACIÓN《\n${lines}`;
   }
@@ -3856,7 +3857,8 @@ const bonusLines = (ord.bonusLines||[]).map(bl => {
   const p  = S.products.find(x => x.id===Number(bl.productId));
   const ul = p?.unitLabel||'unidad';
   const spec = p?.presentation ? ` (${p.presentation})` : '';
-  return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}`;
+  const comment = bl.ruleName ? `\n${bl.ruleName}` : '';
+  return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}${comment}`;
 }).join('\n');
 const bonusBlock = bonusLines ? `》BONIFICACIÓN《\n${bonusLines}` : '';
 
