@@ -1153,6 +1153,12 @@ function clearDateRange() {
   document.getElementById('date-range-picker').style.display = 'none';
 }
 
+function clientNameColor(status) {
+  if (status === 'Confirmado') return '#60a5fa';
+  if (status === 'Concluido')  return '#4ade80';
+  return '#f1f5f9'; // Cotización = blanco
+}
+
 function ordDateTs(o) {
   // Parsear fecha del pedido en formato "d/m/yyyy, ..." o "d/m/yyyy"
   const raw = (o.date||'').split(',')[0].trim();
@@ -1638,7 +1644,8 @@ const wrap = document.getElementById('ord-items');
 wrap.innerHTML = '';
 ordItems.forEach((it, i) => {
 const card = document.createElement('div');
-card.className = 'card';
+card.className = 'card sortable-item';
+card.dataset.idx = i;
 let opts = '<option value="">-- Seleccionar producto --</option>';
 // Agrupar productos por familia
 const families = [];
@@ -1667,8 +1674,11 @@ opts += `<option value="${p.id}" ${sel}>${p.name} (${p.presentation||'—'}) —
 opts += '</optgroup>';
 });
 const remBtn = '';
+const moveUpBtn = i > 0 ? `<button type="button" onclick="moveItemUp(${i})" style="background:#2a3050;border:none;border-radius:5px;color:#94a3b8;width:26px;height:26px;font-size:13px;cursor:pointer">▲</button>` : `<div style="width:26px;height:26px"></div>`;
+const moveDownBtn = i < ordItems.length-1 ? `<button type="button" onclick="moveItemDown(${i})" style="background:#2a3050;border:none;border-radius:5px;color:#94a3b8;width:26px;height:26px;font-size:13px;cursor:pointer">▼</button>` : `<div style="width:26px;height:26px"></div>`;
 card.innerHTML = `
 <div style="display:flex;gap:8px;align-items:flex-end">
+<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">${moveUpBtn}${moveDownBtn}</div>
 <div style="flex:3"><label class="lbl">Producto</label>
 <div class="ac-wrap" style="position:relative">
 <input class="inp ac-inp" id="prod-txt-${i}" autocomplete="off" placeholder="Buscar producto..." value="${it.pid ? (S.products.find(p=>String(p.id)===String(it.pid))||{name:''}).name : ''}" oninput="acProdInput(${i})" onfocus="acProdInput(${i})" onblur="acBlur('ac-prod-drop-${i}')" style="margin-bottom:0"/>
@@ -1691,6 +1701,17 @@ wrap.appendChild(card);
 refreshSub(i, cid);
 });
 refreshTotal(cid);
+}
+
+function moveItemUp(i) {
+  if (i <= 0) return;
+  [ordItems[i-1], ordItems[i]] = [ordItems[i], ordItems[i-1]];
+  renderItems();
+}
+function moveItemDown(i) {
+  if (i >= ordItems.length-1) return;
+  [ordItems[i+1], ordItems[i]] = [ordItems[i], ordItems[i+1]];
+  renderItems();
 }
 
 function setPid(i, val) {
@@ -3022,7 +3043,7 @@ card.innerHTML = `
   ${(window._ordSel||new Set()).has(o.id)?'checked':''}
   onclick="event.stopPropagation();toggleOrdSel(${o.id},this.checked)"/>
 <div>
-<div style="font-weight:800;font-size:15px;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</div>
+<div style="font-weight:800;font-size:15px;color:${clientNameColor(o.status)};cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</div>
 <div style="font-size:10px;color:#64748b">${o.date}${o.editedAt?' · Editado: '+o.editedAt:''}</div>
 ${o.quote?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">Cot: ${o.quote}</div>`:''}
 ${o.oc?`<div style="font-size:11px;color:#94a3b8;margin-top:1px">OC: ${o.oc}</div>`:''}
@@ -7493,7 +7514,7 @@ function renderRoutes() {
               ${(window._routeSel[r.id]||new Set()).has(o.id)?'checked':''}
               onclick="event.stopPropagation();toggleRouteOrdSel(${r.id},${o.id},this.checked)"/>
             <div style="display:flex;flex-direction:column;min-width:0">
-              <div><span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} </span><span style="font-size:13px;font-weight:700;color:#60a5fa;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</span></div>
+              <div><span style="font-size:13px;font-weight:700;color:#f1f5f9">#${rIdx+1} </span><span style="font-size:13px;font-weight:700;color:${clientNameColor(o.status)};cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();openClientCard(${o.clientId})">${o.clientName}</span></div>
               <div style="font-size:10px;color:#64748b;margin-top:2px">${fmtOrdDate(o.date)}${o.quote?' · Cot: '+o.quote:''}${o.oc?' · Orden: '+o.oc:''}</div>
             </div>
           </div>
@@ -8167,7 +8188,7 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
       <div style="background:#f9fafb;padding:8px 12px;border-bottom:1px solid #e5e7eb">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <span style="font-size:12px;color:#6b7280;font-weight:600">#${rIdx+1} &nbsp;</span><span style="font-weight:900;font-size:16px;color:#1e3a8a">${o.clientName}</span>
+            <span style="font-size:12px;color:#6b7280;font-weight:600">#${rIdx+1} &nbsp;</span><span style="font-weight:900;font-size:16px;color:${o.status==='Confirmado'?'#1d4ed8':o.status==='Concluido'?'#15803d':'#1e3a8a'}">${o.clientName}</span>
           </div>
           <span style="font-size:11px;font-weight:700;color:${sc};border:1px solid ${sc};padding:1px 8px;border-radius:10px">${o.status}</span>
         </div>
