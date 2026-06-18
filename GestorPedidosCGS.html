@@ -623,6 +623,9 @@ Selecciona un cliente para continuar.<br><br>
 <input class="inp" id="np-us" type="number" step="0.001" min="0.001" placeholder="Ej: 55 (1 Tonel = 55 galones). Escribe 1 si no hay conversión."/>
 <label class="lbl">Precio por unidad (Q) *</label>
 <input class="inp" id="np-pr" type="number" step="0.01" min="0" placeholder="Ej: 52 (precio por galón)"/>
+<label class="lbl">Color del producto (selector de pedidos)</label>
+<input type="hidden" id="np-color" value=""/>
+<div id="np-color-pal" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
 <div class="hint" id="np-preview" style="background:#161929;border-radius:8px;padding:8px;display:none"></div>
 <div style="display:flex;gap:8px;margin-top:4px">
   <button class="bp" style="flex:1" onclick="addProduct()">Agregar Producto</button>
@@ -1393,7 +1396,9 @@ function acProdInput(i) {
     const pr = cliPrice(cid, p.id, p.basePrice);
     const d = document.createElement('div');
     d.className = 'ac-opt';
-    d.innerHTML = p.name + '<small>'+(p.presentation||'')+(p.family?' · '+p.family:'')+' — '+Q(pr)+'</small>';
+    if (p.color) { d.style.cssText = `border-left:4px solid ${p.color}`; }
+    const nameSpan = p.color ? `<span style="color:${p.color};font-weight:700">${p.name}</span>` : p.name;
+    d.innerHTML = nameSpan + '<small>'+(p.presentation||'')+(p.family?' · '+p.family:'')+' — '+Q(pr)+'</small>';
     d.onmousedown = () => { txt.value = p.name; acClose('ac-prod-drop-'+i); setPid(i, p.id); };
     drop.appendChild(d);
   });
@@ -1674,6 +1679,7 @@ opts += `<option value="${p.id}" ${sel}>${p.name} (${p.presentation||'—'}) —
 opts += '</optgroup>';
 });
 const remBtn = '';
+const selectedP = it.pid ? S.products.find(p=>String(p.id)===String(it.pid)) : null;
 const moveUpBtn = i > 0 ? `<button type="button" onclick="moveItemUp(${i})" style="background:#2a3050;border:none;border-radius:5px;color:#94a3b8;width:26px;height:26px;font-size:13px;cursor:pointer">▲</button>` : `<div style="width:26px;height:26px"></div>`;
 const moveDownBtn = i < ordItems.length-1 ? `<button type="button" onclick="moveItemDown(${i})" style="background:#2a3050;border:none;border-radius:5px;color:#94a3b8;width:26px;height:26px;font-size:13px;cursor:pointer">▼</button>` : `<div style="width:26px;height:26px"></div>`;
 card.innerHTML = `
@@ -1681,7 +1687,7 @@ card.innerHTML = `
 <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">${moveUpBtn}${moveDownBtn}</div>
 <div style="flex:3"><label class="lbl">Producto</label>
 <div class="ac-wrap" style="position:relative">
-<input class="inp ac-inp" id="prod-txt-${i}" autocomplete="off" placeholder="Buscar producto..." value="${it.pid ? (S.products.find(p=>String(p.id)===String(it.pid))||{name:''}).name : ''}" oninput="acProdInput(${i})" onfocus="acProdInput(${i})" onblur="acBlur('ac-prod-drop-${i}')" style="margin-bottom:0"/>
+<input class="inp ac-inp" id="prod-txt-${i}" autocomplete="off" placeholder="Buscar producto..." value="${it.pid ? (S.products.find(p=>String(p.id)===String(it.pid))||{name:''}).name : ''}" oninput="acProdInput(${i})" onfocus="acProdInput(${i})" onblur="acBlur('ac-prod-drop-${i}')" style="margin-bottom:0${selectedP&&selectedP.color?`;border-left:4px solid ${selectedP.color};color:${selectedP.color};font-weight:700`:''}"/>
 <div class="ac-drop" id="ac-prod-drop-${i}"></div>
 </div></div>
 <div style="flex:1"><label class="lbl">Cantidad</label>
@@ -4007,6 +4013,9 @@ function toggleFormPanel(id, header) {
   const open = body.style.display === 'none';
   body.style.display = open ? 'block' : 'none';
   if (arrow) arrow.textContent = open ? '▲' : '▼';
+  if (open && id === 'prod-form-body') {
+    renderColorPalette('np-color-pal', 'np-color', '');
+  }
 }
 
 function collapseForm(bodyId) {
@@ -6665,12 +6674,15 @@ const ul   = document.getElementById('np-ul').value.trim() || 'unidad';
 const us   = Number(document.getElementById('np-us').value) || 1;
 const pr   = Number(document.getElementById('np-pr').value) || 0;
 const box  = document.getElementById('np-preview');
+const colorEl = document.getElementById('np-color');
+const color = colorEl ? colorEl.value : '';
 if (!name || !pr) { box.style.display='none'; return; }
 const sub = pr*us;
+const nameStyled = color ? `<span style="color:${color};font-weight:800">${name}</span>` : `<strong>${name}</strong>`;
+box.setAttribute('style', `background:#161929;border-radius:8px;padding:8px;display:block${color?`;border-left:4px solid ${color}`:''}`);
 box.innerHTML = us>1
-? `✅ <strong>Vista previa:</strong> 1 ${pres||'presentación'} = ${us} ${ul}s × ${Q(pr)} = <strong style="color:#10b981">${Q(sub)}</strong> por ${pres}`
-: `✅ <strong>Vista previa:</strong> ${name} (${pres||'—'}) → ${Q(pr)} por ${ul}`;
-box.style.display = 'block';
+? `✅ <strong>Vista previa:</strong> 1 ${pres||'presentación'} = ${us} ${ul}s × ${Q(pr)} = <strong style="color:#10b981">${Q(sub)}</strong> por ${pres} — ${nameStyled}`
+: `✅ <strong>Vista previa:</strong> ${nameStyled} (${pres||'—'}) → ${Q(pr)} por ${ul}`;
 }
 
 function cancelNewProduct() {
@@ -6681,6 +6693,26 @@ function cancelNewProduct() {
   collapseForm('prod-form-body');
 }
 
+const PROD_COLOR_PALETTE = ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e'];
+
+function renderColorPalette(containerId, hiddenInputId, selectedColor) {
+  const cont = document.getElementById(containerId);
+  if (!cont) return;
+  let html = `<div onclick="selectProdColor('${containerId}','${hiddenInputId}','')" style="width:30px;height:30px;border-radius:8px;cursor:pointer;background:#1e2640;border:2px solid ${!selectedColor?'#fff':'#2a3050'};display:flex;align-items:center;justify-content:center;font-size:14px;color:#64748b">✕</div>`;
+  PROD_COLOR_PALETTE.forEach(c => {
+    const isSel = selectedColor === c;
+    html += `<div onclick="selectProdColor('${containerId}','${hiddenInputId}','${c}')" style="width:30px;height:30px;border-radius:8px;cursor:pointer;background:${c};border:2px solid ${isSel?'#fff':'transparent'};box-shadow:${isSel?'0 0 0 2px '+c:'none'}"></div>`;
+  });
+  cont.innerHTML = html;
+}
+
+function selectProdColor(containerId, hiddenInputId, color) {
+  const input = document.getElementById(hiddenInputId);
+  if (input) input.value = color;
+  renderColorPalette(containerId, hiddenInputId, color);
+  if (hiddenInputId === 'np-color') updatePreview();
+}
+
 function addProduct() {
 const name = document.getElementById('np-n').value.trim();
 const fam  = document.getElementById('np-fam').value.trim();
@@ -6688,15 +6720,19 @@ const pres = document.getElementById('np-pres').value.trim();
 const ul   = document.getElementById('np-ul').value.trim() || 'unidad';
 const us   = Number(document.getElementById('np-us').value) || 1;
 const pr   = Number(document.getElementById('np-pr').value);
+const colorEl = document.getElementById('np-color');
+const color = colorEl ? colorEl.value : '';
 if (!name) return alert('Ingresa el nombre del producto.');
 if (pr == null || isNaN(pr) || document.getElementById('np-pr').value.trim() === '') return alert('Ingresa el precio por unidad.');
 const dup = S.products.find(p => p.name.toLowerCase() === name.toLowerCase() && (p.presentation||'').toLowerCase() === (pres||'').toLowerCase());
 if (dup) { toast('⚠️ Ya existe este producto', '#ef4444'); return; }
 const id = S.nextPid++;
-S.products.push({ id, name, family:fam||'', presentation:pres, unitLabel:ul, unitSize:us, basePrice:pr });
+S.products.push({ id, name, family:fam||'', presentation:pres, unitLabel:ul, unitSize:us, basePrice:pr, color });
 S.clients.forEach(c => { S.cp[c.id] = { ...S.cp[c.id], [id]: pr }; });
 save();
 ['np-n','np-fam','np-pres','np-ul','np-us','np-pr'].forEach(i => document.getElementById(i).value='');
+if (colorEl) colorEl.value = '';
+renderColorPalette('np-color-pal', 'np-color', '');
 document.getElementById('np-preview').style.display = 'none';
 collapseForm('prod-form-body');
 toast('🏷️ Producto agregado'); renderProducts(); renderPriceLists();
@@ -6737,7 +6773,7 @@ div.innerHTML = `
 <div style="display:flex;align-items:center;gap:8px">
 ${dh}
 <div>
-<div style="font-weight:700;font-size:14px">${p.name}</div>
+<div style="font-weight:700;font-size:14px;color:${p.color||'#f1f5f9'}">${p.name}</div>
 ${p.family ? `<span style="font-size:10px;background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 7px;margin-right:4px">${p.family}</span>` : ''}
 ${p.presentation ? `<span class="tag" style="display:inline-block;margin:2px 0">${p.presentation}</span>` : ''}
 <div style="font-size:12px;color:#64748b">Precio: <span style="color:#f59e0b;font-weight:800">${Q(p.basePrice)}</span>/${ul}</div>
@@ -6769,11 +6805,15 @@ row.innerHTML = `
 <label class="lbl">Unidades por especificación</label>
 <input class="inp" id="epus-${id}" type="number" step="0.001" min="0.001" value="${p.unitSize||1}"/>
 <label class="lbl">Precio por unidad (Q)</label>
-<input class="inp" id="eppr-${id}" type="number" step="0.01" value="${p.basePrice}" style="margin-bottom:10px"/>
+<input class="inp" id="eppr-${id}" type="number" step="0.01" value="${p.basePrice}"/>
+<label class="lbl">Color del producto (selector de pedidos)</label>
+<input type="hidden" id="epcolor-${id}" value="${p.color||''}"/>
+<div id="epcolor-pal-${id}" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
 <div class="two">
 <button class="bg" onclick="saveProd(${id})">✔ Guardar</button>
 <button class="bs" onclick="renderProducts()">Cancelar</button>
 </div>`;
+renderColorPalette('epcolor-pal-'+id, 'epcolor-'+id, p.color||'');
 }
 
 function saveProd(id) {
@@ -6784,6 +6824,8 @@ p.presentation = document.getElementById('epp-'+id).value.trim();
 p.unitLabel    = document.getElementById('epul-'+id).value.trim() || 'unidad';
 p.unitSize     = Number(document.getElementById('epus-'+id).value) || 1;
 p.basePrice    = Number(document.getElementById('eppr-'+id).value);
+const colorEl  = document.getElementById('epcolor-'+id);
+p.color        = colorEl ? colorEl.value : '';
 save(); toast('✔ Producto actualizado'); renderProducts();
 }
 
