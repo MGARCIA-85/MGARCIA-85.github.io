@@ -7595,6 +7595,7 @@ function renderRoutes() {
           <!-- Botones -->
           <div style="display:flex;gap:4px;align-items:center;margin-top:6px" onclick="event.stopPropagation()">
             <button class="bs" style="flex:1;font-size:11px;padding:5px 2px" onclick="editOrderFromRoute(${o.id})">✏️ Editar</button>
+            <button class="bb" style="flex:1;font-size:11px;padding:5px 2px" onclick="openQuoteFromRoute(${o.id})">📄 Cot.</button>
             <button class="bv" style="flex:1;font-size:11px;padding:5px 2px" onclick="duplicateOrder(${o.id})">📋 Dupl.</button>
             <button class="br" style="flex:1;font-size:11px;padding:5px 2px" onclick="removeOrderFromRoute(${o.id},${r.id})">✕</button>
           </div>
@@ -9019,6 +9020,12 @@ async function applyNewCode() {
   }, { passive: true });
 
 
+
+function openQuoteFromRoute(oid) {
+  const o = S.orders.find(x => x.id === oid);
+  if (!o) return;
+  showQuote(o);
+}
 </script>
 </body>
 </html>
