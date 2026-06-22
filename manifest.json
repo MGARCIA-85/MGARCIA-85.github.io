@@ -5,7 +5,7 @@
   "start_url": "./GestorPedidosCGS.html",
   "display": "standalone",
   "background_color": "#0d0f18",
-  "theme_color": "#000000",
+  "theme_color": "#0d0f18",
   "orientation": "portrait",
   "icons": [
     {
