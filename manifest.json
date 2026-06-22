@@ -5,12 +5,12 @@
   "start_url": "./GestorPedidosCGS.html",
   "display": "standalone",
   "background_color": "#0d0f18",
-  "theme_color": "#0d0f18",
+  "theme_color": "#00c97a",
   "orientation": "portrait",
   "icons": [
     {
       "src": "./icon-192.png",
-      "sizes": "190x190",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
