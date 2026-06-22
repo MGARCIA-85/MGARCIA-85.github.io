@@ -4,7 +4,7 @@
   "description": "Gestor de pedidos, clientes y cotizaciones - CGS",
   "start_url": "./GestorPedidosCGS.html",
   "display": "standalone",
-  "background_color": "#0d0f18",
+  "background_color": "#00c97a",
   "theme_color": "#00c97a",
   "orientation": "portrait",
   "icons": [
