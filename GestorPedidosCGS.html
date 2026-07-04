@@ -1554,32 +1554,8 @@ if (editingOid === null) {
   const facturados = [...S.orders]
     .filter(o => Number(o.clientId) === cid && o.items && o.items.length)
     .sort((a,b) => { const td = ordDateTs(b)-ordDateTs(a); return td !== 0 ? td : b.id-a.id; });
-  if (facturados.length) {
-    // Por cada producto único, guardar el precio del pedido más reciente donde apareció
-    const seen = {};   // pid => { pid, qty, price }
-    facturados.forEach(o => {
-      o.items.forEach(it => {
-        const pid = String(it.productId || it.pid);
-        if (!seen[pid]) {
-          seen[pid] = {
-            pid: it.productId || it.pid,
-            qty: it.qty,
-            price: it.customPrice != null ? it.customPrice : null
-          };
-        }
-      });
-    });
-    ordItems = Object.values(seen);
-    ordBonusLines = [];
-    const prodNames = ordItems.map(it=>{
-      const p = S.products.find(x=>String(x.id)===String(it.pid));
-      return p ? p.name : '—';
-    }).join(', ');
-    toast('📦 '+ordItems.length+' producto(s) precargados: '+prodNames);
-  } else {
-    ordItems = [{ pid:'', qty:1 }];
-    ordBonusLines = [];
-  }
+  ordItems = [{ pid:'', qty:1 }];
+  ordBonusLines = [];
   ordComments = [''];
   // Precargar comentarios predefinidos del cliente
   let clientPinned = (S.savedComments && S.savedComments[cid]) || [];
@@ -1852,7 +1828,7 @@ function submitOrder(isQuote) {
 const cid = Number(document.getElementById('ord-cli').value);
 if (!cid) return alert('Selecciona un cliente.');
 const valid = ordItems.filter(it => it.pid && Number(it.qty) > 0);
-if (!valid.length) return alert('Agrega al menos un producto.');
+if (!valid.length && !ordBonusLines.length) return alert('Agrega al menos un producto o una bonificación.');
 const delivery = document.getElementById('ord-delivery')?.value.trim() || '';
 if (!delivery) return toast('El campo Entrega no puede estar vacío.', '#ef4444');
 if (document.getElementById('delivery-alert')) return toast('Confirma o cambia la dirección de entrega sugerida.', '#f59e0b');
@@ -1983,6 +1959,19 @@ S.orders.push(newOrd);
 
 // Función para finalizar después de resolver bonificaciones
 function finishSave() {
+  // Si el pedido viene del botón "Enviar bonificación", reiniciar la regla
+  if (window._pendingBonusReset) {
+    const { cid: _bcid, ri: _bri } = window._pendingBonusReset;
+    window._pendingBonusReset = null;
+    const rules = S.bonuses?.[_bcid] || S.bonuses?.[String(_bcid)];
+    const r = rules?.[_bri];
+    if (r) {
+      const lastOid = newOrd.id;
+      resetBonusRule(r, lastOid, new Date().toISOString().split('T')[0]);
+      if (!S.bonuses[_bcid]) S.bonuses[_bcid] = S.bonuses[String(_bcid)];
+      toast('🎁 Bonificación entregada — período reiniciado','#10b981');
+    }
+  }
   const _isDup = !!newOrd.duplicatedFrom;
   const _pendRid = !_isDup && (sessionStorage.getItem('pendingRouteId') || localStorage.getItem('currentRouteId'));
   if (_pendRid) {
@@ -4560,6 +4549,16 @@ ${(()=>{
     const bonusDesc = (r.bonusItems||[]).map(bi=>{const p2=S.products.find(x=>x.id===Number(bi.productId));return `${bi.qty} ${p2?p2.name:'—'}`;}).join(' + ');
     // Barras de progreso con campo manual por línea
     const bars = progress.map((pg, pgi) => {
+      // Fila de detalle (producto individual dentro del pool)
+      if (pg.isDetail) {
+        const equivTxt = (pg.equiv !== undefined && pg.equiv !== null)
+          ? ` uds → <b style="color:#94a3b8">${pg.equiv} equiv</b>`
+          : ` uds`;
+        return `<div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;padding:2px 6px;margin-bottom:2px;border-left:2px solid #2a3050">
+          <span>${pg.label}</span>
+          <span>${pg.app}${equivTxt}</span>
+        </div>`;
+      }
       const tot = pg.app + pg.manual;
       const pct = Math.min(100, Math.round(tot/pg.threshold*100));
       const col = pct>=100?'#10b981':pct>=70?'#f59e0b':'#60a5fa';
@@ -4596,7 +4595,7 @@ ${(()=>{
         </div>
       </div>
       ${bars}
-      ${complete?`<button onclick="deliverBonus(${c.id},${ri})" style="width:100%;background:#052e16;border:none;border-radius:6px;color:#10b981;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">✓ Entregar bonificación</button>`:''}
+      ${complete?`<button onclick="sendBonusOrder(${c.id},${ri})" style="width:100%;background:#052e16;border:1px solid #10b981;border-radius:6px;color:#10b981;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px">🎁 Enviar bonificación</button><button onclick="deliverBonus(${c.id},${ri})" style="width:100%;background:#1e293b;border:1px solid #64748b;border-radius:6px;color:#94a3b8;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Reiniciar</button>`:''}
     </div>`;
   }).join('');
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
@@ -4978,16 +4977,93 @@ function calcBonusProgress(cid, r, extraOrd) {
     return oDateStr >= startDateStr;
   }
 
-  if (r.ruleType === 'pool') {
-    let appUnits = 0;
-    orders.forEach(o => {
-      if (!orderPassesFilter(o)) return;
-      o.items.forEach(it => {
-        const pid = Number(it.productId||it.pid);
-        if ((r.poolProds||[]).includes(pid)) appUnits += Number(it.qty);
+  if (r.ruleType === 'mix') {
+    const results = [];
+    // Umbrales individuales
+    (r.mixIndTargets||[]).forEach(t => {
+      let appUnits = 0;
+      orders.forEach(o => {
+        if (!orderPassesFilter(o)) return;
+        o.items.forEach(it => {
+          if (Number(it.productId||it.pid) === t.productId) appUnits += Number(it.qty);
+        });
       });
+      const prod = S.products.find(x=>x.id===t.productId);
+      results.push({ label: prod?prod.name:'Producto', app: appUnits, manual: 0, threshold: t.threshold });
     });
-    return [{ label: r.poolLabel||'Total', app: appUnits, manual: Number(r.manualUnits)||0, threshold: r.threshold, isPool: true }];
+    // Pool compartido
+    if ((r.mixPoolProds||[]).length && r.mixPoolThreshold) {
+      let totalMixPool = 0;
+      (r.mixPoolProds||[]).forEach(pid => {
+        let qty = 0;
+        orders.forEach(o => {
+          if (!orderPassesFilter(o)) return;
+          o.items.forEach(it => { if (Number(it.productId||it.pid)===pid) qty+=Number(it.qty); });
+        });
+        const prod = S.products.find(x=>x.id===pid);
+        totalMixPool += qty;
+        results.push({ label: prod?prod.name:'Producto', app: qty, manual: 0, threshold: null, isDetail: true });
+      });
+      results.push({ label: 'Pool compartido', app: totalMixPool, manual: Number(r.manualUnits)||0, threshold: r.mixPoolThreshold, isPool: true });
+    }
+    // Pool con equivalencias
+    if ((r.mixEqProds||[]).length && r.mixEqThreshold) {
+      let appUnits = 0;
+      orders.forEach(o => {
+        if (!orderPassesFilter(o)) return;
+        o.items.forEach(it => {
+          const pid = Number(it.productId||it.pid);
+          const ep = (r.mixEqProds||[]).find(x => x.productId === pid);
+          if (ep) appUnits += Number(it.qty) * (Number(ep.factor)||1);
+        });
+      });
+      let totalEqMix = 0;
+      (r.mixEqProds||[]).forEach(ep => {
+        let qty = 0;
+        orders.forEach(o => {
+          if (!orderPassesFilter(o)) return;
+          o.items.forEach(it => { if (Number(it.productId||it.pid) === ep.productId) qty += Number(it.qty); });
+        });
+        const prod = S.products.find(x=>x.id===ep.productId);
+        const equiv = Math.round(qty * (Number(ep.factor)||1) * 100) / 100;
+        totalEqMix += equiv;
+        results.push({ label: (prod?prod.name:'Producto')+' ×'+ep.factor, app: qty, manual: 0, threshold: null, isDetail: true, equiv });
+      });
+      results.push({ label: 'Total pool equivalencias', app: Math.round(totalEqMix*100)/100, manual: Number(r.manualUnits)||0, threshold: r.mixEqThreshold, isPool: true });
+    }
+    if (!results.length) return [{ label: 'Sin metas', app: 0, manual: 0, threshold: 1 }];
+    return results;
+
+  } else if (r.ruleType === 'poolEq') {
+    let totalEq = 0;
+    const detalle = (r.poolEqProds||[]).map(ep => {
+      let qty = 0;
+      orders.forEach(o => {
+        if (!orderPassesFilter(o)) return;
+        o.items.forEach(it => { if (Number(it.productId||it.pid) === ep.productId) qty += Number(it.qty); });
+      });
+      const prod = S.products.find(x=>x.id===ep.productId);
+      const equiv = Math.round(qty * (Number(ep.factor)||1) * 100) / 100;
+      totalEq += equiv;
+      return { label: (prod?prod.name:'Producto')+' ×'+ep.factor, app: qty, manual: 0, threshold: null, isDetail: true, equiv };
+    });
+    const totalRow = { label: r.poolLabel||'Total pool', app: Math.round(totalEq*100)/100, manual: Number(r.manualUnits)||0, threshold: r.threshold, isPool: true };
+    return [...detalle, totalRow];
+
+  } else if (r.ruleType === 'pool') {
+    let totalPool = 0;
+    const detalle = (r.poolProds||[]).map(pid => {
+      let qty = 0;
+      orders.forEach(o => {
+        if (!orderPassesFilter(o)) return;
+        o.items.forEach(it => { if (Number(it.productId||it.pid) === pid) qty += Number(it.qty); });
+      });
+      const prod = S.products.find(x=>x.id===pid);
+      totalPool += qty;
+      return { label: prod?prod.name:'Producto', app: qty, manual: 0, threshold: null, isDetail: true };
+    });
+    const totalRow = { label: r.poolLabel||'Total', app: totalPool, manual: Number(r.manualUnits)||0, threshold: r.threshold, isPool: true };
+    return [...detalle, totalRow];
 
   } else {
     return (r.targets||[]).map((t,ti) => {
@@ -5040,6 +5116,41 @@ function openBonusModal(cid, ri) {
     </div>`;
   }).join('');
 
+  const poolEqHtml = (r2) => (r2.poolEqProds||[]).map(ep=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(ep.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
+    return `<div class="br-pooleq-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-eqpid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <input type="number" class="br-eqfactor" value="${ep.factor||1}" min="0.01" step="0.01" placeholder="Factor" title="1 galón=1, 1 litro=0.5" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-pooleq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
+  const mixIndHtml = (r2) => (r2.mixIndTargets||[]).map((t,i)=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(t.productId)?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+    return `<div class="br-mix-ind-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-mix-ind-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <input type="number" class="br-mix-ind-thr" value="${t.threshold||''}" min="1" placeholder="Meta" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-mix-ind-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
+  const mixPoolHtml = (r2) => (r2.mixPoolProds||[]).map(pid=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid)?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+    return `<div class="br-mix-pool-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-mix-pool-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <button onclick="this.closest('.br-mix-pool-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
+  const mixEqHtml = (r2) => (r2.mixEqProds||[]).map(ep=>{
+    const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(ep.productId)?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+    return `<div class="br-mix-eq-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+      <select class="br-mix-eq-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <input type="number" class="br-mix-eq-factor" value="${ep.factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>`;
+  }).join('');
+
   const bonusItemsHtml = (items) => (items||[]).map(bi=>{
     const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(bi.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div class="br-bonus-row" style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:8px;padding:6px;margin-bottom:6px">
@@ -5061,6 +5172,8 @@ function openBonusModal(cid, ri) {
     <div style="display:flex;gap:6px;margin-bottom:12px">
       <button id="btn-type-ind" onclick="setBonusType('individual')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${!isPool?'#f59e0b':'#2a3050'};background:${!isPool?'#2a1f00':'transparent'};color:${!isPool?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Umbrales independientes</button>
       <button id="btn-type-pool" onclick="setBonusType('pool')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${isPool?'#f59e0b':'#2a3050'};background:${isPool?'#2a1f00':'transparent'};color:${isPool?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Pool compartido</button>
+      <button id="btn-type-pooleq" onclick="setBonusType('poolEq')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${r.ruleType==='poolEq'?'#f59e0b':'#2a3050'};background:${r.ruleType==='poolEq'?'#2a1f00':'transparent'};color:${r.ruleType==='poolEq'?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Pool con equivalencias</button>
+      <button id="btn-type-mix" onclick="setBonusType('mix')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${r.ruleType==='mix'?'#f59e0b':'#2a3050'};background:${r.ruleType==='mix'?'#2a1f00':'transparent'};color:${r.ruleType==='mix'?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Producto MIX</button>
     </div>
     <div id="br-individual-section" style="display:${!isPool?'block':'none'}">
       <div style="font-size:11px;color:#94a3b8;margin-bottom:5px">PRODUCTOS Y UMBRALES (todos deben cumplirse):</div>
@@ -5073,6 +5186,29 @@ function openBonusModal(cid, ri) {
       <button onclick="addPoolRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto al pool</button>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL:</div>
       <input type="number" id="br-pool-threshold" value="${r.threshold||''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+    </div>
+    <div id="br-pooleq-section" style="display:${r.ruleType==='poolEq'?'block':'none'}">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:5px">PRODUCTOS CON EQUIVALENCIA:</div>
+      <div id="br-pooleq-rows">${poolEqHtml(r)}</div>
+      <button onclick="addPoolEqRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto con equivalencia</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL (unidades base):</div>
+      <input type="number" id="br-pooleq-threshold" value="${r.ruleType==='poolEq'?r.threshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+    </div>
+    <div id="br-mix-section" style="display:${r.ruleType==='mix'?'block':'none'}">
+      <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:6px">🎯 PRODUCTO MIX — cumplir lo que aplique:</div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">UMBRALES INDIVIDUALES (opcional):</div>
+      <div id="br-mix-ind-rows">${mixIndHtml(r)}</div>
+      <button onclick="addMixIndRow()" style="width:100%;background:#1e2a1a;border:1px dashed #4ade80;border-radius:7px;color:#4ade80;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto individual</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">POOL COMPARTIDO (opcional):</div>
+      <div id="br-mix-pool-rows">${mixPoolHtml(r)}</div>
+      <button onclick="addMixPoolRow()" style="width:100%;background:#1e2a3a;border:1px dashed #a78bfa;border-radius:7px;color:#a78bfa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:3px">+ Producto al pool</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL COMPARTIDO (opcional):</div>
+      <input type="number" id="br-mix-pool-threshold" value="${r.ruleType==='mix'?r.mixPoolThreshold||'':''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">POOL CON EQUIVALENCIAS (opcional):</div>
+      <div id="br-mix-eq-rows">${mixEqHtml(r)}</div>
+      <button onclick="addMixEqRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto con equivalencia</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL (opcional):</div>
+      <input type="number" id="br-mix-eq-threshold" value="${r.ruleType==='mix'?r.mixEqThreshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
     </div>
     <div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:5px">BONIFICACION A ENTREGAR:</div>
     <div id="br-bonus-rows">${bonusItemsHtml(r.bonusItems)}</div>
@@ -5101,10 +5237,19 @@ function openBonusModal(cid, ri) {
 function setBonusType(type) {
   document.getElementById('br-individual-section').style.display = type==='individual'?'block':'none';
   document.getElementById('br-pool-section').style.display = type==='pool'?'block':'none';
+  const peqSec = document.getElementById('br-pooleq-section');
+  if(peqSec) peqSec.style.display = type==='poolEq'?'block':'none';
   const btnInd = document.getElementById('btn-type-ind');
   const btnPool = document.getElementById('btn-type-pool');
+  const btnEq = document.getElementById('btn-type-pooleq');
   if(btnInd){btnInd.style.borderColor=type==='individual'?'#f59e0b':'#2a3050';btnInd.style.color=type==='individual'?'#f59e0b':'#94a3b8';btnInd.style.background=type==='individual'?'#2a1f00':'transparent';}
   if(btnPool){btnPool.style.borderColor=type==='pool'?'#f59e0b':'#2a3050';btnPool.style.color=type==='pool'?'#f59e0b':'#94a3b8';btnPool.style.background=type==='pool'?'#2a1f00':'transparent';}
+  if(btnEq){btnEq.style.borderColor=type==='poolEq'?'#f59e0b':'#2a3050';btnEq.style.color=type==='poolEq'?'#f59e0b':'#94a3b8';btnEq.style.background=type==='poolEq'?'#2a1f00':'transparent';}
+  const btnMix = document.getElementById('btn-type-mix');
+  if(btnMix){btnMix.style.borderColor=type==='mix'?'#f59e0b':'#2a3050';btnMix.style.color=type==='mix'?'#f59e0b':'#94a3b8';btnMix.style.background=type==='mix'?'#2a1f00':'transparent';}
+  const mixSec = document.getElementById('br-mix-section');
+  if(mixSec) mixSec.style.display = type==='mix'?'block':'none';
+  if(type==='poolEq' && !document.querySelectorAll('.br-pooleq-row').length) addPoolEqRow();
 }
 
 function addTargetRow() {
@@ -5149,6 +5294,8 @@ function saveBonusRule(cid, ri) {
   const vigenciaStart = document.getElementById('br-vigencia-start').value;
   const vigenciaEnd   = document.getElementById('br-vigencia-end').value;
   const isPool = document.getElementById('br-pool-section').style.display !== 'none';
+  const isPoolEq = !!document.getElementById('br-pooleq-section') && document.getElementById('br-pooleq-section').style.display !== 'none';
+  const isMix = !!document.getElementById('br-mix-section') && document.getElementById('br-mix-section').style.display !== 'none';
   const bonusRows = document.querySelectorAll('.br-bonus-row');
   const bonusItems = [];
   bonusRows.forEach(row => {
@@ -5161,7 +5308,44 @@ function saveBonusRule(cid, ri) {
   });
   if (!bonusItems.length) return toast('Agrega al menos un producto de bonificacion','#f59e0b');
   let rule;
-  if (isPool) {
+  if (isMix) {
+    const indRows = document.querySelectorAll('.br-mix-ind-row');
+    const mixIndTargets = [];
+    indRows.forEach(row => {
+      const pid = row.querySelector('.br-mix-ind-pid')?.value;
+      const thr = Number(row.querySelector('.br-mix-ind-thr')?.value);
+      if (pid && thr) mixIndTargets.push({ productId: Number(pid), threshold: thr });
+    });
+    const poolRows = document.querySelectorAll('.br-mix-pool-row');
+    const mixPoolProds = [];
+    poolRows.forEach(row => {
+      const pid = row.querySelector('.br-mix-pool-pid')?.value;
+      if (pid) mixPoolProds.push(Number(pid));
+    });
+    const mixPoolThreshold = Number(document.getElementById('br-mix-pool-threshold').value) || 0;
+    const eqRows = document.querySelectorAll('.br-mix-eq-row');
+    const mixEqProds = [];
+    eqRows.forEach(row => {
+      const pid = row.querySelector('.br-mix-eq-pid')?.value;
+      const factor = Number(row.querySelector('.br-mix-eq-factor')?.value) || 1;
+      if (pid) mixEqProds.push({ productId: Number(pid), factor });
+    });
+    const mixEqThreshold = Number(document.getElementById('br-mix-eq-threshold').value) || 0;
+    if (!mixIndTargets.length && !mixPoolProds.length && !mixEqProds.length) return toast('Agrega al menos un producto','#f59e0b');
+    rule = { ruleType:'mix', name, mixIndTargets, mixPoolProds, mixPoolThreshold, mixEqProds, mixEqThreshold, bonusItems, startDate, deadline, vigenciaStart, vigenciaEnd, manualUnits:0 };
+  } else if (isPoolEq) {
+    const eqRows = document.querySelectorAll('.br-pooleq-row');
+    const poolEqProds = [];
+    eqRows.forEach(row => {
+      const pid = row.querySelector('.br-eqpid')?.value;
+      const factor = Number(row.querySelector('.br-eqfactor')?.value) || 1;
+      if (pid) poolEqProds.push({ productId: Number(pid), factor });
+    });
+    const threshold = Number(document.getElementById('br-pooleq-threshold').value);
+    if (!poolEqProds.length) return toast('Agrega productos al pool','#f59e0b');
+    if (!threshold) return toast('Ingresa el umbral total','#f59e0b');
+    rule = { ruleType:'poolEq', name, poolEqProds, threshold, bonusItems, startDate, deadline, vigenciaStart, vigenciaEnd, manualUnits:0 };
+  } else if (isPool) {
     const poolRows = document.querySelectorAll('.br-pool-row');
     const poolProds = [];
     poolRows.forEach(row => { const pid = row.querySelector('.br-ppid')?.value; if(pid) poolProds.push(Number(pid)); });
@@ -5244,7 +5428,130 @@ function showBonusReport(cid) {
       }
     }
 
-    const targetsHtml = progress.map(prog => {
+    // Agrupar filas: juntar isDetail + su total (isPool) en un solo bloque
+    const groupedProgress = [];
+    let detailGroup = null;
+    progress.forEach(pg => {
+      if (pg.isDetail) {
+        if (!detailGroup) detailGroup = { items: [], totalRow: null };
+        detailGroup.items.push(pg);
+      } else if (detailGroup && pg.isPool) {
+        detailGroup.totalRow = pg;
+        groupedProgress.push({ type: 'poolGroup', detailGroup });
+        detailGroup = null;
+      } else {
+        if (detailGroup) { groupedProgress.push({ type: 'poolGroup', detailGroup }); detailGroup = null; }
+        groupedProgress.push({ type: 'single', prog: pg });
+      }
+    });
+    if (detailGroup) groupedProgress.push({ type: 'poolGroup', detailGroup });
+
+    const targetsHtml = groupedProgress.map(group => {
+      if (group.type === 'poolGroup') {
+        const { items, totalRow } = group.detailGroup;
+        if (!totalRow) return '';
+        const total = totalRow.app + totalRow.manual;
+        const pct = Math.min(100, Math.round(total / totalRow.threshold * 100));
+        const color = pct >= 100 ? '#16a34a' : pct >= 60 ? '#d97706' : '#dc2626';
+        const restante = Math.max(0, totalRow.threshold - total);
+
+        // Título: nombres de productos sin el ×factor
+        // Construir título: parte común + partes distintas en línea aparte
+        const nombres = items.map(it => it.label.replace(/\s×[\d.]+$/, ''));
+        // Encontrar prefijo común palabra por palabra
+        const palabrasBase = nombres[0].split(' ');
+        let comunLen = 0;
+        for (let wi = 0; wi < palabrasBase.length; wi++) {
+          if (nombres.every(n => n.split(' ')[wi] === palabrasBase[wi])) comunLen = wi + 1;
+          else break;
+        }
+        const parteComun = palabrasBase.slice(0, comunLen).join(' ');
+        const partesDistintas = nombres.map(n => n.split(' ').slice(comunLen).join(' ')).join(' / ');
+        const titulo = parteComun && partesDistintas
+          ? `${parteComun}<br><span style="font-weight:700">${partesDistintas}</span>`
+          : nombres.join(' / ');
+
+        // Datos por producto: nombre, unidad, cantidades por mes
+        const prodData = items.map(it => {
+          const prodName = it.label.replace(/\s×[\d.]+$/, '');
+          const p2 = S.products.find(x => x.name === prodName);
+          const words = (p2?.name||'').trim().split(/\s+/);
+          const unitSing = words[words.length-1]||'unidad';
+          // Pluralizar
+          const pluralize = (u, q) => {
+            if (q <= 1) return u;
+            const up = u === u.toUpperCase();
+            const l = u.toLowerCase();
+            if (l.endsWith('ón')) return u.slice(0,-2)+(up?'ONES':'ones');
+            if (l.endsWith('el')||l.endsWith('or')) return u+(up?'ES':'es');
+            return u+(up?'S':'s');
+          };
+          // Total consumido de este producto
+          let totalQty = 0;
+          orders.forEach(o => { o.items.forEach(oi => { if (p2 && Number(oi.productId||oi.pid)===p2.id) totalQty += Number(oi.qty); }); });
+          // Por mes
+          const byMonth = {};
+          months.forEach(({y,m,label}) => {
+            let qty = 0;
+            orders.forEach(o => {
+              const parts = (o.date||'').split('/');
+              if (parts.length < 3) return;
+              if (parseInt(parts[1])===m && parseInt(parts[2])===y)
+                o.items.forEach(oi => { if (p2 && Number(oi.productId||oi.pid)===p2.id) qty += Number(oi.qty); });
+            });
+            byMonth[label] = qty;
+          });
+          return { prodName, p2, unitSing, pluralize, totalQty, byMonth };
+        });
+
+        // Detectar si es pool con equivalencias (tiene ×factor) o pool compartido
+        const esEquivalencias = items.some(it => /×[\d.]+$/.test(it.label));
+
+        let consumidoStr, restanteStr, consumidoEsMultilinea = false, lineas = '';
+        if (esEquivalencias) {
+          // Pool con equivalencias: "548 GALONES / 200 LITROS (72%)"
+          consumidoStr = prodData.map(pd => pd.totalQty > 0 ? `${pd.totalQty} ${pd.pluralize(pd.unitSing, pd.totalQty)}` : null).filter(Boolean).join(' / ') + ` (${pct}%)`;
+          restanteStr = items.map((it, i) => {
+            const pd = prodData[i];
+            const factor = Number(it.label.match(/×([\d.]+)$/)?.[1]||1);
+            const restProd = factor > 0 ? Math.ceil(restante / factor) : restante;
+            return restProd > 0 ? `${restProd} ${pd.pluralize(pd.unitSing, restProd)}` : null;
+          }).filter(Boolean).join(' o ');
+        } else {
+          // Pool compartido: cada producto en su línea, restante simple
+          consumidoEsMultilinea = true;
+          lineas = prodData.filter(pd => pd.totalQty > 0).map(pd => {
+            const nombreCorto = parteComun ? pd.prodName.split(' ').slice(comunLen).join(' ') : pd.prodName;
+            return `${pd.totalQty} ${nombreCorto}`;
+          }).join(' / ');
+          consumidoStr = `${pct}%<br><span style="font-weight:700">${lineas}</span>`;
+          restanteStr = String(restante);
+        }
+
+        const pBar = `<div style="background:#e2e8f0;border-radius:4px;height:8px;margin:4px 0">
+          <div style="background:${color};width:${pct}%;height:8px;border-radius:4px"></div></div>`;
+
+        // Consumo por mes combinado
+        let monthRowsPool = '';
+        if (months.length) {
+          months.forEach(({label}) => {
+            const partes = prodData.map(pd => pd.byMonth[label] > 0 ? `${pd.byMonth[label]} ${pd.pluralize(pd.unitSing, pd.byMonth[label])}` : null).filter(Boolean);
+            if (partes.length) monthRowsPool += `<tr><td style="padding:2px 0 2px 12px;font-size:12px;color:#374151">${label}</td><td style="padding:2px 0;font-size:12px;color:#374151;text-align:right">${partes.join(' / ')}</td></tr>`;
+          });
+        }
+
+        return `<div style="margin-bottom:14px;padding:10px;background:#f8fafc;border-radius:8px;border-left:3px solid ${color}">
+          <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px">${titulo}</div>
+          ${pBar}
+          <table style="width:100%;border-collapse:collapse">
+            <tr><td style="font-size:12px;color:#374151;padding:2px 0">Meta:</td><td style="font-size:12px;color:#1e293b;font-weight:700;text-align:right">${totalRow.threshold}</td></tr>
+            ${consumidoEsMultilinea ? `<tr><td colspan="2" style="font-size:12px;color:#374151;padding:2px 0">Progreso: <span style="color:${color};font-weight:700">${pct}%</span></td></tr><tr><td colspan="2" style="font-size:12px;padding:2px 0;font-weight:700;color:${color};text-align:left">${lineas}</td></tr>` : `<tr><td style="font-size:12px;color:#374151;padding:2px 0;vertical-align:top">Consumido:</td><td style="font-size:12px;color:${color};font-weight:700;text-align:right">${consumidoStr}</td></tr>`}
+            <tr><td style="font-size:12px;color:#374151;padding:2px 0">Restante:</td><td style="font-size:12px;color:#dc2626;font-weight:700;text-align:right">${restanteStr}</td></tr>
+            ${monthRowsPool ? `<tr><td colspan="2" style="padding:4px 0 2px;font-size:11px;color:#64748b;font-weight:600">Consumo por mes:</td></tr>${monthRowsPool}` : ''}
+          </table>
+        </div>`;
+      }
+      const prog = group.prog;
       const p = S.products.find(x => prog.label && prog.label.startsWith(x.name));
       // Usar última palabra del nombre como unidad con plural automático
       function getUnitFromName(name, qty) {
@@ -5575,9 +5882,13 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
           const ul = p?.unitLabel||'unidad';
           const sub = (bl.qty||0) * us * (bl.price||0);
           const spec = p?.presentation?` (${p.presentation})`:'';
-          return `<div style="display:flex;justify-content:space-between;font-size:12px;color:#1e3a8a">
-            <span>${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span>
-            <span style="font-weight:700">${Q(sub)}</span>
+          const comentarioBl = bl.ruleName ? `<div style="font-size:11px;color:#64748b;font-style:italic;margin-top:1px">💬 ${bl.ruleName}</div>` : '';
+          return `<div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#1e3a8a">
+              <span>${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span>
+              <span style="font-weight:700">${Q(sub)}</span>
+            </div>
+            ${comentarioBl}
           </div>`;
         }).join('');
         bonifRow = `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px">
@@ -5675,9 +5986,19 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
 
   // Construir secciones por regla
   const sectionsHtml = rules.map(rule => {
-    const ruleProds = rule.ruleType==='pool'
-      ? (rule.poolProds||[]).map(Number)
-      : (rule.targets||[]).map(t=>Number(t.productId));
+    let ruleProds;
+    if (rule.ruleType === 'pool') {
+      ruleProds = (rule.poolProds||[]).map(Number);
+    } else if (rule.ruleType === 'poolEq') {
+      ruleProds = (rule.poolEqProds||[]).map(ep=>Number(ep.productId));
+    } else if (rule.ruleType === 'mix') {
+      const indPids  = (rule.mixIndTargets||[]).map(t=>Number(t.productId));
+      const poolPids = (rule.mixPoolProds||[]).map(Number);
+      const eqPids   = (rule.mixEqProds||[]).map(ep=>Number(ep.productId));
+      ruleProds = [...new Set([...indPids, ...poolPids, ...eqPids])];
+    } else {
+      ruleProds = (rule.targets||[]).map(t=>Number(t.productId));
+    }
 
     const vigStart = rule.vigenciaStart || fromStr;
     const vigEnd   = rule.vigenciaEnd   || toStr;
@@ -5686,8 +6007,13 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
 
     const rangeOrders = allOrders.filter(o => {
       const ds = toYMD(o.date);
-      return ds >= effectiveFrom && ds <= effectiveTo &&
-        o.items.some(it => ruleProds.includes(Number(it.productId||it.pid)));
+      if (ds < effectiveFrom || ds > effectiveTo) return false;
+      // Incluir si tiene productos de la meta
+      const tieneMetaProds = o.items.some(it => ruleProds.includes(Number(it.productId||it.pid)));
+      // O si tiene bonificación correspondiente a esta regla
+      const tieneBonif = o.bonusLines && o.bonusLines.length &&
+        o.bonusLines.some(bl => (rule.bonusItems||[]).some(bi=>Number(bi.productId)===Number(bl.productId)));
+      return tieneMetaProds || tieneBonif;
     });
 
     if (!rangeOrders.length) return '';
@@ -5747,29 +6073,167 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
       let bonifHtml = '';
       if (g.bonusOrd && g.bonusOrd.bonusLines && g.bonusOrd.bonusLines.length) {
         // Barra de cumplimiento
-        const rTargets = rule.ruleType==='pool'
-          ? [{productId:null,threshold:rule.threshold,isPool:true,poolProds:rule.poolProds||[]}]
-          : (rule.targets||[]);
+        let rTargets;
+        if (rule.ruleType === 'pool') {
+          rTargets = [{productId:null,threshold:rule.threshold,isPool:true,poolProds:rule.poolProds||[]}];
+        } else if (rule.ruleType === 'poolEq') {
+          rTargets = [{productId:null,threshold:rule.threshold,isPool:true,poolEqProds:rule.poolEqProds||[],isPoolEq:true}];
+        } else if (rule.ruleType === 'mix') {
+          rTargets = [
+            ...(rule.mixIndTargets||[]),
+            ...(rule.mixPoolProds&&rule.mixPoolProds.length&&rule.mixPoolThreshold ? [{productId:null,threshold:rule.mixPoolThreshold,isPool:true,poolProds:rule.mixPoolProds}] : []),
+            ...(rule.mixEqProds&&rule.mixEqProds.length&&rule.mixEqThreshold ? [{productId:null,threshold:rule.mixEqThreshold,isPool:true,poolEqProds:rule.mixEqProds,isPoolEq:true}] : [])
+          ];
+        } else {
+          rTargets = (rule.targets||[]);
+        }
         const barHtml = rTargets.map(t => {
           const tp = t.isPool ? null : S.products.find(x=>x.id===Number(t.productId));
           const tName = tp?tp.name:(t.label||'Total');
+
+          // Función para obtener unidad (última palabra del nombre)
+          function getUnitWord(name, qty) {
+            if (!name) return '';
+            const words = name.trim().split(/\s+/);
+            const last = words[words.length-1];
+            if (qty <= 1) return last;
+            const up = last === last.toUpperCase();
+            const l = last.toLowerCase();
+            if (l.endsWith('ón')) return last.slice(0,-2)+(up?'ONES':'ones');
+            if (l.endsWith('el')||l.endsWith('or')) return last+(up?'ES':'es');
+            return last+(up?'S':'s');
+          }
+
+          if (t.isPoolEq) {
+            // Pool con equivalencias: calcular por producto + total
+            const eqProds = t.poolEqProds||[];
+            let totalEq = 0;
+            const prodQtys = eqProds.map(ep => {
+              let qty = 0;
+              g.orders.forEach(o => o.items.forEach(it => {
+                if (Number(it.productId||it.pid)===Number(ep.productId)) qty+=Number(it.qty);
+              }));
+              const p2 = S.products.find(x=>x.id===Number(ep.productId));
+              const equiv = Math.round(qty*(Number(ep.factor)||1)*100)/100;
+              totalEq += equiv;
+              return { name: p2?p2.name:'Producto', qty, factor: ep.factor };
+            });
+            const meta = t.threshold||0;
+            const pct  = meta>0 ? Math.min(100,Math.round(totalEq/meta*100)) : 100;
+            const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+            const restante = Math.max(0, meta - totalEq);
+            // Título con parte común
+            const nombres = prodQtys.map(p=>p.name);
+            const palabrasBase = nombres[0].split(' ');
+            let comunLen = 0;
+            for (let wi=0; wi<palabrasBase.length; wi++) {
+              if (nombres.every(n=>n.split(' ')[wi]===palabrasBase[wi])) comunLen=wi+1; else break;
+            }
+            const parteComun = palabrasBase.slice(0,comunLen).join(' ');
+            const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
+            const tituloHtml = parteComun && partesDistintas
+              ? `<b>${parteComun}</b><br><b>${partesDistintas}</b>`
+              : `<b>${nombres.join(' / ')}</b>`;
+            const consumidoStr = prodQtys.map(p=>p.qty>0?`${p.qty} ${getUnitWord(p.name,p.qty)}`:null).filter(Boolean).join(' / ')+` (${pct}%)`;
+            const restanteStr = eqProds.map((ep,i)=>{
+              const factor = Number(ep.factor)||1;
+              const rp = factor>0?Math.ceil(restante/factor):restante;
+              return rp>0?`${rp} ${getUnitWord(prodQtys[i].name,rp)}`:null;
+            }).filter(Boolean).join(' o ');
+            return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
+              <div style="font-size:12px;color:#1e293b;margin-bottom:4px">${tituloHtml}</div>
+              <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px">
+                <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
+                <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${consumidoStr}</td></tr>
+                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:#dc2626">${restanteStr}</td></tr>
+              </table>
+            </div>`;
+          }
+
+          // Pool compartido: detalle por producto
+          if (t.isPool && !t.isPoolEq) {
+            const poolPids = (t.poolProds||[]).map(Number);
+            let totalPool = 0;
+            const prodQtys = poolPids.map(pid => {
+              let qty = 0;
+              g.orders.forEach(o => o.items.forEach(it => {
+                if (Number(it.productId||it.pid)===pid) qty+=Number(it.qty);
+              }));
+              const p2 = S.products.find(x=>x.id===pid);
+              totalPool += qty;
+              return { name: p2?p2.name:'Producto', qty };
+            }).filter(p=>p.qty>0);
+            const meta = t.threshold||0;
+            const pct  = meta>0 ? Math.min(100,Math.round(totalPool/meta*100)) : 100;
+            const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+            const restante = Math.max(0, meta - totalPool);
+            // Detectar si tienen texto en común
+            const nombres = prodQtys.map(p=>p.name);
+            let comunLen = 0;
+            if (nombres.length > 1) {
+              const palabrasBase = nombres[0].split(' ');
+              for (let wi=0; wi<palabrasBase.length; wi++) {
+                if (nombres.every(n=>n.split(' ')[wi]===palabrasBase[wi])) comunLen=wi+1; else break;
+              }
+            }
+            const tieneComun = comunLen > 0 && nombres.length > 1;
+            // Título
+            let tituloPool;
+            if (tieneComun) {
+              const parteComun = nombres[0].split(' ').slice(0,comunLen).join(' ');
+              const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
+              tituloPool = partesDistintas
+                ? `<b>${parteComun}</b><br><b>${partesDistintas}</b>`
+                : `<b>${parteComun}</b>`;
+            } else {
+              tituloPool = nombres.join('<br>') || 'Pool compartido';
+              tituloPool = `<b>${tituloPool}</b>`;
+            }
+            // Progreso: X% + productos en una línea "5 LACA TONEL / 1 ACRÍLICO TONEL"
+            const lineasCons = prodQtys.map(p=>{
+              const nombreCorto = tieneComun ? p.name.split(' ').slice(comunLen).join(' ') : p.name;
+              return `${p.qty} ${nombreCorto}`;
+            }).join(' / ');
+            const consumidoHtml = `${pct}%<br><span style="font-weight:700">${lineasCons}</span>`;
+            const restanteHtml = String(restante);
+            const pBar = `<div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px"><div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div></div>`;
+            return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
+              <div style="font-size:12px;color:#1e293b;margin-bottom:4px">${tituloPool}</div>
+              ${pBar}
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
+                <tr><td colspan="2" style="color:#374151;padding:1px 0">Progreso: <span style="color:${col};font-weight:700">${pct}%</span></td></tr><tr><td colspan="2" style="padding:1px 0;font-weight:700;color:${col};text-align:left">${lineasCons}</td></tr>
+                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:#dc2626">${restante}</td></tr>
+              </table>
+            </div>`;
+          }
+
+          // Individual
           let logro = 0;
           g.orders.forEach(o => o.items.forEach(it => {
             const pid = Number(it.productId||it.pid);
-            if (t.isPool) { if((t.poolProds||[]).includes(pid)) logro+=Number(it.qty); }
-            else { if(pid===Number(t.productId)) logro+=Number(it.qty); }
+            if (pid===Number(t.productId)) logro+=Number(it.qty);
           }));
           const meta = t.threshold||0;
           const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 100;
           const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
-          return `<div style="margin-bottom:6px">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
-              <span>Meta: ${meta} ${getUnit(tName,meta)}</span>
-              <span style="color:${col};font-weight:700">Logro: ${logro} ${getUnit(tName,logro)} (${pct}%)${pct>=100?' ✅':''}</span>
-            </div>
-            <div style="background:#e2e8f0;border-radius:4px;height:7px">
+          const restante = Math.max(0, meta - logro);
+          const unitCons = getUnitWord(tName, logro);
+          const unitRest = getUnitWord(tName, restante);
+          const unitMeta = getUnitWord(tName, meta);
+          return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
+            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tName}</div>
+            <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px">
               <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
             </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta} ${unitMeta}</td></tr>
+              <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${logro} ${unitCons} (${pct}%)${pct>=100?' ✅':''}</td></tr>
+              <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:#dc2626">${restante} ${unitRest}</td></tr>
+            </table>
           </div>`;
         }).join('');
         // Sin precio
@@ -5792,13 +6256,77 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
       // Barra de progreso para período en curso
       let cursoBarHtml = '';
       if (isCurrent) {
-        const rTargets = rule.ruleType==='pool'
-          ? [{productId:null,threshold:rule.threshold,isPool:true,poolProds:rule.poolProds||[]}]
-          : (rule.targets||[]);
+        let rTargets;
+        if (rule.ruleType === 'pool') {
+          rTargets = [{productId:null,threshold:rule.threshold,isPool:true,poolProds:rule.poolProds||[]}];
+        } else if (rule.ruleType === 'poolEq') {
+          rTargets = [{productId:null,threshold:rule.threshold,isPool:true,poolEqProds:rule.poolEqProds||[],isPoolEq:true}];
+        } else if (rule.ruleType === 'mix') {
+          rTargets = [
+            ...(rule.mixIndTargets||[]),
+            ...(rule.mixPoolProds&&rule.mixPoolProds.length&&rule.mixPoolThreshold ? [{productId:null,threshold:rule.mixPoolThreshold,isPool:true,poolProds:rule.mixPoolProds}] : []),
+            ...(rule.mixEqProds&&rule.mixEqProds.length&&rule.mixEqThreshold ? [{productId:null,threshold:rule.mixEqThreshold,isPool:true,poolEqProds:rule.mixEqProds,isPoolEq:true}] : [])
+          ];
+        } else {
+          rTargets = (rule.targets||[]);
+        }
+        // Función unidad local
+        function getUnitWordCurso(name, qty) {
+          if (!name) return '';
+          const words = name.trim().split(/\s+/);
+          const last = words[words.length-1];
+          if (qty <= 1) return last;
+          const up = last === last.toUpperCase();
+          const l = last.toLowerCase();
+          if (l.endsWith('ón')) return last.slice(0,-2)+(up?'ONES':'ones');
+          if (l.endsWith('el')||l.endsWith('or')) return last+(up?'ES':'es');
+          return last+(up?'S':'s');
+        }
         cursoBarHtml = `<div style="margin-top:8px;padding:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px">` +
           rTargets.map(t => {
             const tp = t.isPool ? null : S.products.find(x=>x.id===Number(t.productId));
             const tName = tp?tp.name:(t.label||'Total');
+
+            // Pool con equivalencias
+            if (t.isPoolEq) {
+              const eqProds = t.poolEqProds||[];
+              let totalEq = 0;
+              const prodQtys = eqProds.map(ep => {
+                let qty = 0;
+                g.orders.forEach(o => o.items.forEach(it => {
+                  if (Number(it.productId||it.pid)===Number(ep.productId)) qty+=Number(it.qty);
+                }));
+                const p2 = S.products.find(x=>x.id===Number(ep.productId));
+                totalEq += Math.round(qty*(Number(ep.factor)||1)*100)/100;
+                return { name:p2?p2.name:'Producto', qty };
+              });
+              const meta = t.threshold||0;
+              const pct  = meta>0 ? Math.min(100,Math.round(totalEq/meta*100)) : 0;
+              const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+              // Título parte común
+              const nombres = prodQtys.map(p=>p.name);
+              let comunLen = 0;
+              const palabrasBase = nombres[0].split(' ');
+              for (let wi=0; wi<palabrasBase.length; wi++) {
+                if (nombres.every(n=>n.split(' ')[wi]===palabrasBase[wi])) comunLen=wi+1; else break;
+              }
+              const parteComun = palabrasBase.slice(0,comunLen).join(' ');
+              const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
+              const tituloEq = parteComun && partesDistintas ? `<b>${parteComun}</b><br><b>${partesDistintas}</b>` : `<b>${nombres.join(' / ')}</b>`;
+              const detalleEq = prodQtys.filter(p=>p.qty>0).map(p=>`${p.qty} ${getUnitWordCurso(p.name,p.qty)}`).join(' / ');
+              return `<div style="margin-bottom:4px">
+                <div style="font-size:11px;color:#1e293b;margin-bottom:3px">${tituloEq}</div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
+                  <span>Meta: ${meta}</span>
+                  <span style="color:${col};font-weight:700">${totalEq} / ${meta} (${pct}%)${pct>=100?' ✅':''}</span>
+                </div>
+                ${detalleEq?`<div style="font-size:11px;color:${col};font-weight:700;margin-bottom:3px">${detalleEq}</div>`:''}
+                <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:3px">
+                  <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
+                </div>
+              </div>`;
+            }
+
             let logro = 0;
             g.orders.forEach(o => o.items.forEach(it => {
               const pid = Number(it.productId||it.pid);
@@ -5810,6 +6338,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
             const restante = Math.max(0, meta - logro);
             return `<div style="margin-bottom:4px">
+              <div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:3px">${tName}</div>
               <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
                 <span>Meta: ${meta} ${getUnit(tName,meta)}</span>
                 <span style="color:${col};font-weight:700">${logro} / ${meta} (${pct}%)${pct>=100?' ✅':''}</span>
@@ -5986,6 +6515,8 @@ function deliverBonus(cid, ri) {
 }
 function checkBonusAlert(cid, oid, onDone, extraOrd) {
   if (!S.bonuses || !S.bonuses[cid]) return false;
+  // Si el pedido ya tiene una bonificación cargada, no mostrar la alerta
+  if (extraOrd && extraOrd.bonusLines && extraOrd.bonusLines.length) return false;
   const rules = S.bonuses[cid];
   const declined = extraOrd?.bonusDeclined || [];
   const triggered = rules.map((r,ri)=>({r,ri})).filter(({r,ri})=>
@@ -9025,6 +9556,98 @@ function openQuoteFromRoute(oid) {
   const o = S.orders.find(x => x.id === oid);
   if (!o) return;
   showQuote(o);
+}
+
+function addPoolEqRow(pid, factor) {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid||'')?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+  const row = document.createElement('div');
+  row.className = 'br-pooleq-row';
+  row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  row.innerHTML = `
+    <select class="br-eqpid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="br-eqfactor" value="${factor||1}" min="0.01" step="0.01" placeholder="Factor" title="1 galón=1, 1 litro=0.5" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.br-pooleq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-pooleq-rows').appendChild(row);
+}
+
+function addMixIndRow(pid, threshold) {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid||'')?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+  const row = document.createElement('div');
+  row.className = 'br-mix-ind-row';
+  row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  row.innerHTML = `
+    <select class="br-mix-ind-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="br-mix-ind-thr" value="${threshold||''}" min="1" placeholder="Meta" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.br-mix-ind-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-mix-ind-rows').appendChild(row);
+}
+
+function addMixEqRow(pid, factor) {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid||'')?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+  const row = document.createElement('div');
+  row.className = 'br-mix-eq-row';
+  row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  row.innerHTML = `
+    <select class="br-mix-eq-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <input type="number" class="br-mix-eq-factor" value="${factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+    <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-mix-eq-rows').appendChild(row);
+}
+
+function addMixPoolRow(pid) {
+  const prodOpts = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid||'')?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
+  const row = document.createElement('div');
+  row.className = 'br-mix-pool-row';
+  row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  row.innerHTML = `
+    <select class="br-mix-pool-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <button onclick="this.closest('.br-mix-pool-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+  document.getElementById('br-mix-pool-rows').appendChild(row);
+}
+
+function sendBonusOrder(cid, ri) {
+  const _cid = Number(cid);
+  const rules = S.bonuses?.[_cid] || S.bonuses?.[String(_cid)];
+  const r = rules?.[Number(ri)];
+  if (!r) { toast('No se encontró la regla', '#ef4444'); return; }
+  if (!(r.bonusItems||[]).length) { toast('Esta regla no tiene bonificación configurada', '#f59e0b'); return; }
+
+  // Preparar pedido nuevo
+  editingOid = null;
+  ordItems = [{ pid:'', qty:1, price:null }];
+  ordComments = [''];
+  // Cargar las líneas de bonificación de la regla
+  ordBonusLines = (r.bonusItems||[]).map(bi => {
+    const p = S.products.find(x=>x.id===Number(bi.productId));
+    return { productId: Number(bi.productId), qty: Number(bi.qty)||1, price: bi.price!=null?bi.price:(p?p.basePrice||0:0), ruleName: r.name||'Bonificación' };
+  });
+  window._bonusConfirmed = true;
+  window._pendingBonusReset = { cid: _cid, ri: Number(ri) };
+
+  goTab('order');
+  setTimeout(() => {
+    const cli = S.clients.find(c => c.id === _cid);
+    // Asignar cliente en los campos
+    const cliHid = document.getElementById('ord-cli');
+    const cliTxt = document.getElementById('ord-cli-txt');
+    if (cliHid) cliHid.value = _cid;
+    if (cliTxt && cli) cliTxt.value = cli.name;
+    // Mostrar el formulario (igual que en duplicar)
+    const body = document.getElementById('ord-body');
+    const ph   = document.getElementById('ord-ph');
+    const info = document.getElementById('ord-cli-info');
+    if (body) body.style.display = 'block';
+    if (ph)   ph.style.display   = 'none';
+    if (info && cli) info.innerHTML = (cli.phone?'📞 '+cli.phone:'') + (cli.address?' &nbsp;📍 '+cli.address:'');
+    refreshDeliverySel(_cid);
+    setComments(['']);
+    const ivaIncEl = document.getElementById('ord-iva-inc'); if (ivaIncEl) ivaIncEl.checked = true;
+    renderItems();
+    renderOrdBonusRows();
+    refreshTotalWithIVA();
+    onDeliveryInputChange();
+    toast('🎁 Bonificación cargada — completa y guarda el pedido','#10b981');
+  }, 300);
 }
 </script>
 </body>
