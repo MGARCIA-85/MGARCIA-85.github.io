@@ -5175,7 +5175,18 @@ function openBonusModal(cid, ri) {
   if (!S.bonuses) S.bonuses = {};
   if (!S.bonuses[cid]) S.bonuses[cid] = [];
   const isEdit = ri !== null && ri !== undefined;
-  const r = isEdit ? S.bonuses[cid][ri] : { ruleType:'individual', name:'', targets:[], bonusItems:[], deadline:'', startDate: new Date().toISOString().split('T')[0] };
+  let r = isEdit ? S.bonuses[cid][ri] : { ruleType:'mix', name:'', mixIndTargets:[], mixPoolProds:[], mixEqProds:[], bonusItems:[], deadline:'', startDate: new Date().toISOString().split('T')[0] };
+
+  // Migrar reglas antiguas (individual/pool/poolEq) al formato MIX unificado, sin perder su configuración
+  if (isEdit && r.ruleType !== 'mix') {
+    if (r.ruleType === 'individual') {
+      r = { ...r, ruleType:'mix', mixIndTargets: r.targets||[], mixPoolProds:[], mixPoolThreshold:null, mixEqProds:[], mixEqThreshold:null };
+    } else if (r.ruleType === 'pool') {
+      r = { ...r, ruleType:'mix', mixIndTargets:[], mixPoolProds: r.poolProds||[], mixPoolThreshold: r.threshold, mixEqProds:[], mixEqThreshold:null };
+    } else if (r.ruleType === 'poolEq') {
+      r = { ...r, ruleType:'mix', mixIndTargets:[], mixPoolProds:[], mixPoolThreshold:null, mixEqProds: r.poolEqProds||[], mixEqThreshold: r.threshold };
+    }
+  }
 
   const prodOpts = () => S.products.map(p=>`<option value="${p.id}">${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
   const isPool = r.ruleType === 'pool';
@@ -5250,19 +5261,12 @@ function openBonusModal(cid, ri) {
     <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">NOMBRE:</div>
     <input id="br-name" value="${r.name||''}" placeholder="Ej: Bonif. Q2 Laca" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
     <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">TIPO:</div>
-    <div style="display:flex;gap:6px;margin-bottom:12px">
-      <button id="btn-type-ind" onclick="setBonusType('individual')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${!isPool?'#f59e0b':'#2a3050'};background:${!isPool?'#2a1f00':'transparent'};color:${!isPool?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Umbrales independientes</button>
-      <button id="btn-type-pool" onclick="setBonusType('pool')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${isPool?'#f59e0b':'#2a3050'};background:${isPool?'#2a1f00':'transparent'};color:${isPool?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Pool compartido</button>
-      <button id="btn-type-pooleq" onclick="setBonusType('poolEq')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${r.ruleType==='poolEq'?'#f59e0b':'#2a3050'};background:${r.ruleType==='poolEq'?'#2a1f00':'transparent'};color:${r.ruleType==='poolEq'?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Pool con equivalencias</button>
-      <button id="btn-type-mix" onclick="setBonusType('mix')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${r.ruleType==='mix'?'#f59e0b':'#2a3050'};background:${r.ruleType==='mix'?'#2a1f00':'transparent'};color:${r.ruleType==='mix'?'#f59e0b':'#94a3b8'};font-size:11px;cursor:pointer;font-weight:700">Producto MIX</button>
+    <input type="hidden" id="br-type-fixed" value="mix"/>
+    <div id="br-individual-section" style="display:none">
+      <div id="br-target-rows"></div>
     </div>
-    <div id="br-individual-section" style="display:${!isPool?'block':'none'}">
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:5px">PRODUCTOS Y UMBRALES (todos deben cumplirse):</div>
-      <div id="br-target-rows">${targetsHtml(r.targets)}</div>
-      <button onclick="addTargetRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto con umbral</button>
-    </div>
-    <div id="br-pool-section" style="display:${isPool?'block':'none'}">
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:5px">PRODUCTOS DEL POOL (cualquier combo suma):</div>
+    <div id="br-pool-section" style="display:none">
+      <div style="display:none">PRODUCTOS DEL POOL (cualquier combo suma):</div>
       <div id="br-pool-rows">${poolHtml(r)}</div>
       <button onclick="addPoolRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto al pool</button>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL:</div>
@@ -5275,7 +5279,7 @@ function openBonusModal(cid, ri) {
       <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL (unidades base):</div>
       <input type="number" id="br-pooleq-threshold" value="${r.ruleType==='poolEq'?r.threshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
     </div>
-    <div id="br-mix-section" style="display:${r.ruleType==='mix'?'block':'none'}">
+    <div id="br-mix-section" style="display:block">
       <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:6px">🎯 PRODUCTO MIX — cumplir lo que aplique:</div>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">UMBRALES INDIVIDUALES (opcional):</div>
       <div id="br-mix-ind-rows">${mixIndHtml(r)}</div>
