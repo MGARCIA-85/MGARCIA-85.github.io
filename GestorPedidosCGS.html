@@ -128,6 +128,27 @@ table.rep th{background:#f0f0f0!important}
 
 <!-- ══ FIREBASE REST API (sin SDK) ══ -->
 <script>
+function nowDateTimeStr() {
+  const n = new Date();
+  const dd = String(n.getDate()).padStart(2,'0');
+  const mm = String(n.getMonth()+1).padStart(2,'0');
+  const yyyy = n.getFullYear();
+  let h = n.getHours();
+  const min = String(n.getMinutes()).padStart(2,'0');
+  const sec = String(n.getSeconds()).padStart(2,'0');
+  const ampm = h >= 12 ? 'p.\u00a0m.' : 'a.\u00a0m.';
+  h = h % 12; if (h === 0) h = 12;
+  return `${dd}/${mm}/${yyyy}, ${h}:${min}:${sec} ${ampm}`;
+}
+
+function fmtDDMMYYYY(d) {
+  if (!d) return '';
+  const s = String(d).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
+
   const _FB_PROJECT = 'gestorpedidoscgs';
   const _FB_APIKEY  = 'AIzaSyDuBy2hqAynYB2dzy2JIRr-osZVb0MKrKo';
 
@@ -1892,7 +1913,7 @@ ord.oc           = oc;
 ord.delivery     = delivery;
 ord.applyIva     = applyIva;
 ord.pricesIncIva = pricesIncIva;
-ord.editedAt     = new Date().toLocaleString('es-GT');
+ord.editedAt     = nowDateTimeStr();
 }
 save(); toast('💾 Pedido actualizado');
 // Verificar bonificaciones al editar
@@ -1925,7 +1946,7 @@ if (isQuote) {
 if (!quote) return alert('Debe llenar el campo de cotización.');
 showQuote({
 id: 'T'+Date.now(), clientId:cli.id, clientName:cli.name,
-quote, note, comments, items, applyIva, pricesIncIva, date:new Date().toLocaleString('es-GT'), status:'Cotización', isTemp:true
+quote, note, comments, items, applyIva, pricesIncIva, date:nowDateTimeStr(), status:'Cotización', isTemp:true
 });
 return;
 }
@@ -1941,7 +1962,7 @@ const newOrd = {
       const [y,m,d] = fd.split('-');
       return `${parseInt(d)}/${parseInt(m)}/${y}, 12:00:00 a.\u00a0m.`;
     }
-    return new Date().toLocaleString('es-GT');
+    return nowDateTimeStr();
   })(), status:'Cotización'
 };
 // Si viene de duplicar, preservar routeId solo si NO viene de ficha cliente
@@ -3048,8 +3069,6 @@ ${o.quoteNote?`<div style="font-size:11px;color:#f59e0b;font-weight:700;margin-t
 </div>
 </div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-<span class="${sCls}">${o.status}</span>
-${(o.bonusLines&&o.bonusLines.length)?`<span style="font-size:10px;background:#052e16;color:#10b981;padding:1px 7px;border-radius:8px;font-weight:700">🎁 Bonif.</span>`:''}
 </div>
 </div>
 ${lines}
@@ -3063,8 +3082,9 @@ if(o.pricesIncIva) return '<div style=\"font-size:11px;color:#64748b;margin-bott
 if(o.applyIva)    return '<div style=\"font-size:11px;color:#64748b;margin-bottom:2px\">Subtotal: '+Q(tot)+' &nbsp;+&nbsp; IVA 12%: '+Q(tot*0.12)+'</div>';
 return '';
 })()}
-<div style="font-weight:800;font-size:15px;color:#f59e0b">TOTAL ${Q(o.pricesIncIva ? tot : o.applyIva ? tot*1.12 : tot)}
-${(o.pricesIncIva||o.applyIva) ? '<span style=\"font-size:10px;font-weight:600;color:#60a5fa;background:#1e3a5f;padding:1px 6px;border-radius:4px;margin-left:4px\">IVA incl.</span>' : ''}</div>
+<div style="font-weight:800;font-size:15px;color:#f59e0b;display:flex;align-items:center;gap:6px;flex-wrap:wrap">TOTAL ${Q(o.pricesIncIva ? tot : o.applyIva ? tot*1.12 : tot)}
+${(o.pricesIncIva||o.applyIva) ? '<span style=\"font-size:10px;font-weight:600;color:#60a5fa;background:#1e3a5f;padding:1px 6px;border-radius:4px\">IVA incl.</span>' : ''}
+<span class="${sCls}" style="margin-left:auto">${o.status}</span></div>
 </div>
 ${(()=>{
 if (!o.bonusLines||!o.bonusLines.length) return '';
@@ -3545,7 +3565,7 @@ function generateRouteOrders(rid, routeTitle, selDepts, selMuns, selRutas) {
 
   askConfirm('🚀 Generar pedidos de ruta', msg, () => {
     if (!r.orders) r.orders = [];
-    const now = new Date().toLocaleString('es-GT');
+    const now = nowDateTimeStr();
 
     clis.forEach(c => {
       // Todos los pedidos históricos del cliente, ordenados por más reciente
@@ -4584,8 +4604,8 @@ ${(()=>{
         <div style="flex:1">
           <div style="font-size:11px;font-weight:700;color:${r.inactive?'#64748b':'#f1f5f9'}">${r.name||accumDesc}${r.inactive?' (inactiva)':''}</div>
           <div style="font-size:10px;color:${r.inactive?'#475569':'#10b981'};margin-top:1px">🎁 ${bonusDesc}</div>
-          ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Período: ${r.startDate||''}→${r.deadline}</div>`:''}
-          ${r.vigenciaStart?`<div style="font-size:10px;color:#60a5fa">Vigencia: ${r.vigenciaStart}${r.vigenciaEnd?' → '+r.vigenciaEnd:' → activa'}</div>`:''}
+          ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Período: ${fmtDDMMYYYY(r.startDate)||''}→${fmtDDMMYYYY(r.deadline)}</div>`:''}
+          ${r.vigenciaStart?`<div style="font-size:10px;color:#60a5fa">Vigencia: ${fmtDDMMYYYY(r.vigenciaStart)}${r.vigenciaEnd?' → '+fmtDDMMYYYY(r.vigenciaEnd):' → activa'}</div>`:''}
         </div>
         <div style="display:flex;gap:4px;align-items:center;margin-left:6px">
           ${readyBadge}
@@ -5119,7 +5139,7 @@ function openBonusModal(cid, ri) {
   const poolEqHtml = (r2) => (r2.poolEqProds||[]).map(ep=>{
     const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(ep.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div class="br-pooleq-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-      <select class="br-eqpid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <select class="br-eqpid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${sel}</select>
       <input type="number" class="br-eqfactor" value="${ep.factor||1}" min="0.01" step="0.01" placeholder="Factor" title="1 galón=1, 1 litro=0.5" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
       <button onclick="this.closest('.br-pooleq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
     </div>`;
@@ -5128,7 +5148,7 @@ function openBonusModal(cid, ri) {
   const mixIndHtml = (r2) => (r2.mixIndTargets||[]).map((t,i)=>{
     const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(t.productId)?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
     return `<div class="br-mix-ind-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-      <select class="br-mix-ind-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <select class="br-mix-ind-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${sel}</select>
       <input type="number" class="br-mix-ind-thr" value="${t.threshold||''}" min="1" placeholder="Meta" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
       <button onclick="this.closest('.br-mix-ind-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
     </div>`;
@@ -5145,7 +5165,7 @@ function openBonusModal(cid, ri) {
   const mixEqHtml = (r2) => (r2.mixEqProds||[]).map(ep=>{
     const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(ep.productId)?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
     return `<div class="br-mix-eq-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-      <select class="br-mix-eq-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${sel}</select>
+      <select class="br-mix-eq-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${sel}</select>
       <input type="number" class="br-mix-eq-factor" value="${ep.factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
       <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
     </div>`;
@@ -5621,7 +5641,7 @@ function showBonusReport(cid) {
     return `<div style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
       <div style="background:#1e3a8a;padding:10px 14px">
         <div style="font-weight:800;font-size:15px;color:#fff">${r.name||'Sin nombre'}</div>
-        ${startDate||endDate ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px">Período: ${startDate||'—'} → ${endDate||'—'}</div>` : ''}
+        ${startDate||endDate ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px">Período: ${startDate?fmtDDMMYYYY(startDate):'—'} → ${endDate?fmtDDMMYYYY(endDate):'—'}</div>` : ''}
         ${bonifItems ? `<div style="font-size:11px;color:#6ee7b7;margin-top:2px">🎁 Bonificación: ${bonifItems}</div>` : ''}
       </div>
       <div style="padding:12px 14px">${targetsHtml}</div>
@@ -5985,7 +6005,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
   if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
 
   // Construir secciones por regla
-  const sectionsHtml = rules.map(rule => {
+  const sectionsHtml = rules.map((rule, ruleIndex) => {
     let ruleProds;
     if (rule.ruleType === 'pool') {
       ruleProds = (rule.poolProds||[]).map(Number);
@@ -6010,10 +6030,10 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
       if (ds < effectiveFrom || ds > effectiveTo) return false;
       // Incluir si tiene productos de la meta
       const tieneMetaProds = o.items.some(it => ruleProds.includes(Number(it.productId||it.pid)));
-      // O si tiene bonificación correspondiente a esta regla
-      const tieneBonif = o.bonusLines && o.bonusLines.length &&
-        o.bonusLines.some(bl => (rule.bonusItems||[]).some(bi=>Number(bi.productId)===Number(bl.productId)));
-      return tieneMetaProds || tieneBonif;
+      // O si la bonificación fue generada específicamente con el botón "Enviar bonificación" de ESTA regla
+      const tieneBonifDeEstaRegla = o.bonusLines && o.bonusLines.length &&
+        o.bonusLines.some(bl => Number(bl.fromRuleId) === Number(ruleIndex));
+      return tieneMetaProds || tieneBonifDeEstaRegla;
     });
 
     if (!rangeOrders.length) return '';
@@ -6023,7 +6043,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
     rangeOrders.forEach(o => {
       currentGroup.push(o);
       if (o.bonusLines && o.bonusLines.length &&
-          o.bonusLines.some(bl => rule.bonusItems && rule.bonusItems.some(bi=>Number(bi.productId)===Number(bl.productId)))) {
+          o.bonusLines.some(bl => Number(bl.fromRuleId) === Number(ruleIndex))) {
         groups.push({ orders: [...currentGroup], bonusOrd: o });
         currentGroup = [];
       }
@@ -7532,7 +7552,7 @@ function runAutoBackup() {
     const data = JSON.stringify(S);
     localStorage.setItem(AUTO_BK_KEY, data);
     const now = new Date();
-    const meta = { date: now.toLocaleString('es-GT'), ts: now.getTime(), size: (data.length/1024).toFixed(1)+'KB' };
+    const meta = { date: nowDateTimeStr(), ts: now.getTime(), size: (data.length/1024).toFixed(1)+'KB' };
     localStorage.setItem(AUTO_BK_META, JSON.stringify(meta));
     toast('💾 Respaldo automático guardado', '#10b981');
     renderBackup();
@@ -7570,7 +7590,7 @@ function initAutoBackup() {
 }
 
 function exportBackup() {
-S.lastBk = new Date().toLocaleString('es-GT'); save();
+S.lastBk = nowDateTimeStr(); save();
 const a = document.createElement('a');
 a.href = URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));
 a.download = `respaldo_pedidos_${new Date().toISOString().slice(0,10)}.json`;
@@ -7836,7 +7856,7 @@ async function driveSaveBackup(showToast=true) {
       body: data
     });
     if (res.ok) {
-      const now = new Date().toLocaleString('es-GT');
+      const now = nowDateTimeStr();
       S.lastDriveBk = now; save();
       if (showToast) toast('☁️ Guardado en Drive: '+now,'#10b981');
       renderDriveStatus();
@@ -8825,7 +8845,7 @@ table{font-size:17px}th,td{font-size:17px}
   </div>
   <div style="text-align:right">
     <div style="font-size:16px;font-weight:800">🚚 ${route.name}</div>
-    <div style="font-size:11px;color:#6b7280">Generado: ${new Date().toLocaleString('es-GT')}</div>
+    <div style="font-size:11px;color:#6b7280">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div>
   </div>
 </div>
 <div class="sum">
@@ -9442,7 +9462,8 @@ function refreshActivationInfo() {
   }
   const _now = Date.now();
   const remaining = Math.ceil((exp - _now) / 86400000);
-  const _expDate = new Date(exp).toLocaleDateString('es-GT');
+  const _expD = new Date(exp);
+  const _expDate = String(_expD.getDate()).padStart(2,'0')+'/'+String(_expD.getMonth()+1).padStart(2,'0')+'/'+_expD.getFullYear();
   if (remaining <= 0) {
     el.textContent = '⚠️ Acceso expirado · Venció: ' + _expDate;
     el.style.color = '#ef4444';
@@ -9564,7 +9585,7 @@ function addPoolEqRow(pid, factor) {
   row.className = 'br-pooleq-row';
   row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
   row.innerHTML = `
-    <select class="br-eqpid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <select class="br-eqpid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${prodOpts}</select>
     <input type="number" class="br-eqfactor" value="${factor||1}" min="0.01" step="0.01" placeholder="Factor" title="1 galón=1, 1 litro=0.5" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
     <button onclick="this.closest('.br-pooleq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
   document.getElementById('br-pooleq-rows').appendChild(row);
@@ -9576,7 +9597,7 @@ function addMixIndRow(pid, threshold) {
   row.className = 'br-mix-ind-row';
   row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
   row.innerHTML = `
-    <select class="br-mix-ind-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <select class="br-mix-ind-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${prodOpts}</select>
     <input type="number" class="br-mix-ind-thr" value="${threshold||''}" min="1" placeholder="Meta" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
     <button onclick="this.closest('.br-mix-ind-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
   document.getElementById('br-mix-ind-rows').appendChild(row);
@@ -9588,7 +9609,7 @@ function addMixEqRow(pid, factor) {
   row.className = 'br-mix-eq-row';
   row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
   row.innerHTML = `
-    <select class="br-mix-eq-pid" style="flex:1;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px">${prodOpts}</select>
+    <select class="br-mix-eq-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${prodOpts}</select>
     <input type="number" class="br-mix-eq-factor" value="${factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
     <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
   document.getElementById('br-mix-eq-rows').appendChild(row);
@@ -9616,10 +9637,10 @@ function sendBonusOrder(cid, ri) {
   editingOid = null;
   ordItems = [{ pid:'', qty:1, price:null }];
   ordComments = [''];
-  // Cargar las líneas de bonificación de la regla
+  // Cargar las líneas de bonificación de la regla, marcadas con la regla de origen
   ordBonusLines = (r.bonusItems||[]).map(bi => {
     const p = S.products.find(x=>x.id===Number(bi.productId));
-    return { productId: Number(bi.productId), qty: Number(bi.qty)||1, price: bi.price!=null?bi.price:(p?p.basePrice||0:0), ruleName: r.name||'Bonificación' };
+    return { productId: Number(bi.productId), qty: Number(bi.qty)||1, price: bi.price!=null?bi.price:(p?p.basePrice||0:0), ruleName: r.name||'Bonificación', fromRuleId: Number(ri) };
   });
   window._bonusConfirmed = true;
   window._pendingBonusReset = { cid: _cid, ri: Number(ri) };
