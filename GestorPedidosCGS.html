@@ -316,6 +316,7 @@ function fmtDDMMYYYY(d) {
     <button onclick="addOrdBonusRow()" style="background:#052e16;border:1px dashed #10b981;border-radius:6px;color:#10b981;padding:3px 10px;font-size:11px;cursor:pointer">+ Agregar</button>
   </div>
   <div id="ord-bonus-rows"></div>
+  <div id="ord-bonus-breakdown" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #2a3050"></div>
 </div>
 </div>
 <div class="card">
@@ -1603,10 +1604,10 @@ function renderOrdBonusRows() {
     const pOpts = S.products.map(p=>`<option value="${p.id}" ${p.id===Number(bl.productId)?'selected':''}>${p.name}${p.presentation ? ' ('+p.presentation+')' : ''}</option>`).join('');
     return `<div style="background:#0d0f18;padding:6px;border-radius:7px;margin-bottom:5px">
       <div style="display:grid;grid-template-columns:1fr 45px 65px 28px;gap:4px;align-items:center;margin-bottom:4px">
-        <select onchange="ordBonusLines[${i}].productId=Number(this.value);window._bonusConfirmed=true" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
-        <input type="number" value="${bl.qty||1}" min="1" onchange="ordBonusLines[${i}].qty=Number(this.value);window._bonusConfirmed=true" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
-        <input type="number" value="${bl.price||0}" min="0" step="0.01" onchange="ordBonusLines[${i}].price=Number(this.value);window._bonusConfirmed=true" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
-        <button onclick="ordBonusLines.splice(${i},1);window._bonusConfirmed=true;renderOrdBonusRows()" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">✕</button>
+        <select onchange="ordBonusLines[${i}].productId=Number(this.value);window._bonusConfirmed=true;refreshTotal(Number(document.getElementById('ord-cli').value))" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;min-width:0">${pOpts}</select>
+        <input type="number" value="${bl.qty||1}" min="1" onchange="ordBonusLines[${i}].qty=Number(this.value);window._bonusConfirmed=true;refreshTotal(Number(document.getElementById('ord-cli').value))" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <input type="number" value="${bl.price||0}" min="0" step="0.01" onchange="ordBonusLines[${i}].price=Number(this.value);window._bonusConfirmed=true;refreshTotal(Number(document.getElementById('ord-cli').value))" style="background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px;font-size:11px;width:100%"/>
+        <button onclick="ordBonusLines.splice(${i},1);window._bonusConfirmed=true;renderOrdBonusRows();refreshTotal(Number(document.getElementById('ord-cli').value))" style="background:#ef444420;border:1px solid #ef4444;border-radius:5px;color:#ef4444;padding:2px 4px;font-size:11px;cursor:pointer">✕</button>
       </div>
       <input value="${bl.ruleName&&bl.ruleName!=='Manual'?bl.ruleName:''}" placeholder="Comentario (ej: Por consumo Trim. Q2)" onchange="ordBonusLines[${i}].ruleName=this.value||'Manual'" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;font-size:11px"/>
     </div>`;
@@ -1638,6 +1639,7 @@ function addOrdBonusRow() {
   ordBonusLines.push({ productId: pid, qty:1, price:pr, ruleName:'Manual' });
   window._bonusConfirmed = true;
   renderOrdBonusRows();
+  refreshTotal(cid);
 }
 
 function renderItems() {
@@ -1785,7 +1787,7 @@ ${ivaRow}</div>`;
 
 function refreshTotal(cid) {
 const box = document.getElementById('ord-total-box');
-const has = ordItems.some(it => it.pid);
+const has = ordItems.some(it => it.pid) || (ordBonusLines && ordBonusLines.length > 0);
 if (!has) { box.style.display='none'; return; }
 box.style.display = 'block';
 refreshTotalWithIVA();
@@ -1802,7 +1804,7 @@ const ivaEl    = document.getElementById('ord-iva-val');
 const totalEl  = document.getElementById('ord-total-val');
 if (!ivaChk || !totalEl) return;
 const allPricesIncIva = document.getElementById('ord-iva-inc')?.checked || false;
-// Calcular subtotal (suma de precios tal como están ingresados)
+// Calcular subtotal (suma de precios tal como están ingresados) — SOLO productos, sin bonificación
 const subtotal = ordItems.reduce((s,it) => s+lineTotal(cid,it.pid,it.qty, it.price!=null?it.price:null), 0);
 // Si los precios incluyen IVA, la base es subtotal/1.12 y el IVA es subtotal - base
 const subtotalSinIva      = allPricesIncIva ? subtotal / 1.12 : subtotal;
@@ -1843,6 +1845,38 @@ if (breakdown)  breakdown.style.display = 'block';
 if (totalEl)   totalEl.textContent     = Q(subtotal);
 if (breakdown) breakdown.style.display = 'none';
 }
+
+// Desglose SEPARADO de la bonificación (no afecta el total del pedido)
+const bonusSubtotal = (ordBonusLines||[]).reduce((s,bl) => {
+  const bp = S.products.find(x=>x.id===Number(bl.productId));
+  const unitSize = bp ? (Number(bp.unitSize)||1) : 1;
+  return s + (Number(bl.price)||0) * unitSize * (Number(bl.qty)||0);
+}, 0);
+const bonusBox = document.getElementById('ord-bonus-breakdown');
+if (bonusBox) {
+  if (bonusSubtotal > 0 && hayDesglose) {
+    let bBase, bIva, bTotal;
+    if (allPricesIncIva) {
+      bBase = bonusSubtotal / 1.12;
+      bIva  = bonusSubtotal - bBase;
+      bTotal = bonusSubtotal;
+    } else if (useIva) {
+      bBase = bonusSubtotal;
+      bIva  = bonusSubtotal * 0.12;
+      bTotal = bonusSubtotal + bIva;
+    } else {
+      bBase = bonusSubtotal; bIva = 0; bTotal = bonusSubtotal;
+    }
+    bonusBox.style.display = 'block';
+    bonusBox.innerHTML = `
+      <div class="prow"><span style="color:#94a3b8">Subtotal bonificación (sin IVA)</span><span style="color:#f1f5f9;font-weight:700">${Q(bBase)}</span></div>
+      <div class="prow"><span style="color:#94a3b8">IVA 12% bonificación</span><span style="color:#60a5fa;font-weight:700">${Q(bIva)}</span></div>
+      <div class="prow"><span style="color:#94a3b8;font-weight:700">Total bonificación</span><span style="color:#10b981;font-weight:800">${Q(bTotal)}</span></div>`;
+  } else {
+    bonusBox.style.display = 'none';
+    bonusBox.innerHTML = '';
+  }
+}
 }
 
 function submitOrder(isQuote) {
@@ -1856,10 +1890,12 @@ if (document.getElementById('delivery-alert')) return toast('Confirma o cambia l
 
 // Alerta de bonificación al duplicar
 if (_duplicatingFrom && ordBonusLines.length > 0 && !window._bonusConfirmed) {
+  const _ivaOn = document.getElementById('ord-iva')?.checked || false;
   const bonusDesc = ordBonusLines.map(bl => {
     const p = S.products.find(x=>x.id===Number(bl.productId));
     const spec = p?.presentation ? ` (${p.presentation})` : '';
-    return `<div style="font-size:13px;color:#f1f5f9;margin-bottom:2px">🎁 ${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}</div>`;
+    const ivaTxtE = _ivaOn ? ' <span style="font-size:10px;color:#60a5fa">+IVA</span>' : '';
+    return `<div style="font-size:13px;color:#f1f5f9;margin-bottom:2px">🎁 ${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}${ivaTxtE}</div>`;
   }).join('');
   // Mostrar modal
   const overlay = document.createElement('div');
@@ -2666,8 +2702,9 @@ function shareOrderReportSel() {
       const p = S.products.find(x=>x.id===Number(bl.productId));
       const ul = p?.unitLabel||'unidad';
       const spec = p?.presentation ? ` (${p.presentation})` : '';
+      const ivaTxt = o.applyIva ? ' +IVA' : '';
       const comment = bl.ruleName ? `\n${bl.ruleName}` : '';
-      return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}${comment}`;
+      return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}${ivaTxt}${comment}`;
     }).join('\n');
     return `\n》BONIFICACIÓN《\n${lines}`;
   }
@@ -2813,18 +2850,20 @@ function generateOrderReport(selIds) {
       const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
       const pr=(it.customPrice!=null)?it.customPrice:cliPrice(o.clientId,it.productId||it.pid,p?.basePrice||0);
       const ul=p?.unitLabel||'unidad';
+      const _ivaTag1 = o.applyIva ? ' <span style="color:#2563eb;font-size:10px">+IVA</span>' : '';
       return `<tr><td style="padding:5px 8px;font-size:12px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
         <td style="padding:5px 8px;text-align:center;font-size:12px">${it.qty}</td>
-        <td style="padding:5px 8px;text-align:right;font-size:12px">${Q(pr)}/${ul}</td>
+        <td style="padding:5px 8px;text-align:right;font-size:12px">${Q(pr)}/${ul}${_ivaTag1}</td>
         <td style="padding:5px 8px;text-align:right;font-weight:700;font-size:12px">${Q(pr*it.qty*(Number(p?.unitSize)||1))}</td></tr>`;
     }).join('');
     const bonusRowsHtml = (o.bonusLines||[]).map(bl=>{
       const p=S.products.find(x=>x.id===Number(bl.productId));
       const ul=p?.unitLabel||'unidad';
       const sub=(bl.price||0)*bl.qty*(Number(p?.unitSize)||1);
+      const _ivaTagB1 = o.applyIva ? ' <span style="font-size:10px">+IVA</span>' : '';
       return `<tr style="background:#f0fdf4"><td style="padding:4px 8px;color:#15803d"><span style="font-size:11px;font-weight:700">${p?p.name+' ('+(p.presentation||'')+')'  :'—'}</span>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><span style="font-size:10px;color:#6b7280">${bl.ruleName}</span>`:''}</td>
         <td style="padding:4px 8px;text-align:center;color:#15803d">${bl.qty}</td>
-        <td style="padding:4px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
+        <td style="padding:4px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}${_ivaTagB1}</td>
         <td style="padding:4px 8px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td></tr>`;
     }).join('');
     const cmts = (o.comments&&o.comments.length?o.comments:(o.note?[o.note]:[])).filter(c=>c&&c.trim());
@@ -2880,7 +2919,8 @@ function generateOrderReport(selIds) {
       const p = S.products.find(x=>x.id===Number(bl.productId));
       const ul = p?.unitLabel||'unidad';
       const spec = p?.presentation ? ' ('+p.presentation+')' : '';
-      return bl.qty+' '+(p?p.name:'—')+spec+'\nPrecio: '+Q(bl.price||0)+'/'+ul;
+      const ivaTxtC = o.applyIva ? ' + IVA' : '';
+      return bl.qty+' '+(p?p.name:'—')+spec+'\nPrecio: '+Q(bl.price||0)+'/'+ul+ivaTxtC;
     }).join('\n');
     const bonusBlock = bonusLines ? '》BONIFICACIÓN《\n'+bonusLines : '';
     const parts = ['#'+(i+1), o.clientName, cotLine, ocLine, cmtLines, '', prodLines];
@@ -3092,7 +3132,8 @@ const bLines = o.bonusLines.map(bl=>{
   const p = S.products.find(x=>x.id===Number(bl.productId));
   const spec = p?.presentation?` (${p.presentation})`:'';
   const ul = p?.unitLabel||'unidad';
-  return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #1e2640"><span style="color:#f1f5f9;font-weight:600">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span></div>`;
+  const ivaLbl = o.applyIva ? ` <span style="font-size:9px;color:#60a5fa">+IVA</span>` : '';
+  return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #1e2640"><span style="color:#f1f5f9;font-weight:600">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}${ivaLbl}</span></div>`;
 }).join('');
 return `<div style="margin-top:6px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
 })()}
@@ -3753,13 +3794,14 @@ const pr = bl.price||0;
 const ul = p?.unitLabel||'unidad';
 const us = Number(p?.unitSize)||1;
 const sub = pr * bl.qty * us;
+const _ivaTagB2 = ord.applyIva ? ' <span style="font-size:9px">+IVA</span>' : '';
 return `<tr style="background:#f0fdf4">
 <td style="padding:7px 6px;color:#15803d">
   <div style="font-size:10px;color:#15803d">${p?p.name:'—'}${p?.presentation?' ('+p.presentation+')':''}</div>
   ${bl.ruleName&&bl.ruleName!=='Manual'?`<div style="font-size:10px;color:#6b7280">${bl.ruleName}</div>`:''}
 </td>
 <td style="padding:7px 6px;text-align:center;color:#15803d">${bl.qty}</td>
-<td style="padding:7px 6px;text-align:right;color:#15803d">${Q(pr)}/${ul}</td>
+<td style="padding:7px 6px;text-align:right;color:#15803d">${Q(pr)}/${ul}${_ivaTagB2}</td>
 <td style="padding:7px 6px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td>
 </tr>`;
 }).join('');
@@ -3898,8 +3940,9 @@ const bonusLines = (ord.bonusLines||[]).map(bl => {
   const p  = S.products.find(x => x.id===Number(bl.productId));
   const ul = p?.unitLabel||'unidad';
   const spec = p?.presentation ? ` (${p.presentation})` : '';
+  const ivaTxtB = ord.applyIva ? ' +IVA' : '';
   const comment = bl.ruleName ? `\n${bl.ruleName}` : '';
-  return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}${comment}`;
+  return `${bl.qty} ${p?p.name:'—'}${spec}\nPrecio: ${Q(bl.price||0)}/${ul}${ivaTxtB}${comment}`;
 }).join('\n');
 const bonusBlock = bonusLines ? `》BONIFICACIÓN《\n${bonusLines}` : '';
 
@@ -3985,7 +4028,8 @@ const bonusLines = (ord.bonusLines||[]).map(bl => {
   const p  = S.products.find(x=>x.id===Number(bl.productId));
   const ul = p?.unitLabel||'unidad';
   const spec = p?.presentation ? ` (${p.presentation})` : '';
-  return `- ${bl.qty} *${p?p.name.toUpperCase():'—'}${spec}*\n  Precio ${Q(bl.price||0)}/${ul}`;
+  const ivaTxtD = ord.applyIva ? ' +IVA' : '';
+  return `- ${bl.qty} *${p?p.name.toUpperCase():'—'}${spec}*\n  Precio ${Q(bl.price||0)}/${ul}${ivaTxtD}`;
 }).join('\n');
 if (bonusLines) t += `\n》BONIFICACIÓN《\n${bonusLines}\n`;
 
@@ -4738,7 +4782,8 @@ ${(()=>{
           const p = S.products.find(x=>x.id===Number(bl.productId));
           const spec = p?.presentation?` (${p.presentation})`:'';
           const ul = p?.unitLabel||'unidad';
-          return `<div style="font-size:11px;color:#f1f5f9;font-weight:600;padding:2px 0;border-bottom:1px solid #1e2640">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</div>`;
+          const ivaLbl = o.applyIva ? ` <span style="font-size:9px;color:#60a5fa">+IVA</span>` : '';
+          return `<div style="font-size:11px;color:#f1f5f9;font-weight:600;padding:2px 0;border-bottom:1px solid #1e2640">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}${ivaLbl}</div>`;
         }).join('');
         return `<div style="margin-top:4px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
       })()}
@@ -4788,14 +4833,30 @@ ${(()=>{
             return `<span style="color:#f1f5f9;font-size:10px;margin-right:8px">${t.name}${spec} = <span style="color:#10b981;font-weight:700">${t.qty}</span></span>`;
           }).join('');
 
+          // Resumen de productos bonificados del mes
+          const monthBonusTotals = {};
+          g.orders.forEach(o => {
+            (o.bonusLines||[]).forEach(bl => {
+              const p = S.products.find(x=>x.id===Number(bl.productId));
+              if (!p) return;
+              if (!monthBonusTotals[bl.productId]) monthBonusTotals[bl.productId] = {name:p.name, spec:p.presentation||'', qty:0};
+              monthBonusTotals[bl.productId].qty += Number(bl.qty);
+            });
+          });
+          const bonusSummaryLine = Object.values(monthBonusTotals).map(t=>{
+            const spec = t.spec?` (${t.spec})`:'';
+            return `<span style="color:#f1f5f9;font-size:10px;margin-right:8px">${t.name}${spec} = <span style="color:#f59e0b;font-weight:700">${t.qty}</span></span>`;
+          }).join('');
+
           const monthRows = g.orders.map(o => rows_map[o.id]||'').join('');
           return `<div style="margin-bottom:6px">
             <div onclick="toggleCliMonthSec('${secId}')" style="cursor:pointer;padding:6px 8px;background:#161929;border-radius:6px;margin-bottom:4px;border-left:3px solid #3b82f6">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${summaryLine?'4px':'0'}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${(summaryLine||bonusSummaryLine)?'4px':'0'}">
                 <span style="font-size:12px;color:#60a5fa;font-weight:700">📅 ${g.label} <span style="color:#64748b;font-size:10px">(${g.orders.length})</span></span>
                 <span style="color:#64748b;font-size:11px" id="${secId}-arrow">${isMonthOpen?'▲':'▼'}</span>
               </div>
               ${summaryLine?`<div style="display:flex;flex-wrap:wrap;gap:2px">${summaryLine}</div>`:''}
+              ${bonusSummaryLine?`<div style="display:flex;flex-wrap:wrap;gap:2px;align-items:center;margin-top:3px"><span style="font-size:10px;color:#f59e0b;font-weight:700;margin-right:4px">🎁 Bonificado:</span>${bonusSummaryLine}</div>`:''}
             </div>
             <div id="${secId}" style="display:${isMonthOpen?'block':'none'}">${monthRows}</div>
           </div>`;
@@ -5882,10 +5943,11 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
         const sub = qty * us * pr;
         ordTotal += sub;
         const unitDesc = us > 1 ? ` × ${us} ${ul}` : '';
+        const _ivaTagN = o.applyIva ? ' <span style="color:#2563eb">+IVA</span>' : '';
         return `<tr>
           <td style="padding:2px 0 2px 6px;font-size:12px;color:#1e293b">${p?p.name:'—'}</td>
           <td style="padding:2px 0;font-size:12px;color:#374151;text-align:center">${qty} ${getUnit(p?p.name:'',qty)}</td>
-          <td style="padding:2px 0;font-size:11px;color:#64748b;text-align:center">${Q(pr)}/${ul}${unitDesc}</td>
+          <td style="padding:2px 0;font-size:11px;color:#64748b;text-align:center">${Q(pr)}/${ul}${unitDesc}${_ivaTagN}</td>
           <td style="padding:2px 0;font-size:12px;font-weight:600;color:#1e293b;text-align:right">${Q(sub)}</td>
         </tr>`;
       }).join('');
@@ -5902,10 +5964,11 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
           const ul = p?.unitLabel||'unidad';
           const sub = (bl.qty||0) * us * (bl.price||0);
           const spec = p?.presentation?` (${p.presentation})`:'';
+          const _ivaTagRep = o.applyIva ? ' <span style="font-size:10px;color:#2563eb">+IVA</span>' : '';
           const comentarioBl = bl.ruleName ? `<div style="font-size:11px;color:#64748b;font-style:italic;margin-top:1px">💬 ${bl.ruleName}</div>` : '';
           return `<div>
             <div style="display:flex;justify-content:space-between;font-size:12px;color:#1e3a8a">
-              <span>${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</span>
+              <span>${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}${_ivaTagRep}</span>
               <span style="font-weight:700">${Q(sub)}</span>
             </div>
             ${comentarioBl}
@@ -7480,11 +7543,12 @@ const ul  = p?.unitLabel||'unidad';
 const sub = pr * us * it.qty;
 const convDetail = us>1
 ? '<div style="font-size:10px;color:#64748b">'+(it.qty*us)+' '+ul+'s</div>' : '';
+const _ivaTagRt = o.applyIva ? ' <span style="color:#60a5fa;font-size:10px">+IVA</span>' : '';
 rows += '<tr>';
 rows += '<td style="padding:7px 6px;font-weight:600">'+(p?p.name:'—')+'</td>';
 rows += '<td style="padding:7px 6px;color:#94a3b8;font-size:12px">'+(p?.presentation||'—')+'</td>';
 rows += '<td style="padding:7px 6px;text-align:center;font-weight:700">'+it.qty+convDetail+'</td>';
-rows += '<td style="padding:7px 6px;text-align:right;color:#94a3b8">'+Q(pr)+'/'+ul+'</td>';
+rows += '<td style="padding:7px 6px;text-align:right;color:#94a3b8">'+Q(pr)+'/'+ul+_ivaTagRt+'</td>';
 rows += '<td style="padding:7px 6px;text-align:right;font-weight:800;color:#f59e0b">'+Q(sub)+'</td>';
 rows += '</tr>';
 });
@@ -8139,7 +8203,8 @@ function renderRoutes() {
               const p = S.products.find(x=>x.id===Number(bl.productId));
               const spec = p?.presentation?` (${p.presentation})`:'';
               const ul = p?.unitLabel||'unidad';
-              return `<div style="font-size:11px;color:#f1f5f9;font-weight:600;padding:2px 0;border-bottom:1px solid #1e2640">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}</div>`;
+              const ivaLbl = o.applyIva ? ` <span style="font-size:9px;color:#60a5fa">+IVA</span>` : '';
+              return `<div style="font-size:11px;color:#f1f5f9;font-weight:600;padding:2px 0;border-bottom:1px solid #1e2640">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${ul}${ivaLbl}</div>`;
             }).join('');
             return `<div style="margin-top:4px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
           })()}
@@ -8764,10 +8829,11 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
       const ul = p?.unitLabel||'unidad';
       const us = Number(p?.unitSize)||1;
       const sub = (bl.price||0)*bl.qty*us;
+      const _ivaTagB3 = o.applyIva ? ' <small>+IVA</small>' : '';
       return `<tr style="background:#eff6ff">
         <td style="padding:5px 8px;color:#15803d"><small style="font-weight:700">${p?p.name+' ('+p.presentation+')':'—'}</small>${bl.ruleName&&bl.ruleName!=='Manual'?`<br><small style="color:#6b7280">${bl.ruleName}</small>`:''}</td>
         <td style="padding:5px 8px;text-align:center;color:#15803d">${bl.qty}</td>
-        <td style="padding:5px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}</td>
+        <td style="padding:5px 8px;text-align:right;color:#15803d">${Q(bl.price||0)}/${ul}${_ivaTagB3}</td>
         <td style="padding:5px 8px;text-align:right;font-weight:700;color:#15803d">${Q(sub)}</td>
       </tr>`;
     }).join('');
@@ -9101,7 +9167,7 @@ function runGlobalSearch() {
           <span style="color:#10b981;font-weight:700;flex-shrink:0;margin-left:6px">${Q(sub)}</span>
         </div>`;
       }).filter(Boolean).join('');
-      const bonusHtml = (x.bonusLines&&x.bonusLines.length)?`<div style="margin-top:4px"><div style="font-size:10px;color:#10b981;font-weight:700">🎁 BONIFICACIÓN</div>${x.bonusLines.map(bl=>{const p=S.products.find(pp=>pp.id===Number(bl.productId));const spec=p?.presentation?` (${p.presentation})`:'';return `<div style="font-size:11px;color:#f1f5f9">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${p?.unitLabel||'u'}</div>`;}).join('')}</div>`:'';
+      const bonusHtml = (x.bonusLines&&x.bonusLines.length)?`<div style="margin-top:4px"><div style="font-size:10px;color:#10b981;font-weight:700">🎁 BONIFICACIÓN</div>${x.bonusLines.map(bl=>{const p=S.products.find(pp=>pp.id===Number(bl.productId));const spec=p?.presentation?` (${p.presentation})`:'';const _ivaTagG=x.applyIva?' <span style="font-size:9px;color:#60a5fa">+IVA</span>':'';return `<div style="font-size:11px;color:#f1f5f9">${bl.qty} ${p?p.name:'—'}${spec} × ${Q(bl.price||0)}/${p?.unitLabel||'u'}${_ivaTagG}</div>`;}).join('')}</div>`:'';
       return `<div class="gs-opt" onclick="gsGoOrder(${x.id})">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
           <span style="font-weight:700;color:#f1f5f9;font-size:13px">${hl(x.clientName)}</span>
