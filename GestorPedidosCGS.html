@@ -128,6 +128,45 @@ table.rep th{background:#f0f0f0!important}
 
 <!-- ══ FIREBASE REST API (sin SDK) ══ -->
 <script>
+function splitTituloComun(nombres) {
+  if (!nombres || !nombres.length) return { parteComun: '', partesDistintas: '', comunLen: 0 };
+  let comunLen = 0;
+  if (nombres.length > 1) {
+    const palabrasBase = nombres[0].split(' ');
+    for (let wi = 0; wi < palabrasBase.length; wi++) {
+      if (nombres.every(n => n.split(' ')[wi] === palabrasBase[wi])) comunLen = wi + 1;
+      else break;
+    }
+  }
+  const parteComun = nombres[0].split(' ').slice(0, comunLen).join(' ');
+  const partesDistintas = nombres.map(n => n.split(' ').slice(comunLen).join(' ')).join(' / ');
+  return { parteComun, partesDistintas, comunLen };
+}
+
+function progressColor(pct) {
+  const p = Math.max(0, Math.min(100, pct));
+  if (p >= 100) return '#16a34a';   // Verde
+  if (p >= 75)  return '#a3b813';   // Amarillo verdoso
+  if (p >= 50)  return '#fb923c';   // Naranja claro (suave)
+  if (p >= 25)  return '#ea580c';   // Naranja oscuro
+  return '#dc2626';                 // Rojo
+}
+
+function getRuleProds(rule) {
+  if (rule.ruleType === 'pool') {
+    return (rule.poolProds||[]).map(Number);
+  } else if (rule.ruleType === 'poolEq') {
+    return (rule.poolEqProds||[]).map(ep=>Number(ep.productId));
+  } else if (rule.ruleType === 'mix') {
+    const indPids  = (rule.mixIndTargets||[]).map(t=>Number(t.productId));
+    const poolPids = (rule.mixPoolProds||[]).map(Number);
+    const eqPids   = (rule.mixEqProds||[]).map(ep=>Number(ep.productId));
+    return [...new Set([...indPids, ...poolPids, ...eqPids])];
+  } else {
+    return (rule.targets||[]).map(t=>Number(t.productId));
+  }
+}
+
 function nowDateTimeStr() {
   const n = new Date();
   const dd = String(n.getDate()).padStart(2,'0');
@@ -4625,7 +4664,7 @@ ${(()=>{
       }
       const tot = pg.app + pg.manual;
       const pct = Math.min(100, Math.round(tot/pg.threshold*100));
-      const col = pct>=100?'#10b981':pct>=70?'#f59e0b':'#60a5fa';
+      const col = progressColor(pct);
       const tidx = pg.isPool ? 'pool' : (pg.ti !== undefined ? pg.ti : pgi);
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-bottom:2px">
@@ -4669,8 +4708,8 @@ ${(()=>{
     </div>
     <div id="csb-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['csb-'+c.id])?'block':'none'}">
       <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px">
-        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;cursor:pointer" onclick="showBonusReport(${c.id})">📄 Generar detalle de progreso</button>
-        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #10b981;border-radius:6px;color:#10b981;cursor:pointer" onclick="showBonusEntregasReport(${c.id})">📋 Generar reporte bonificaciones</button>
+        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #3b82f6;border-radius:6px;color:#60a5fa;cursor:pointer" onclick="showBonusReport(${c.id})">📄 Progreso</button>
+        <button style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #10b981;border-radius:6px;color:#10b981;cursor:pointer" onclick="showBonusEntregasReport(${c.id})">📋 Bonificaciones</button>
         <button class="bg" style="font-size:11px;padding:4px 10px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
       </div>
       ${rulesHtml}
@@ -4795,7 +4834,7 @@ ${(()=>{
     <div onclick="toggleCliSec('cso-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
       <span style="font-size:11px;color:${cliOrds.length?'#4ade80':'#94a3b8'};font-weight:700">📦 ÚLTIMOS PEDIDOS${cliOrds.length?` (${cliOrds.length})`:''}</span>
       <div style="display:flex;align-items:center;gap:6px">
-        <button onclick="event.stopPropagation();showBonusHistoryReport(${c.id})" style="font-size:10px;padding:2px 8px;background:transparent;border:1px solid #10b981;border-radius:5px;color:#10b981;cursor:pointer">📋 Generar reporte</button>
+        <button onclick="event.stopPropagation();showBonusHistoryReport(${c.id})" style="font-size:10px;padding:2px 8px;background:transparent;border:1px solid #10b981;border-radius:5px;color:#10b981;cursor:pointer">📋 Detalle Pedidos</button>
         <span style="color:#64748b;font-size:11px">▼</span>
       </div>
     </div>
@@ -5537,21 +5576,13 @@ function showBonusReport(cid) {
         if (!totalRow) return '';
         const total = totalRow.app + totalRow.manual;
         const pct = Math.min(100, Math.round(total / totalRow.threshold * 100));
-        const color = pct >= 100 ? '#16a34a' : pct >= 60 ? '#d97706' : '#dc2626';
+        const color = progressColor(pct);
         const restante = Math.max(0, totalRow.threshold - total);
 
         // Título: nombres de productos sin el ×factor
         // Construir título: parte común + partes distintas en línea aparte
         const nombres = items.map(it => it.label.replace(/\s×[\d.]+$/, ''));
-        // Encontrar prefijo común palabra por palabra
-        const palabrasBase = nombres[0].split(' ');
-        let comunLen = 0;
-        for (let wi = 0; wi < palabrasBase.length; wi++) {
-          if (nombres.every(n => n.split(' ')[wi] === palabrasBase[wi])) comunLen = wi + 1;
-          else break;
-        }
-        const parteComun = palabrasBase.slice(0, comunLen).join(' ');
-        const partesDistintas = nombres.map(n => n.split(' ').slice(comunLen).join(' ')).join(' / ');
+        const { parteComun, partesDistintas, comunLen } = splitTituloComun(nombres);
         const titulo = parteComun && partesDistintas
           ? `${parteComun}<br><span style="font-weight:700">${partesDistintas}</span>`
           : nombres.join(' / ');
@@ -5596,12 +5627,12 @@ function showBonusReport(cid) {
         if (esEquivalencias) {
           // Pool con equivalencias: "548 GALONES / 200 LITROS (72%)"
           consumidoStr = prodData.map(pd => pd.totalQty > 0 ? `${pd.totalQty} ${pd.pluralize(pd.unitSing, pd.totalQty)}` : null).filter(Boolean).join(' / ') + ` (${pct}%)`;
-          restanteStr = items.map((it, i) => {
+          restanteStr = restante > 0 ? items.map((it, i) => {
             const pd = prodData[i];
             const factor = Number(it.label.match(/×([\d.]+)$/)?.[1]||1);
             const restProd = factor > 0 ? Math.ceil(restante / factor) : restante;
             return restProd > 0 ? `${restProd} ${pd.pluralize(pd.unitSing, restProd)}` : null;
-          }).filter(Boolean).join(' o ');
+          }).filter(Boolean).join(' o ') : '0';
         } else {
           // Pool compartido: cada producto en su línea, restante simple
           consumidoEsMultilinea = true;
@@ -5620,18 +5651,27 @@ function showBonusReport(cid) {
         let monthRowsPool = '';
         if (months.length) {
           months.forEach(({label}) => {
-            const partes = prodData.map(pd => pd.byMonth[label] > 0 ? `${pd.byMonth[label]} ${pd.pluralize(pd.unitSing, pd.byMonth[label])}` : null).filter(Boolean);
-            if (partes.length) monthRowsPool += `<tr><td style="padding:2px 0 2px 12px;font-size:12px;color:#374151">${label}</td><td style="padding:2px 0;font-size:12px;color:#374151;text-align:right">${partes.join(' / ')}</td></tr>`;
+            const partes = prodData.map(pd => {
+              if (pd.byMonth[label] <= 0) return null;
+              const etiqueta = consumidoEsMultilinea
+                ? (parteComun ? pd.prodName.split(' ').slice(comunLen).join(' ') : pd.prodName)
+                : pd.pluralize(pd.unitSing, pd.byMonth[label]);
+              return `${pd.byMonth[label]} ${etiqueta}`;
+            }).filter(Boolean);
+            if (partes.length) monthRowsPool += `<tr><td style="padding:2px 0 2px 12px;font-size:12px;color:#374151;vertical-align:top">${label}</td><td style="padding:2px 0;font-size:12px;color:#374151;text-align:right">${partes.join('<br>')}</td></tr>`;
           });
         }
 
+        const detalleTexto = consumidoEsMultilinea ? lineas : consumidoStr.replace(/\s*\(\d+%\)$/,'');
         return `<div style="margin-bottom:14px;padding:10px;background:#f8fafc;border-radius:8px;border-left:3px solid ${color}">
           <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px">${titulo}</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px">
+            <span>Meta: <span style="color:#1e293b;font-weight:700">${totalRow.threshold}</span></span>
+            <span style="font-weight:700">${totalRow.app}/${totalRow.threshold} (${pct}%)</span>
+          </div>
           ${pBar}
           <table style="width:100%;border-collapse:collapse">
-            <tr><td style="font-size:12px;color:#374151;padding:2px 0">Meta:</td><td style="font-size:12px;color:#1e293b;font-weight:700;text-align:right">${totalRow.threshold}</td></tr>
-            ${consumidoEsMultilinea ? `<tr><td colspan="2" style="font-size:12px;color:#374151;padding:2px 0">Progreso: <span style="color:${color};font-weight:700">${pct}%</span></td></tr><tr><td colspan="2" style="font-size:12px;padding:2px 0;font-weight:700;color:${color};text-align:left">${lineas}</td></tr>` : `<tr><td style="font-size:12px;color:#374151;padding:2px 0;vertical-align:top">Consumido:</td><td style="font-size:12px;color:${color};font-weight:700;text-align:right">${consumidoStr}</td></tr>`}
-            <tr><td style="font-size:12px;color:#374151;padding:2px 0">Restante:</td><td style="font-size:12px;color:#dc2626;font-weight:700;text-align:right">${restanteStr}</td></tr>
+            <tr><td style="font-size:12px;color:#374151;padding:2px 0">Restante:</td><td style="font-size:12px;color:${restante>0?'#dc2626':'#374151'};font-weight:700;text-align:right">${restanteStr}</td></tr>
             ${monthRowsPool ? `<tr><td colspan="2" style="padding:4px 0 2px;font-size:11px;color:#64748b;font-weight:600">Consumo por mes:</td></tr>${monthRowsPool}` : ''}
           </table>
         </div>`;
@@ -5660,7 +5700,7 @@ function showBonusReport(cid) {
       const total = prog.app + prog.manual;
       const restante = Math.max(0, prog.threshold - total);
       const pct = Math.min(100, Math.round(total / prog.threshold * 100));
-      const color = pct >= 100 ? '#16a34a' : pct >= 60 ? '#d97706' : '#dc2626';
+      const color = progressColor(pct);
 
       // Consumo por mes
       let monthRows = '';
@@ -5687,11 +5727,13 @@ function showBonusReport(cid) {
 
       return `<div style="margin-bottom:14px;padding:10px;background:#f8fafc;border-radius:8px;border-left:3px solid ${color}">
         <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px">${prog.label.replace(/\(\)/g,'').trim()}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px">
+          <span>Meta: <span style="color:#1e293b;font-weight:700">${prog.threshold}</span></span>
+          <span style="font-weight:700">${total}/${prog.threshold} (${pct}%)</span>
+        </div>
         ${pBar}
         <table style="width:100%;border-collapse:collapse">
-          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Meta:</td><td style="font-size:12px;color:#1e293b;font-weight:700;text-align:right">${prog.threshold} ${ul(prog.threshold)}</td></tr>
-          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Consumido:</td><td style="font-size:12px;color:${color};font-weight:700;text-align:right">${total} ${ul(total)} (${pct}%)</td></tr>
-          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Restante:</td><td style="font-size:12px;color:#dc2626;font-weight:700;text-align:right">${restante} ${ul(restante)}</td></tr>
+          <tr><td style="font-size:12px;color:#374151;padding:2px 0">Restante:</td><td style="font-size:12px;color:${restante>0?'#dc2626':'#374151'};font-weight:700;text-align:right">${restante}</td></tr>
           ${monthRows}
         </table>
       </div>`;
@@ -6073,19 +6115,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
 
   // Construir secciones por regla
   const sectionsHtml = rules.map((rule, ruleIndex) => {
-    let ruleProds;
-    if (rule.ruleType === 'pool') {
-      ruleProds = (rule.poolProds||[]).map(Number);
-    } else if (rule.ruleType === 'poolEq') {
-      ruleProds = (rule.poolEqProds||[]).map(ep=>Number(ep.productId));
-    } else if (rule.ruleType === 'mix') {
-      const indPids  = (rule.mixIndTargets||[]).map(t=>Number(t.productId));
-      const poolPids = (rule.mixPoolProds||[]).map(Number);
-      const eqPids   = (rule.mixEqProds||[]).map(ep=>Number(ep.productId));
-      ruleProds = [...new Set([...indPids, ...poolPids, ...eqPids])];
-    } else {
-      ruleProds = (rule.targets||[]).map(t=>Number(t.productId));
-    }
+    const ruleProds = getRuleProds(rule);
 
     const vigStart = rule.vigenciaStart || fromStr;
     const vigEnd   = rule.vigenciaEnd   || toStr;
@@ -6207,20 +6237,14 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             });
             const meta = t.threshold||0;
             const pct  = meta>0 ? Math.min(100,Math.round(totalEq/meta*100)) : 100;
-            const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+            const col  = progressColor(pct);
             const restante = Math.max(0, meta - totalEq);
             // Título con parte común
             const nombres = prodQtys.map(p=>p.name);
-            const palabrasBase = nombres[0].split(' ');
-            let comunLen = 0;
-            for (let wi=0; wi<palabrasBase.length; wi++) {
-              if (nombres.every(n=>n.split(' ')[wi]===palabrasBase[wi])) comunLen=wi+1; else break;
-            }
-            const parteComun = palabrasBase.slice(0,comunLen).join(' ');
-            const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
+            const { parteComun, partesDistintas } = splitTituloComun(nombres);
             const tituloHtml = parteComun && partesDistintas
-              ? `<b>${parteComun}</b><br><b>${partesDistintas}</b>`
-              : `<b>${nombres.join(' / ')}</b>`;
+              ? `${parteComun}<br>${partesDistintas}`
+              : `${nombres.join(' / ')}`;
             const consumidoStr = prodQtys.map(p=>p.qty>0?`${p.qty} ${getUnitWord(p.name,p.qty)}`:null).filter(Boolean).join(' / ')+` (${pct}%)`;
             const restanteStr = eqProds.map((ep,i)=>{
               const factor = Number(ep.factor)||1;
@@ -6228,14 +6252,14 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               return rp>0?`${rp} ${getUnitWord(prodQtys[i].name,rp)}`:null;
             }).filter(Boolean).join(' o ');
             return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
-              <div style="font-size:12px;color:#1e293b;margin-bottom:4px">${tituloHtml}</div>
+              <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloHtml}</div>
               <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px">
                 <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
               </div>
               <table style="width:100%;border-collapse:collapse;font-size:12px">
                 <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
                 <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${consumidoStr}</td></tr>
-                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:#dc2626">${restanteStr}</td></tr>
+                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restanteStr}</td></tr>
               </table>
             </div>`;
           }
@@ -6255,17 +6279,11 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             }).filter(p=>p.qty>0);
             const meta = t.threshold||0;
             const pct  = meta>0 ? Math.min(100,Math.round(totalPool/meta*100)) : 100;
-            const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+            const col  = progressColor(pct);
             const restante = Math.max(0, meta - totalPool);
             // Detectar si tienen texto en común
             const nombres = prodQtys.map(p=>p.name);
-            let comunLen = 0;
-            if (nombres.length > 1) {
-              const palabrasBase = nombres[0].split(' ');
-              for (let wi=0; wi<palabrasBase.length; wi++) {
-                if (nombres.every(n=>n.split(' ')[wi]===palabrasBase[wi])) comunLen=wi+1; else break;
-              }
-            }
+            const { comunLen } = splitTituloComun(nombres);
             const tieneComun = comunLen > 0 && nombres.length > 1;
             // Título
             let tituloPool;
@@ -6273,27 +6291,26 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               const parteComun = nombres[0].split(' ').slice(0,comunLen).join(' ');
               const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
               tituloPool = partesDistintas
-                ? `<b>${parteComun}</b><br><b>${partesDistintas}</b>`
-                : `<b>${parteComun}</b>`;
+                ? `${parteComun}<br>${partesDistintas}`
+                : `${parteComun}`;
             } else {
               tituloPool = nombres.join('<br>') || 'Pool compartido';
-              tituloPool = `<b>${tituloPool}</b>`;
             }
             // Progreso: X% + productos en una línea "5 LACA TONEL / 1 ACRÍLICO TONEL"
             const lineasCons = prodQtys.map(p=>{
               const nombreCorto = tieneComun ? p.name.split(' ').slice(comunLen).join(' ') : p.name;
               return `${p.qty} ${nombreCorto}`;
             }).join(' / ');
-            const consumidoHtml = `${pct}%<br><span style="font-weight:700">${lineasCons}</span>`;
+            const consumidoHtml = `${pct}%<br><span style="color:#64748b">${lineasCons}</span>`;
             const restanteHtml = String(restante);
             const pBar = `<div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px"><div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div></div>`;
             return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
-              <div style="font-size:12px;color:#1e293b;margin-bottom:4px">${tituloPool}</div>
+              <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloPool}</div>
               ${pBar}
               <table style="width:100%;border-collapse:collapse;font-size:12px">
                 <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
                 <tr><td colspan="2" style="color:#374151;padding:1px 0">Progreso: <span style="color:${col};font-weight:700">${pct}%</span></td></tr><tr><td colspan="2" style="padding:1px 0;font-weight:700;color:${col};text-align:left">${lineasCons}</td></tr>
-                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:#dc2626">${restante}</td></tr>
+                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restante}</td></tr>
               </table>
             </div>`;
           }
@@ -6306,7 +6323,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
           }));
           const meta = t.threshold||0;
           const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 100;
-          const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+          const col  = progressColor(pct);
           const restante = Math.max(0, meta - logro);
           const unitCons = getUnitWord(tName, logro);
           const unitRest = getUnitWord(tName, restante);
@@ -6317,9 +6334,9 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta} ${unitMeta}</td></tr>
-              <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${logro} ${unitCons} (${pct}%)${pct>=100?' ✅':''}</td></tr>
-              <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:#dc2626">${restante} ${unitRest}</td></tr>
+              <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
+              <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${logro} (${pct}%)${pct>=100?' ✅':''}</td></tr>
+              <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restante}</td></tr>
             </table>
           </div>`;
         }).join('');
@@ -6389,28 +6406,29 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               });
               const meta = t.threshold||0;
               const pct  = meta>0 ? Math.min(100,Math.round(totalEq/meta*100)) : 0;
-              const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+              const col  = progressColor(pct);
               // Título parte común
               const nombres = prodQtys.map(p=>p.name);
-              let comunLen = 0;
-              const palabrasBase = nombres[0].split(' ');
-              for (let wi=0; wi<palabrasBase.length; wi++) {
-                if (nombres.every(n=>n.split(' ')[wi]===palabrasBase[wi])) comunLen=wi+1; else break;
-              }
-              const parteComun = palabrasBase.slice(0,comunLen).join(' ');
-              const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
-              const tituloEq = parteComun && partesDistintas ? `<b>${parteComun}</b><br><b>${partesDistintas}</b>` : `<b>${nombres.join(' / ')}</b>`;
+              const { parteComun, partesDistintas } = splitTituloComun(nombres);
+              const tituloEq = parteComun && partesDistintas ? `${parteComun}<br>${partesDistintas}` : `${nombres.join(' / ')}`;
               const detalleEq = prodQtys.filter(p=>p.qty>0).map(p=>`${p.qty} ${getUnitWordCurso(p.name,p.qty)}`).join(' / ');
-              return `<div style="margin-bottom:4px">
-                <div style="font-size:11px;color:#1e293b;margin-bottom:3px">${tituloEq}</div>
+              const restanteEq = Math.max(0, meta - totalEq);
+              const restanteDetalle = restanteEq > 0 ? eqProds.map((ep,i)=>{
+                const factor = Number(ep.factor)||1;
+                const restProd = factor > 0 ? Math.ceil(restanteEq / factor) : restanteEq;
+                return `${restProd} ${getUnitWordCurso(prodQtys[i].name, restProd)}`;
+              }).join(' / ') : '';
+              return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
+                <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloEq}</div>
                 <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
                   <span>Meta: ${meta}</span>
                   <span style="color:${col};font-weight:700">${totalEq} / ${meta} (${pct}%)${pct>=100?' ✅':''}</span>
                 </div>
-                ${detalleEq?`<div style="font-size:11px;color:${col};font-weight:700;margin-bottom:3px">${detalleEq}</div>`:''}
+                ${detalleEq?`<div style="font-size:11px;color:#64748b;margin-bottom:3px">${detalleEq}</div>`:''}
                 <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:3px">
                   <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
                 </div>
+                <div style="font-size:11px;color:${restanteEq>0?'#dc2626':'#374151'}">Restante: ${restanteDetalle||'0'}</div>
               </div>`;
             }
 
@@ -6422,10 +6440,22 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             }));
             const meta = t.threshold||0;
             const pct  = meta>0 ? Math.min(100,Math.round(logro/meta*100)) : 0;
-            const col  = pct>=100?'#1d4ed8':pct>=60?'#d97706':'#dc2626';
+            const col  = progressColor(pct);
             const restante = Math.max(0, meta - logro);
-            return `<div style="margin-bottom:4px">
-              <div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:3px">${tName}</div>
+            // Título del pool compartido: nombres de los productos, con parte común si aplica
+            let tituloPoolCurso = tName;
+            if (t.isPool) {
+              const nombresPool = (t.poolProds||[]).map(pid2 => {
+                const p2 = S.products.find(x=>x.id===Number(pid2));
+                return p2 ? p2.name : 'Producto';
+              });
+              if (nombresPool.length) {
+                const { parteComun: pc2, partesDistintas: pd2 } = splitTituloComun(nombresPool);
+                tituloPoolCurso = (pc2 && pd2) ? `${pc2}<br>${pd2}` : nombresPool.join(' / ');
+              }
+            }
+            return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
+              <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloPoolCurso}</div>
               <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
                 <span>Meta: ${meta} ${getUnit(tName,meta)}</span>
                 <span style="color:${col};font-weight:700">${logro} / ${meta} (${pct}%)${pct>=100?' ✅':''}</span>
@@ -6433,7 +6463,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:3px">
                 <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
               </div>
-              ${restante>0?`<div style="font-size:11px;color:#dc2626">Restante: ${restante} ${getUnit(tName,restante)}</div>`:''}
+              <div style="font-size:11px;color:${restante>0?'#dc2626':'#374151'}">Restante: ${restante} ${getUnit(tName,restante)}</div>
             </div>`;
           }).join('') + `</div>`;
       }
