@@ -6245,7 +6245,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             const tituloHtml = parteComun && partesDistintas
               ? `${parteComun}<br>${partesDistintas}`
               : `${nombres.join(' / ')}`;
-            const consumidoStr = prodQtys.map(p=>p.qty>0?`${p.qty} ${getUnitWord(p.name,p.qty)}`:null).filter(Boolean).join(' / ')+` (${pct}%)`;
+            const consumidoRaw = prodQtys.map(p=>p.qty>0?`${p.qty} ${getUnitWord(p.name,p.qty)}`:null).filter(Boolean).join(' / ');
             const restanteStr = eqProds.map((ep,i)=>{
               const factor = Number(ep.factor)||1;
               const rp = factor>0?Math.ceil(restante/factor):restante;
@@ -6253,14 +6253,15 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             }).filter(Boolean).join(' o ');
             return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
               <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloHtml}</div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px">
+                <span>Meta: <span style="color:#1e293b;font-weight:700">${meta}</span></span>
+                <span style="font-weight:700">${pct}%${pct>=100?' ✅':''}</span>
+              </div>
+              ${consumidoRaw?`<div style="font-size:12px;color:#64748b;margin-bottom:4px">${consumidoRaw}</div>`:''}
               <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px">
                 <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
               </div>
-              <table style="width:100%;border-collapse:collapse;font-size:12px">
-                <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
-                <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${consumidoStr}</td></tr>
-                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restanteStr}</td></tr>
-              </table>
+              <div style="font-size:12px;color:#374151">Restante: <span style="font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restanteStr||'0'}</span></div>
             </div>`;
           }
 
@@ -6303,15 +6304,17 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             }).join(' / ');
             const consumidoHtml = `${pct}%<br><span style="color:#64748b">${lineasCons}</span>`;
             const restanteHtml = String(restante);
-            const pBar = `<div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px"><div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div></div>`;
             return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
               <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloPool}</div>
-              ${pBar}
-              <table style="width:100%;border-collapse:collapse;font-size:12px">
-                <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
-                <tr><td colspan="2" style="color:#374151;padding:1px 0">Progreso: <span style="color:${col};font-weight:700">${pct}%</span></td></tr><tr><td colspan="2" style="padding:1px 0;font-weight:700;color:${col};text-align:left">${lineasCons}</td></tr>
-                <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restante}</td></tr>
-              </table>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px">
+                <span>Meta: <span style="color:#1e293b;font-weight:700">${meta}</span></span>
+                <span style="font-weight:700">${pct}%${pct>=100?' ✅':''}</span>
+              </div>
+              ${lineasCons?`<div style="font-size:12px;color:#64748b;margin-bottom:4px">${lineasCons}</div>`:''}
+              <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px">
+                <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
+              </div>
+              <div style="font-size:12px;color:#374151">Restante: <span style="font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restante}</span></div>
             </div>`;
           }
 
@@ -6330,14 +6333,14 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
           const unitMeta = getUnitWord(tName, meta);
           return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
             <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tName}</div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px">
+              <span>Meta: <span style="color:#1e293b;font-weight:700">${meta}</span></span>
+              <span style="font-weight:700">${logro}/${meta} (${pct}%)${pct>=100?' ✅':''}</span>
+            </div>
             <div style="background:#e2e8f0;border-radius:4px;height:7px;margin-bottom:6px">
               <div style="background:${col};width:${pct}%;height:7px;border-radius:4px"></div>
             </div>
-            <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <tr><td style="color:#374151;padding:1px 0">Meta:</td><td style="text-align:right;font-weight:700;color:#1e293b">${meta}</td></tr>
-              <tr><td style="color:#374151;padding:1px 0">Consumido:</td><td style="text-align:right;font-weight:700;color:${col}">${logro} (${pct}%)${pct>=100?' ✅':''}</td></tr>
-              <tr><td style="color:#374151;padding:1px 0">Restante:</td><td style="text-align:right;font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restante}</td></tr>
-            </table>
+            <div style="font-size:12px;color:#374151">Restante: <span style="font-weight:700;color:${restante>0?'#dc2626':'#374151'}">${restante}</span></div>
           </div>`;
         }).join('');
         // Sin precio
