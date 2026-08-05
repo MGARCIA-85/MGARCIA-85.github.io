@@ -664,7 +664,7 @@ Selecciona un cliente para continuar.<br><br>
 <!-- Listas de precios globales -->
 <div style="margin-bottom:16px">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid #2a3050;cursor:pointer" onclick="togglePLSection()">
-  <div class="sec" style="margin-bottom:0;border:none">🏷️ Listas de Precios</div>
+  <div class="sec" style="margin-bottom:0;border:none">🏷️ Listas de Precios Compartidas</div>
   <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
     <button class="bg" style="padding:5px 12px;font-size:12px" onclick="createPriceList()">+ Nueva lista</button>
     <span id="pl-section-arrow" style="color:#64748b;font-size:13px">▼</span>
@@ -4625,6 +4625,16 @@ ${c.address ? `<div style="font-size:12px;color:#64748b">📍 ${c.address}</div>
 </div>
 <div id="csp-${c.id}" style="display:${(window._cliSecOpen&&window._cliSecOpen['csp-'+c.id])?'block':'none'}">
 ${prows}
+${(()=>{
+  const _plId = _cpData._priceListId;
+  const _pl = _plId ? (S.priceLists||[]).find(x=>x.id===_plId) : null;
+  return _pl
+    ? `<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:10px;font-weight:700">🏷️ Lista compartida: ${_pl.name}</span>
+        <button onclick="unlinkCliFromPriceList(${c.id})" style="font-size:10px;background:none;border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:2px 8px;cursor:pointer">Desvincular</button>
+      </div>`
+    : `<div style="margin-bottom:6px"><span style="font-size:10px;background:#2a1f00;color:#f59e0b;padding:2px 8px;border-radius:10px;font-weight:700">✏️ Lista personalizada</span></div>`;
+})()}
 <button class="bp2" onclick="editCliPrices(${c.id})">✏️ Editar precios de este cliente</button>
 <button class="bg" style="margin-top:6px;width:100%;font-size:12px" onclick="showPriceListDoc(${c.id})">📄 Generar listado de precios</button>
 </div>
@@ -7370,8 +7380,16 @@ const famBtns = famsSorted.map((fam,fi) => {
 window._famCatMap = window._famCatMap || {};
 famsSorted.forEach((fam,fi) => { window._famCatMap['famcat-'+cid+'-'+fi] = fam; });
 
+const _plSource = (() => {
+  const plId = cp._priceListId;
+  const pl = plId ? (S.priceLists||[]).find(x=>x.id===plId) : null;
+  return pl
+    ? `<span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:10px;font-weight:700">🏷️ Lista compartida: ${pl.name}</span>`
+    : `<span style="font-size:10px;background:#2a1f00;color:#f59e0b;padding:2px 8px;border-radius:10px;font-weight:700">✏️ Lista personalizada</span>`;
+})();
 document.getElementById('cc-'+cid).innerHTML = `
 <div style="font-weight:800;font-size:14px;margin-bottom:4px;color:#f59e0b">💲 Productos de ${c.name}</div>
+<div style="margin-bottom:8px">${_plSource}</div>
 <div class="hint" style="margin-bottom:10px">Solo estos productos aparecen al crear pedidos para este cliente.</div>
 <div id="cli-prod-list-${cid}">${assignedRows}</div>
 ${unassigned.length ? `
@@ -7501,10 +7519,29 @@ el.textContent = diff===0 ? '' : (diff>0?'▲':'▼')+Q(Math.abs(diff));
 el.style.color = diff>0?'#10b981':diff<0?'#ef4444':'';
 }
 
+function unlinkCliFromPriceList(cid) {
+  const cp = S.cp[cid] || {};
+  const plId = cp._priceListId;
+  if (!plId) return;
+  const pl = (S.priceLists||[]).find(x=>x.id===plId);
+  askConfirm(
+    '¿Desvincular de la lista compartida?',
+    'Este cliente pasará a tener una lista de precios personalizada. Cambios futuros a "'+(pl?pl.name:'la lista')+'" ya no lo afectarán.',
+    () => {
+      delete cp._priceListId;
+      if (pl) pl.clientIds = (pl.clientIds||[]).filter(x=>Number(x)!==Number(cid));
+      S.cp[cid] = cp;
+      save(); renderClients();
+      toast('✏️ Cliente desvinculado — ahora tiene lista personalizada','#f59e0b');
+    },
+    'Desvincular', '#ef4444'
+  );
+}
+
 function saveCliPrices(cid) {
 const existing = S.cp[cid] || {};
 const visible = (existing._visible || []).map(Number);
-const cp = { _visible: visible };
+const cp = { _visible: visible, _priceListId: existing._priceListId };
 // Guardar precios solo de los productos asignados
 visible.forEach(pid => {
   const inp = document.getElementById(`pe-${cid}-${pid}`);
@@ -7522,7 +7559,29 @@ S.orders.filter(o => Number(o.clientId) === Number(cid)).forEach(o => {
   });
 });
 
-S.cp[cid] = cp; save(); toast('💲 Precios guardados'); renderClients();
+S.cp[cid] = cp;
+
+// Si el cliente pertenece a una lista compartida, propagar los cambios a la lista
+// y a TODOS los demás clientes que la comparten
+if (existing._priceListId) {
+  const pl = (S.priceLists||[]).find(x=>x.id===existing._priceListId);
+  if (pl) {
+    pl.visibleProds = visible.slice();
+    visible.forEach(pid => { pl.prices[pid] = cp[pid]; });
+    (pl.clientIds||[]).forEach(otherCid => {
+      if (Number(otherCid) === Number(cid)) return; // ya se guardó arriba
+      if (!S.cp[otherCid]) S.cp[otherCid] = {};
+      const otherCp = S.cp[otherCid];
+      visible.forEach(pid => { otherCp[pid] = cp[pid]; });
+      otherCp._visible = visible.slice();
+      otherCp._priceListId = pl.id;
+    });
+    toast('💲 Precios guardados y aplicados a la lista compartida'); save(); renderClients();
+    return;
+  }
+}
+
+save(); toast('💲 Precios guardados'); renderClients();
 }
 
 // ═══════════════════════════════════════════════════════
