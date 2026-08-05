@@ -97,7 +97,7 @@ table.rep td{padding:6px 5px;border-bottom:1px solid #2a3050}
 .qt-logo{width:240px;height:120px;border-radius:10px;overflow:hidden;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
 .qt-logo img{width:100%;height:100%;object-fit:contain}
 .qt-biz{text-align:right;flex:1;padding-left:10px}
-.qt-biz h2{font-size:16px;font-weight:800;color:#111}
+.qt-biz h2{font-size:18px;font-weight:800;color:#111}
 .qt-biz p{font-size:11px;color:#6b7280;line-height:1.6}
 .qt-title{font-size:16px;font-weight:800;color:#111;margin-bottom:4px}
 .qt-meta{font-size:11px;color:#6b7280;margin-bottom:14px}
@@ -853,8 +853,8 @@ Selecciona un cliente para continuar.<br><br>
 <input class="inp" id="biz-phone" placeholder="Ej: 2222-3333"/>
 <label class="lbl">Correo electrónico</label>
 <input class="inp" id="biz-email" placeholder="Ej: ventas@minegocio.com"/>
-<label class="lbl">Mensaje de pie en cotizaciones</label>
-<textarea class="inp" id="biz-footer" placeholder="Ej: Cotización válida por 15 días. Precios sujetos a cambio sin previo aviso."></textarea>
+<label class="lbl">Datos bancarios</label>
+<textarea class="inp" id="biz-footer" placeholder="Ej: Banco XYZ, Cuenta No. 000-000000-0, A nombre de Mi Negocio S.A."></textarea>
 <button class="bp" onclick="saveBizInfo()">💾 Guardar Información</button>
 <button class="bs" style="margin-top:8px;width:100%" onclick="showPwdPanel()">🔐 Contraseña de acceso</button>
 <button class="bs" style="margin-top:6px;width:100%;background:#1e3a5f;border-color:#2a5090" onclick="showChangeCodePanel()">🔑 Cambiar código de activación</button>
@@ -3851,9 +3851,9 @@ const logoHtml = b.logoData
 const bizLines = [
 b.sub   ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">${b.sub}</p>` : '',
 b.addr  ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">📍 ${b.addr}</p>` : '',
-b.exec  ? `<p style="font-size:12px;color:#374151;margin:1px 0">${b.exec}</p>` : '',
-b.phone ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">📞 ${b.phone}</p>` : '',
-b.email ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">✉ ${b.email}</p>` : '',
+b.exec  ? `<p style="font-size:12px;color:#374151;margin:1px 0">Ejecutivo de ventas: ${b.exec}</p>` : '',
+b.phone ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">Teléfono: ${b.phone}</p>` : '',
+b.email ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">Correo electrónico: ${b.email}</p>` : '',
 ].filter(Boolean).join('');
 const cliInfo = [
 cli?.phone   ? '📞 '+cli.phone   : '',
@@ -3867,7 +3867,7 @@ const ul    = p?.unitLabel||'unidad';
 const units = Number(it.qty)*us;
 const sub   = pr*units;
 const ivaBadge = ord.applyIva
-? `<div style="font-size:9px;color:#2563eb;font-weight:600;margin-top:2px">+ IVA 12%: ${Q(pr*0.12)}/${ul}</div>` : '';
+? `<div style="font-size:9px;color:#2563eb;font-weight:600;margin-top:2px">+IVA 12%</div>` : '';
 return `<tr>
 <td style="padding:7px 6px">${p?p.name:'—'}${p?.presentation?` <span style="color:#374151">(${p.presentation})</span>`:''}</td>
 <td style="padding:7px 6px;text-align:center">${it.qty}</td>
@@ -3929,8 +3929,8 @@ if(ord.pricesIncIva) return '<div style=\"font-size:11px;color:#6b7280;text-alig
 if(ord.applyIva)    return '<div style=\"font-size:11px;color:#6b7280;text-align:right;margin-top:4px;padding-top:4px\">Subtotal: '+Q(tot)+' &nbsp;+&nbsp; IVA 12%: '+Q(tot*0.12)+'</div>';
 return '';
 })()}
-${b.footer?`<div class="qt-note">${b.footer.split('\n').map(l=>`<div>${l}</div>`).join('')}</div>`:''}
-${(ord.conditions&&ord.conditions.length)?`<div class="qt-note" style="margin-top:6px"><div style="font-weight:700;margin-bottom:3px">Términos y condiciones de la oferta</div>${ord.conditions.map(c=>c.split('\n').map(l=>`<div>${l}</div>`).join('')).join('')}</div>`:''}
+${(ord.conditions&&ord.conditions.length)?`<div class="qt-note"><div style="font-weight:700;margin-bottom:3px">Términos y condiciones de la oferta</div>${ord.conditions.map(c=>c.split('\n').map(l=>`<div>${l}</div>`).join('')).join('')}</div>`:''}
+${b.footer?`<div class="qt-note" style="margin-top:6px"><div style="font-weight:700;margin-bottom:3px">Datos bancarios</div>${b.footer.split('\n').map(l=>`<div>${l}</div>`).join('')}</div>`:''}
 </div>`;
 }
 
