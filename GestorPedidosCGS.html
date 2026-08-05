@@ -94,8 +94,8 @@ table.rep td{padding:6px 5px;border-bottom:1px solid #2a3050}
 /* QUOTE STYLES (usadas también en impresión) */
 .qt{background:#fff;color:#111;padding:20px;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;border-radius:8px}
 .qt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb}
-.qt-logo{width:60px;height:60px;border-radius:10px;overflow:hidden;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
-.qt-logo img{width:100%;height:100%;object-fit:cover}
+.qt-logo{width:240px;height:120px;border-radius:10px;overflow:hidden;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.qt-logo img{width:100%;height:100%;object-fit:contain}
 .qt-biz{text-align:right;flex:1;padding-left:10px}
 .qt-biz h2{font-size:16px;font-weight:800;color:#111}
 .qt-biz p{font-size:11px;color:#6b7280;line-height:1.6}
@@ -300,7 +300,7 @@ function fmtDDMMYYYY(d) {
 
 <!-- Modal confirmación eliminar -->
 <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;display:none;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#1e2236;border:1px solid #ef4444;border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center">
+  <div style="background:#1e2236;border:1px solid #ef4444;border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center;max-height:85vh;display:flex;flex-direction:column">
     <div style="font-size:28px;margin-bottom:8px">🗑</div>
     <div id="confirm-msg" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:6px"></div>
     <div id="confirm-sub" style="font-size:12px;color:#94a3b8;margin-bottom:18px"></div>
@@ -383,6 +383,15 @@ function fmtDDMMYYYY(d) {
 <button class="bs" style="flex:1;padding:8px" onclick="addCommentField()">💬 + Agregar comentario</button>
 <button class="bs" style="padding:8px 12px" onclick="toggleSavedComments()" title="Comentarios predefinidos">📌</button>
 </div>
+<label class="lbl" style="margin-top:10px">📋 Términos y condiciones de la oferta</label>
+<div id="ord-conditions-list"></div>
+<div id="saved-conditions-bar" style="display:none;margin-top:6px;margin-bottom:4px;flex-wrap:wrap;gap:6px"></div>
+<div style="display:flex;gap:6px;margin-top:4px">
+<button class="bs" style="flex:1;padding:8px" onclick="addConditionField()">+ Agregar condición</button>
+<button class="bs" style="padding:8px 12px" onclick="toggleSavedConditions()" title="Condiciones predefinidas">📌</button>
+</div>
+<label class="lbl" style="margin-top:10px">Contacto</label>
+<input class="inp" id="ord-contact" placeholder="Nombre de la persona de contacto"/>
 </div>
 <div class="card" id="ord-total-box" style="display:none">
 <!-- Toggle: Agregar IVA -->
@@ -990,6 +999,7 @@ lastBk: null,
 
 let ordItems    = [{ pid:'', qty:1, price:null }];
 let ordComments = [''];
+let ordConditions = [];
 let _duplicatingFrom = null;
 let _duplicatingData = null;
 let editingOid  = null;
@@ -1013,6 +1023,7 @@ if (!S.biz) S.biz = { name:'Mi Negocio', sub:'', phone:'', addr:'', email:'', fo
 if (!S.biz.emoji)    S.biz.emoji    = '📦';
 if (!S.biz.logoData) S.biz.logoData = '';
 if (!S.biz.footer)   S.biz.footer   = 'Cotización válida por 15 días.';
+if (!S.savedConditions) S.savedConditions = [];
 if (!S.cp)           S.cp           = {};
 if (!S.nextOid)      S.nextOid      = (S.orders ? S.orders.length : 0) + 1;
 if (!S.depts)   S.depts   = [];
@@ -1618,6 +1629,7 @@ if (editingOid === null) {
   ordItems = [{ pid:'', qty:1 }];
   ordBonusLines = [];
   ordComments = [''];
+  ordConditions = [];
   // Precargar comentarios predefinidos del cliente
   let clientPinned = (S.savedComments && S.savedComments[cid]) || [];
   if (!Array.isArray(clientPinned)) clientPinned = [];
@@ -1626,6 +1638,7 @@ if (editingOid === null) {
 renderItems();
 renderOrdBonusRows();
 renderCommentFields();
+renderConditionFields();
 // Activar visualmente el toggle "Los precios ya incluyen IVA" por defecto
 const ivaIncChkInit = document.getElementById('ord-iva-inc');
 if (ivaIncChkInit && !editingOid) { ivaIncChkInit.checked = true; }
@@ -1962,6 +1975,7 @@ const note = comments.join(' | ');  // backward compat field
 const quote = document.getElementById('ord-quote')?.value.trim() || '';
 const quoteNote = document.getElementById('ord-quote-note')?.value.trim() || '';
 const oc = document.getElementById('ord-oc')?.value.trim() || '';
+const contact = document.getElementById('ord-contact')?.value.trim() || '';
 const applyIva       = document.getElementById('ord-iva')?.checked || false;
 const pricesIncIva   = document.getElementById('ord-iva-inc')?.checked || false;
 const items = valid.map(it => {
@@ -1982,6 +1996,8 @@ ord.items        = items;
 ord.bonusLines   = ordBonusLines.length ? ordBonusLines.map(bl=>({...bl})) : [];
 ord.note         = note;
 ord.comments     = comments;
+ord.conditions   = ordConditions.filter(c=>c&&c.trim());
+ord.contact      = contact;
 ord.quote        = quote;
 ord.quoteNote    = quoteNote;
 ord.oc           = oc;
@@ -2021,7 +2037,8 @@ if (isQuote) {
 if (!quote) return alert('Debe llenar el campo de cotización.');
 showQuote({
 id: 'T'+Date.now(), clientId:cli.id, clientName:cli.name,
-quote, note, comments, items, applyIva, pricesIncIva, date:nowDateTimeStr(), status:'Cotización', isTemp:true
+quote, note, comments, items, applyIva, pricesIncIva, date:nowDateTimeStr(), status:'Cotización', isTemp:true,
+conditions: ordConditions.filter(c=>c&&c.trim()), contact
 });
 return;
 }
@@ -2029,7 +2046,8 @@ return;
 // Nuevo pedido
 const newOrd = {
   id:S.nextOid++, clientId:cli.id, clientName:cli.name,
-  note, comments, quote, quoteNote, oc, delivery, applyIva, pricesIncIva, items,
+  note, comments, quote, quoteNote, oc, delivery, applyIva, pricesIncIva, items, contact,
+  conditions: ordConditions.filter(c=>c&&c.trim()),
   bonusLines: ordBonusLines.length ? ordBonusLines.map(bl=>({...bl})) : undefined,
   date:(()=>{
     const fd = document.getElementById('ord-date')?.value;
@@ -2089,6 +2107,7 @@ function finishSave() {
   editingOid = null;
   document.getElementById('ord-quote').value='';
   document.getElementById('ord-oc').value='';
+  const contactClearEl = document.getElementById('ord-contact'); if (contactClearEl) contactClearEl.value='';
   document.getElementById('ord-cli').value = ''; document.getElementById('ord-cli-txt').value = '';
   ordComments = [''];
   document.getElementById('ord-iva').checked = false;
@@ -2124,6 +2143,7 @@ _listScrollY = window.scrollY;
 editingOid = id;
 ordItems   = ord.items.map(it => ({ pid:String(it.productId), qty:it.qty, price: it.customPrice != null ? it.customPrice : null, priceIncludesIva: !!it.priceIncludesIva }));
 ordBonusLines = (ord.bonusLines||[]).map(bl => ({...bl}));
+ordConditions = (ord.conditions||[]).slice();
 goTab('order');
 setTimeout(() => {
 document.getElementById('ord-cli').value  = ord.clientId;
@@ -2135,6 +2155,7 @@ setComments([ord.note]);
 } else {
 setComments(['']);
 }
+renderConditionFields();
 const ivaChk = document.getElementById('ord-iva');
 if (ivaChk) ivaChk.checked = !!ord.applyIva;
 const ivaIncChk = document.getElementById('ord-iva-inc');
@@ -2159,6 +2180,8 @@ const ocInp = document.getElementById('ord-oc');
 if (ocInp) ocInp.value = ord.oc || '';
 const deliveryInp = document.getElementById('ord-delivery');
 if (deliveryInp) deliveryInp.value = ord.delivery || '';
+const contactInp = document.getElementById('ord-contact');
+if (contactInp) contactInp.value = ord.contact || '';
 // Cargar fecha del pedido en formato YYYY-MM-DD
 const dateInp = document.getElementById('ord-date');
 if (dateInp && ord.date) {
@@ -2396,11 +2419,23 @@ const cid = Number(document.getElementById('ord-cli').value);
 let saved = (S.savedComments && S.savedComments[cid]) || [];
 if (!Array.isArray(saved)) { saved = []; if (S.savedComments) S.savedComments[cid] = []; }
 if (!saved.length) { bar.innerHTML = '<span style="font-size:12px;color:#64748b;padding:4px">No hay comentarios predefinidos para este cliente.</span>'; return; }
-bar.innerHTML = saved.map((c, i) => `
-<div style="display:flex;align-items:center;gap:4px;background:#1e2236;border:1px solid #2a3050;border-radius:7px;padding:4px 8px;font-size:12px;max-width:100%">
-  <span style="cursor:pointer;color:#f1f5f9;flex:1" onclick="useComment('${c.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${c}</span>
-  <button onclick="removeSavedComment(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px" title="Quitar predefinido">✕</button>
-</div>`).join('');
+bar.innerHTML = '';
+saved.forEach((c, i) => {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:4px;background:#1e2236;border:1px solid #2a3050;border-radius:7px;padding:4px 8px;font-size:12px;max-width:100%';
+  const span = document.createElement('span');
+  span.style.cssText = 'cursor:pointer;color:#f1f5f9;flex:1;white-space:pre-line';
+  span.textContent = c;
+  span.onclick = function() { useComment(c); };
+  row.appendChild(span);
+  const btn = document.createElement('button');
+  btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px';
+  btn.title = 'Quitar predefinido';
+  btn.textContent = '✕';
+  btn.onclick = function() { removeSavedComment(i); };
+  row.appendChild(btn);
+  bar.appendChild(row);
+});
 }
 
 function removeSavedComment(i) {
@@ -3811,8 +3846,8 @@ const cli  = S.clients.find(c => c.id===ord.clientId);
 const tot  = orderTotal(ord.items, ord.clientId);
 const qNum = ord.quote || 'COT-'+String(ord.id||Date.now()).toString().slice(-6).padStart(6,'0');
 const logoHtml = b.logoData
-? `<img src="${b.logoData}" style="width:60px;height:60px;border-radius:10px;object-fit:cover"/>`
-: `<div style="width:60px;height:60px;background:#f59e0b;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px">${b.emoji||'📦'}</div>`;
+? `<img src="${b.logoData}" style="width:240px;height:120px;border-radius:10px;object-fit:contain"/>`
+: `<div style="width:240px;height:120px;background:#f59e0b;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:42px">${b.emoji||'📦'}</div>`;
 const bizLines = [
 b.sub   ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">${b.sub}</p>` : '',
 b.addr  ? `<p style="font-size:12px;color:#6b7280;margin:1px 0">📍 ${b.addr}</p>` : '',
@@ -3862,7 +3897,7 @@ return `<tr style="background:#f0fdf4">
 // Comentarios — van ARRIBA de la tabla
 const cmtsQuote = (()=>{
 const cmts = ord.comments && ord.comments.length ? ord.comments : (ord.note ? [ord.note] : []);
-return cmts.filter(Boolean).map(c=>`<div class="qt-note" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:4px 8px;margin-bottom:3px;border-radius:3px">💬 ${c}</div>`).join('');
+return cmts.filter(Boolean).map(c=>`<div class="qt-note" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:4px 8px;margin-bottom:3px;border-radius:3px">${c.split('\n').join('<br>')}</div>`).join('');
 })();
 const bonusSepQ = bonusRows ? `<tr style="background:#f0fdf4"><td colspan="4" style="padding:2px 8px;font-size:10px;color:#15803d;border-top:2px dashed #86efac;font-weight:700">─── BONIFICACIONES ───</td></tr>` : '';
 return `<div class="qt">
@@ -3872,10 +3907,11 @@ return `<div class="qt">
 </div>
 <div style="font-size:16px;font-weight:800;margin-top:16px;margin-bottom:1px;color:#111">COTIZACIÓN</div>
 <div style="font-size:16px;font-weight:900;margin-bottom:4px;color:#111">N° ${qNum}</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:2px">Fecha: ${ord.date}</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:2px">Fecha: ${(ord.date||'').split(',')[0]}</div>
 <div style="font-size:13px;margin-top:2px">Cliente: <strong>${ord.clientName}</strong></div>
+${ord.contact?`<div style="font-size:13px;margin-top:2px">Contacto: <strong>${ord.contact}</strong></div>`:''}
 ${ord.quoteNote?`<div style="font-size:12px;color:#374151;margin-top:4px;padding:5px 8px;background:#f9fafb;border-left:3px solid #f59e0b;border-radius:3px"><strong>Fecha de entrega:</strong> ${fmtEntrega(ord.quoteNote)}</div>`:''}
-${ord.delivery?`<div style="font-size:12px;color:#0369a1;margin-top:4px;padding:5px 8px;background:#f0f9ff;border-left:3px solid #bae6fd;border-radius:3px">📍 Entrega: ${ord.delivery}</div>`:''}
+${ord.delivery?`<div style="font-size:12px;color:#0369a1;margin-top:4px;padding:5px 8px;background:#f0f9ff;border-left:3px solid #bae6fd;border-radius:3px">Entrega: ${ord.delivery.split('\n').join('<br>')}</div>`:''}
 ${cliInfo?`<div class="qt-cli"><strong>${ord.clientName}</strong><span style="color:#6b7280;margin-left:6px">${cliInfo}</span></div>`:''}
 ${cmtsQuote}
 <table class="qt-tbl">
@@ -3893,7 +3929,8 @@ if(ord.pricesIncIva) return '<div style=\"font-size:11px;color:#6b7280;text-alig
 if(ord.applyIva)    return '<div style=\"font-size:11px;color:#6b7280;text-align:right;margin-top:4px;padding-top:4px\">Subtotal: '+Q(tot)+' &nbsp;+&nbsp; IVA 12%: '+Q(tot*0.12)+'</div>';
 return '';
 })()}
-${b.footer?`<div class="qt-note">${b.footer}</div>`:''}
+${b.footer?`<div class="qt-note">${b.footer.split('\n').map(l=>`<div>${l}</div>`).join('')}</div>`:''}
+${(ord.conditions&&ord.conditions.length)?`<div class="qt-note" style="margin-top:6px"><div style="font-weight:700;margin-bottom:3px">Términos y condiciones de la oferta</div>${ord.conditions.map(c=>c.split('\n').map(l=>`<div>${l}</div>`).join('')).join('')}</div>`:''}
 </div>`;
 }
 
@@ -3920,8 +3957,8 @@ const css = `
 body{background:#fff;color:#111;font-family:'Segoe UI',Arial,sans-serif;padding:16px}
 .qt{max-width:600px;margin:0 auto}
 .qt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e5e7eb}
-.qt-logo{width:60px;height:60px;border-radius:10px;overflow:hidden;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
-.qt-logo img{width:100%;height:100%;object-fit:cover}
+.qt-logo{width:240px;height:120px;border-radius:10px;overflow:hidden;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.qt-logo img{width:100%;height:100%;object-fit:contain}
 .qt-biz{text-align:right;flex:1;padding-left:10px}
 .qt-biz h2{font-size:16px;font-weight:800}.qt-biz p{font-size:11px;color:#6b7280;line-height:1.6}
 .qt-title{font-size:16px;font-weight:800;margin-bottom:4px}
@@ -4999,9 +5036,7 @@ function createPriceList() {
   if (!name || !name.trim()) return;
   if (!S.priceLists) S.priceLists = [];
   const id = Date.now();
-  const prices = {};
-  S.products.forEach(p => { prices[p.id] = p.basePrice; });
-  S.priceLists.push({ id, name: name.trim(), prices, clientIds: [] });
+  S.priceLists.push({ id, name: name.trim(), prices: {}, clientIds: [], visibleProds: [] });
   save(); renderPriceLists();
   setTimeout(() => editPriceList(id), 100);
 }
@@ -5013,45 +5048,216 @@ function deletePriceList(id) {
   });
 }
 
+let _plEditState = null; // { productIds:[], clientIds:[] }
+
+// ── Buscador de clientes para Lista de Precios ──────────────────────────────
+function plSearchClients(id) {
+  const txt = document.getElementById('pl-cli-search-'+id);
+  const drop = document.getElementById('pl-cli-drop-'+id);
+  if (!txt || !drop) return;
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.clients.filter(c =>
+    !_plEditState.clientIds.includes(c.id) &&
+    (q.length===0 || normalizeStr(c.name).includes(q) || normalizeStr(c.phone||'').includes(q))
+  ).slice(0, 30);
+  drop.innerHTML = '';
+  if (!matches.length) { drop.innerHTML = '<div class="ac-empty">Sin resultados</div>'; acOpen('pl-cli-drop-'+id); return; }
+  matches.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ac-opt';
+    d.textContent = c.name;
+    d.onmousedown = () => {
+      _plEditState.clientIds.push(c.id);
+      txt.value = '';
+      acClose('pl-cli-drop-'+id);
+      const pl = (S.priceLists||[]).find(x=>x.id===id);
+      plRenderClientChips(id, pl);
+      const listEl = document.getElementById('pl-cli-list-'+id);
+      if (listEl) listEl.innerHTML = plCliListOptions(id);
+    };
+    drop.appendChild(d);
+  });
+  acOpen('pl-cli-drop-'+id);
+}
+
+function plRenderClientChips(id, pl) {
+  const wrap = document.getElementById('pl-cli-chips-'+id);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _plEditState.clientIds.forEach(cid => {
+    const c = S.clients.find(x=>x.id===cid);
+    if (!c) return;
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:#1e2236;border:1px solid #2a3050;border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;color:#f1f5f9';
+    chip.innerHTML = `<span>${c.name}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px';
+    btn.onclick = () => {
+      _plEditState.clientIds = _plEditState.clientIds.filter(x=>x!==cid);
+      plRenderClientChips(id, pl);
+      const listEl = document.getElementById('pl-cli-list-'+id);
+      if (listEl) listEl.innerHTML = plCliListOptions(id);
+    };
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
+// ── Buscador de productos para Lista de Precios ─────────────────────────────
+function plSearchProds(id) {
+  const txt = document.getElementById('pl-prod-search-'+id);
+  const drop = document.getElementById('pl-prod-drop-'+id);
+  if (!txt || !drop) return;
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.products.filter(p =>
+    !_plEditState.productIds.includes(p.id) &&
+    (q.length===0 || normalizeStr(p.name).includes(q) || normalizeStr(p.presentation||'').includes(q))
+  ).slice(0, 30);
+  drop.innerHTML = '';
+  if (!matches.length) { drop.innerHTML = '<div class="ac-empty">Sin resultados</div>'; acOpen('pl-prod-drop-'+id); return; }
+  matches.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'ac-opt';
+    d.innerHTML = `${p.name}${p.presentation?` <small>${p.presentation}</small>`:''}`;
+    d.onmousedown = () => {
+      _plEditState.productIds.push(p.id);
+      txt.value = '';
+      acClose('pl-prod-drop-'+id);
+      const pl = (S.priceLists||[]).find(x=>x.id===id);
+      plRenderProdChips(id, pl);
+      const listEl = document.getElementById('pl-prod-list-'+id);
+      if (listEl) listEl.innerHTML = plProdListOptions(id);
+    };
+    drop.appendChild(d);
+  });
+  acOpen('pl-prod-drop-'+id);
+}
+
+function plRenderProdChips(id, pl) {
+  const wrap = document.getElementById('pl-prod-chips-'+id);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  // Recorrer en el orden del listado general, filtrando solo los seleccionados
+  S.products.filter(p => _plEditState.productIds.includes(p.id)).forEach(p => {
+    const pid = p.id;
+    const val = pl.prices && pl.prices[pid]!=null ? pl.prices[pid] : p.basePrice;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;background:#161929;border-radius:8px;padding:6px 8px';
+    row.innerHTML = `
+      <span style="font-size:12px;color:#f1f5f9;flex:1">${p.name} <span class="tag">${p.presentation||''}</span></span>
+      <span style="font-size:10px;color:#64748b">${Q(p.basePrice)}</span>
+      <input type="number" step="0.01" value="${val}" id="plp-${id}-${pid}" style="width:80px;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 6px;color:#f1f5f9;font-size:12px"/>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 4px;flex-shrink:0';
+    btn.onclick = () => {
+      _plEditState.productIds = _plEditState.productIds.filter(x=>x!==pid);
+      plRenderProdChips(id, pl);
+      const listEl = document.getElementById('pl-prod-list-'+id);
+      if (listEl) listEl.innerHTML = plProdListOptions(id);
+    };
+    row.appendChild(btn);
+    wrap.appendChild(row);
+  });
+}
+
+function plProdListOptions(id) {
+  const remaining = S.products.filter(p => !_plEditState.productIds.includes(p.id));
+  if (!remaining.length) return '<option value="">Todos los productos ya están agregados</option>';
+  const famGroups = {};
+  remaining.forEach(p => {
+    const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
+    if (!famGroups[fam]) famGroups[fam] = [];
+    famGroups[fam].push(p);
+  });
+  const famsSorted = Object.keys(famGroups).sort((a,b) => a==='— Sin departamento —'?1:b==='— Sin departamento —'?-1:a.localeCompare(b,'es'));
+  return famsSorted.map(fam =>
+    `<optgroup label="${fam}">${famGroups[fam].map(p=>`<option value="${p.id}">${p.name} — ${p.presentation||'—'}</option>`).join('')}</optgroup>`
+  ).join('');
+}
+
+function plAddFromList(id) {
+  const sel = document.getElementById('pl-prod-list-'+id);
+  if (!sel) return;
+  const ids = Array.from(sel.selectedOptions).map(o=>Number(o.value)).filter(Boolean);
+  if (!ids.length) return;
+  ids.forEach(pid => { if (!_plEditState.productIds.includes(pid)) _plEditState.productIds.push(pid); });
+  const pl = (S.priceLists||[]).find(x=>x.id===id);
+  plRenderProdChips(id, pl);
+  const listEl = document.getElementById('pl-prod-list-'+id);
+  if (listEl) listEl.innerHTML = plProdListOptions(id);
+}
+
+function plCliListOptions(id) {
+  const remaining = S.clients.filter(c => !_plEditState.clientIds.includes(c.id));
+  if (!remaining.length) return '<option value="">Todos los clientes ya están agregados</option>';
+  return remaining.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function plAddCliFromList(id) {
+  const sel = document.getElementById('pl-cli-list-'+id);
+  if (!sel) return;
+  const ids = Array.from(sel.selectedOptions).map(o=>Number(o.value)).filter(Boolean);
+  if (!ids.length) return;
+  ids.forEach(cid => { if (!_plEditState.clientIds.includes(cid)) _plEditState.clientIds.push(cid); });
+  const pl = (S.priceLists||[]).find(x=>x.id===id);
+  plRenderClientChips(id, pl);
+  const listEl = document.getElementById('pl-cli-list-'+id);
+  if (listEl) listEl.innerHTML = plCliListOptions(id);
+}
+
 function editPriceList(id) {
   const pl = (S.priceLists||[]).find(x=>x.id===id);
   if (!pl) return;
+  if (!pl.visibleProds) pl.visibleProds = Object.keys(pl.prices||{}).map(Number); // compatibilidad con listas ya creadas: solo los que ya tienen precio
+  _plEditState = { productIds: pl.visibleProds.slice(), clientIds: (pl.clientIds||[]).slice() };
   const modal = document.getElementById('confirm-modal');
   const inner = modal.querySelector('div');
-  // Filas de precios
-  const priceRows = S.products.map(p => {
-    const val = pl.prices && pl.prices[p.id]!=null ? pl.prices[p.id] : p.basePrice;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
-      <span style="font-size:12px;color:#94a3b8;flex:1">${p.name} <span class="tag">${p.presentation||''}</span></span>
-      <span style="font-size:10px;color:#64748b">${Q(p.basePrice)}</span>
-      <input type="number" step="0.01" value="${val}" id="plp-${id}-${p.id}" style="width:80px;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 6px;color:#f1f5f9;font-size:12px"/>
-    </div>`;
-  }).join('');
-  // Selector de clientes
-  const clientOpts = S.clients.map(c => {
-    const sel = (pl.clientIds||[]).includes(c.id) ? 'selected' : '';
-    return `<option value="${c.id}" ${sel}>${c.name}</option>`;
-  }).join('');
   inner.innerHTML = `
-    <div style="font-weight:800;font-size:15px;color:#f59e0b;margin-bottom:10px">✏️ ${pl.name}</div>
-    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px">ASIGNAR A CLIENTES (manten presionado para varios):</div>
-    <select multiple id="pl-clients-${id}" style="width:100%;height:100px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:6px;margin-bottom:10px">${clientOpts}</select>
-    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">PRECIOS:</div>
-    <div style="max-height:250px;overflow-y:auto">${priceRows}</div>
-    <div style="display:flex;gap:8px;margin-top:12px">
+    <div style="font-weight:800;font-size:15px;color:#f59e0b;margin-bottom:10px;flex-shrink:0">✏️ ${pl.name}</div>
+    <div style="overflow-y:auto;flex:1;min-height:0;text-align:left">
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px">ASIGNAR A CLIENTES:</div>
+    <div style="position:relative;margin-bottom:6px">
+      <input type="text" id="pl-cli-search-${id}" class="inp" placeholder="Buscar cliente por nombre..." oninput="plSearchClients(${id})" autocomplete="off"/>
+      <div id="pl-cli-drop-${id}" class="ac-drop" style="position:absolute;left:0;right:0"></div>
+    </div>
+    <div id="pl-cli-chips-${id}" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">O elige del listado (manten presionado para varios):</div>
+    <select class="inp" id="pl-cli-list-${id}" multiple style="margin-bottom:6px;height:100px">${plCliListOptions(id)}</select>
+    <button class="bg" style="width:100%;padding:8px;margin-bottom:12px" onclick="plAddCliFromList(${id})">+ Agregar seleccionados</button>
+
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:4px">PRODUCTOS EN LA LISTA:</div>
+    <div style="position:relative;margin-bottom:6px">
+      <input type="text" id="pl-prod-search-${id}" class="inp" placeholder="Buscar producto por nombre..." oninput="plSearchProds(${id})" autocomplete="off"/>
+      <div id="pl-prod-drop-${id}" class="ac-drop" style="position:absolute;left:0;right:0"></div>
+    </div>
+    <div id="pl-prod-chips-${id}" style="max-height:260px;overflow-y:auto;margin-bottom:6px"></div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">O elige del listado (manten presionado para varios):</div>
+    <select class="inp" id="pl-prod-list-${id}" multiple style="margin-bottom:6px;height:120px">${plProdListOptions(id)}</select>
+    <button class="bg" style="width:100%;padding:8px;margin-bottom:6px" onclick="plAddFromList(${id})">+ Agregar seleccionados</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-shrink:0">
       <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer">Cancelar</button>
       <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#f59e0b;color:#000;font-weight:800;cursor:pointer">✔ Guardar</button>
     </div>`;
   modal.style.display = 'flex';
+  plRenderClientChips(id, pl);
+  plRenderProdChips(id, pl);
   _confirmCb = () => {
-    // Guardar precios
-    S.products.forEach(p => {
-      const inp = document.getElementById(`plp-${id}-${p.id}`);
-      if (inp) pl.prices[p.id] = Number(inp.value);
+    // Guardar precios leyendo lo que el usuario haya escrito en cada input
+    _plEditState.productIds.forEach(pid => {
+      const inp = document.getElementById(`plp-${id}-${pid}`);
+      if (inp) {
+        pl.prices[pid] = Number(inp.value);
+      } else if (pl.prices[pid] == null) {
+        const p = S.products.find(x=>x.id===pid);
+        pl.prices[pid] = p ? p.basePrice : 0;
+      }
     });
+    pl.visibleProds = _plEditState.productIds.slice();
     // Guardar clientes y aplicar precios
-    const sel = document.getElementById(`pl-clients-${id}`);
-    const newClients = sel ? Array.from(sel.selectedOptions).map(o=>Number(o.value)) : [];
+    const newClients = _plEditState.clientIds.slice();
     // Quitar lista de clientes anteriores que ya no están
     (pl.clientIds||[]).forEach(cid => {
       if (!newClients.includes(cid)) {
@@ -5061,13 +5267,13 @@ function editPriceList(id) {
       }
     });
     pl.clientIds = newClients;
-    // Aplicar precios a clientes asignados
+    // Aplicar precios a clientes asignados, respetando la visibilidad elegida
     newClients.forEach(cid => {
       if (!S.cp[cid]) S.cp[cid] = {};
       const existing = S.cp[cid];
       S.products.forEach(p => { existing[p.id] = pl.prices[p.id]; });
       existing._priceListId = id;
-      existing._visible = S.products.map(p=>p.id);
+      existing._visible = pl.visibleProds.slice();
     });
     save(); renderPriceLists(); toast('✅ Lista guardada y aplicada a clientes','#10b981');
   };
@@ -8593,6 +8799,125 @@ function initListSwipe(el, oid) {
   }, {passive:true});
 }
 
+function addConditionField() {
+  ordConditions.push('');
+  renderConditionFields();
+}
+
+function removeCondition(i) {
+  ordConditions.splice(i, 1);
+  renderConditionFields();
+}
+
+function renderConditionFields() {
+  const wrap = document.getElementById('ord-conditions-list');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const saved = Array.isArray(S.savedConditions) ? S.savedConditions : [];
+  ordConditions.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:flex-start;margin-bottom:6px';
+    const isPinned = c.trim() && saved.includes(c.trim());
+    const pinStyle = isPinned
+      ? 'background:#052e16;border:1px solid #10b981;border-radius:7px;padding:4px 8px;flex-shrink:0;cursor:pointer;font-size:14px;color:#10b981'
+      : 'background:transparent;border:1px solid #475569;border-radius:7px;padding:4px 8px;flex-shrink:0;cursor:pointer;font-size:14px;color:#475569';
+    const ta = document.createElement('textarea');
+    ta.style.flex = '1';
+    ta.className = 'inp';
+    ta.rows = 2;
+    ta.placeholder = 'Ej: Precio válido solo para pago de contado';
+    ta.value = c;
+    ta.oninput = function() { ordConditions[i] = this.value; };
+    row.appendChild(ta);
+    const pinBtn = document.createElement('button');
+    pinBtn.setAttribute('style', pinStyle);
+    pinBtn.textContent = '📌';
+    pinBtn.onclick = function() { pinCondition(i); };
+    row.appendChild(pinBtn);
+    const remBtn = document.createElement('button');
+    remBtn.className = 'br';
+    remBtn.style.padding = '4px 8px';
+    remBtn.style.flexShrink = '0';
+    remBtn.textContent = '✕';
+    remBtn.onclick = function() { removeCondition(i); };
+    row.appendChild(remBtn);
+    wrap.appendChild(row);
+  });
+}
+
+function pinCondition(i) {
+  const txt = ordConditions[i] && ordConditions[i].trim();
+  if (!txt) return toast('Escribe una condición primero','#ef4444');
+  if (!Array.isArray(S.savedConditions)) S.savedConditions = [];
+  const idx = S.savedConditions.indexOf(txt);
+  if (idx >= 0) {
+    S.savedConditions.splice(idx, 1);
+    toast('📌 Condición quitada de predefinidas','#64748b');
+  } else {
+    S.savedConditions.push(txt);
+    toast('📌 Condición guardada como predefinida','#10b981');
+  }
+  save();
+  renderConditionFields();
+  renderSavedConditionsBar();
+}
+
+function toggleSavedConditions() {
+  const bar = document.getElementById('saved-conditions-bar');
+  if (!bar) return;
+  const open = bar.style.display === 'flex';
+  bar.style.display = open ? 'none' : 'flex';
+  if (!open) renderSavedConditionsBar();
+}
+
+function renderSavedConditionsBar() {
+  const bar = document.getElementById('saved-conditions-bar');
+  if (!bar || bar.style.display === 'none') return;
+  const saved = Array.isArray(S.savedConditions) ? S.savedConditions : [];
+  if (!saved.length) { bar.innerHTML = '<span style="font-size:12px;color:#64748b;padding:4px">No hay condiciones predefinidas todavía.</span>'; return; }
+  bar.innerHTML = '';
+  saved.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;background:#1e2236;border:1px solid #2a3050;border-radius:7px;padding:4px 8px;font-size:12px;max-width:100%';
+    const span = document.createElement('span');
+    span.style.cssText = 'cursor:pointer;color:#f1f5f9;flex:1;white-space:pre-line';
+    span.textContent = c;
+    span.onclick = function() { useCondition(c); };
+    row.appendChild(span);
+    const btn = document.createElement('button');
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px';
+    btn.title = 'Quitar predefinido';
+    btn.textContent = '✕';
+    btn.onclick = function() { removeSavedCondition(i); };
+    row.appendChild(btn);
+    bar.appendChild(row);
+  });
+  return;
+  bar.innerHTML = saved.map((c, i) => `
+<div style="display:flex;align-items:center;gap:4px;background:#1e2236;border:1px solid #2a3050;border-radius:7px;padding:4px 8px;font-size:12px;max-width:100%">
+  <span style="cursor:pointer;color:#f1f5f9;flex:1" onclick="useCondition('${c.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${c}</span>
+  <button onclick="removeSavedCondition(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px" title="Quitar predefinido">✕</button>
+</div>`).join('');
+}
+
+function useCondition(txt) {
+  const empty = ordConditions.findIndex(c => !c.trim());
+  if (empty >= 0) {
+    ordConditions[empty] = txt;
+  } else {
+    ordConditions.push(txt);
+  }
+  renderConditionFields();
+}
+
+function removeSavedCondition(i) {
+  if (!Array.isArray(S.savedConditions)) return;
+  S.savedConditions.splice(i, 1);
+  save();
+  renderConditionFields();
+  renderSavedConditionsBar();
+}
+
 function initCliOrdSwipe(el, oid) {
   let startX = 0, startY = 0, dragging = false;
   const THRESHOLD = 80;
@@ -9955,6 +10280,7 @@ function sendBonusOrder(cid, ri) {
   editingOid = null;
   ordItems = [{ pid:'', qty:1, price:null }];
   ordComments = [''];
+  ordConditions = [];
   // Cargar las líneas de bonificación de la regla, marcadas con la regla de origen
   ordBonusLines = (r.bonusItems||[]).map(bi => {
     const p = S.products.find(x=>x.id===Number(bi.productId));
@@ -9983,6 +10309,7 @@ function sendBonusOrder(cid, ri) {
     const ivaIncEl = document.getElementById('ord-iva-inc'); if (ivaIncEl) ivaIncEl.checked = true;
     renderItems();
     renderOrdBonusRows();
+    renderConditionFields();
     refreshTotalWithIVA();
     onDeliveryInputChange();
     toast('🎁 Bonificación cargada — completa y guarda el pedido','#10b981');
