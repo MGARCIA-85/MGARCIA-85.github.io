@@ -2902,7 +2902,8 @@ function generateOrderReport(selIds) {
   const fCli  = (document.getElementById('f-cli-report')?.value||'').trim();
   const fFrom = document.getElementById('f-date-from')?.value;
   const fTo   = document.getElementById('f-date-to')?.value;
-  const title = fCli ? `Informe: ${fCli}` : 'Informe de Pedidos';
+  const defaultTitle = fCli ? `Informe: ${fCli}` : 'Informe de Pedidos';
+  const title = prompt('Título del informe (también será el nombre del archivo):', defaultTitle) || defaultTitle;
   const periodo = (fFrom||fTo) ? `${fFrom||'inicio'} → ${fTo||'hoy'}` : fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })());
   const tot = filtered.reduce((s,o)=>{const t=orderTotal(o.items,o.clientId);return s+(o.applyIva?t*1.12:t);},0);
 
@@ -3018,7 +3019,7 @@ function generateOrderReport(selIds) {
   @media print{button{display:none!important}body{padding:6px}}</style>
   </head><body>
   <div class="hdr">
-    <div style="display:flex;gap:12px;align-items:center">${logoHtml}<div>
+    <div style="display:flex;gap:12px;align-items:center"><div>
       <div style="font-size:19px;font-weight:900">${b.name||'Mi Negocio'}</div>
     </div></div>
     <div style="text-align:right">
