@@ -5303,8 +5303,9 @@ function calcBonusProgress(cid, r, extraOrd) {
   // Obtener índice de la regla para excluir pedidos que la rechazaron
   const ruleIdx = (S.bonuses[cid]||[]).indexOf(r);
 
+  const _includedCids = [Number(cid), ...(r.extraClientIds||[]).map(Number)];
   let orders = S.orders.filter(o =>
-    Number(o.clientId)===Number(cid) &&
+    _includedCids.includes(Number(o.clientId)) &&
     (o.status==='Confirmado'||o.status==='Concluido') &&
     !(o.bonusDeclined && ruleIdx >= 0 && o.bonusDeclined.includes(ruleIdx))
   );
@@ -5364,7 +5365,7 @@ function calcBonusProgress(cid, r, extraOrd) {
         totalMixPool += qty;
         results.push({ label: prod?prod.name:'Producto', app: qty, manual: 0, threshold: null, isDetail: true });
       });
-      results.push({ label: 'Pool compartido', app: totalMixPool, manual: Number(r.manualUnits)||0, threshold: r.mixPoolThreshold, isPool: true });
+      results.push({ label: 'Pool compartido', app: totalMixPool, manual: Number(r.manualUnits)||0, threshold: r.mixPoolThreshold, isPool: true, mixPoolTitle: r.mixPoolTitle });
     }
     // Pool con equivalencias
     if ((r.mixEqProds||[]).length && r.mixEqThreshold) {
@@ -5387,9 +5388,9 @@ function calcBonusProgress(cid, r, extraOrd) {
         const prod = S.products.find(x=>x.id===ep.productId);
         const equiv = Math.round(qty * (Number(ep.factor)||1) * 100) / 100;
         totalEqMix += equiv;
-        results.push({ label: (prod?prod.name:'Producto')+' ×'+ep.factor, app: qty, manual: 0, threshold: null, isDetail: true, equiv });
+        results.push({ label: (prod?prod.name:'Producto')+' ×'+ep.factor, app: qty, manual: 0, threshold: null, isDetail: true, equiv, productId: ep.productId, factor: ep.factor, unitLabel: ep.unitLabel||'' });
       });
-      results.push({ label: 'Total pool equivalencias', app: Math.round(totalEqMix*100)/100, manual: Number(r.manualUnits)||0, threshold: r.mixEqThreshold, isPool: true });
+      results.push({ label: 'Total pool equivalencias', app: Math.round(totalEqMix*100)/100, manual: Number(r.manualUnits)||0, threshold: r.mixEqThreshold, isPool: true, isPoolEq: true, mixEqTitle: r.mixEqTitle });
     }
     if (!results.length) return [{ label: 'Sin metas', app: 0, manual: 0, threshold: 1 }];
     return results;
@@ -5405,7 +5406,7 @@ function calcBonusProgress(cid, r, extraOrd) {
       const prod = S.products.find(x=>x.id===ep.productId);
       const equiv = Math.round(qty * (Number(ep.factor)||1) * 100) / 100;
       totalEq += equiv;
-      return { label: (prod?prod.name:'Producto')+' ×'+ep.factor, app: qty, manual: 0, threshold: null, isDetail: true, equiv };
+      return { label: (prod?prod.name:'Producto')+' ×'+ep.factor, app: qty, manual: 0, threshold: null, isDetail: true, equiv, productId: ep.productId, factor: ep.factor, unitLabel: ep.unitLabel||'' };
     });
     const totalRow = { label: r.poolLabel||'Total pool', app: Math.round(totalEq*100)/100, manual: Number(r.manualUnits)||0, threshold: r.threshold, isPool: true };
     return [...detalle, totalRow];
@@ -5450,11 +5451,64 @@ function closeBonusModal() {
   document.getElementById('bonus-modal').style.display = 'none';
 }
 
+let _brExtraClients = [];
+
+function brSearchExtraClients() {
+  const txt = document.getElementById('br-extra-cli-search');
+  const drop = document.getElementById('br-extra-cli-drop');
+  if (!txt || !drop) return;
+  const currentCid = Number(document.getElementById('bonus-modal')?.dataset.cid);
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.clients.filter(c =>
+    Number(c.id) !== currentCid &&
+    !_brExtraClients.includes(c.id) &&
+    (q.length===0 || normalizeStr(c.name).includes(q))
+  ).slice(0, 30);
+  drop.innerHTML = '';
+  if (!matches.length) { drop.innerHTML = '<div class="ac-empty">Sin resultados</div>'; acOpen('br-extra-cli-drop'); return; }
+  matches.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ac-opt';
+    d.textContent = c.name;
+    d.onmousedown = () => {
+      _brExtraClients.push(c.id);
+      txt.value = '';
+      acClose('br-extra-cli-drop');
+      brRenderExtraClientChips();
+    };
+    drop.appendChild(d);
+  });
+  acOpen('br-extra-cli-drop');
+}
+
+function brRenderExtraClientChips() {
+  const wrap = document.getElementById('br-extra-cli-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _brExtraClients.forEach(cid => {
+    const c = S.clients.find(x=>x.id===cid);
+    if (!c) return;
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:#1e2236;border:1px solid #2a3050;border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;color:#f1f5f9';
+    chip.innerHTML = `<span>${c.name}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px';
+    btn.onclick = () => {
+      _brExtraClients = _brExtraClients.filter(x=>x!==cid);
+      brRenderExtraClientChips();
+    };
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
 function openBonusModal(cid, ri) {
   if (!S.bonuses) S.bonuses = {};
   if (!S.bonuses[cid]) S.bonuses[cid] = [];
   const isEdit = ri !== null && ri !== undefined;
-  let r = isEdit ? S.bonuses[cid][ri] : { ruleType:'mix', name:'', mixIndTargets:[], mixPoolProds:[], mixEqProds:[], bonusItems:[], deadline:'', startDate: new Date().toISOString().split('T')[0] };
+  let r = isEdit ? S.bonuses[cid][ri] : { ruleType:'mix', name:'', mixIndTargets:[], mixPoolProds:[], mixEqProds:[], bonusItems:[], deadline:'', startDate: new Date().toISOString().split('T')[0], extraClientIds:[] };
+  _brExtraClients = (r.extraClientIds||[]).slice();
 
   // Migrar reglas antiguas (individual/pool/poolEq) al formato MIX unificado, sin perder su configuración
   if (isEdit && r.ruleType !== 'mix') {
@@ -5515,10 +5569,13 @@ function openBonusModal(cid, ri) {
 
   const mixEqHtml = (r2) => (r2.mixEqProds||[]).map(ep=>{
     const sel = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(ep.productId)?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
-    return `<div class="br-mix-eq-row" style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-      <select class="br-mix-eq-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${sel}</select>
-      <input type="number" class="br-mix-eq-factor" value="${ep.factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-      <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    return `<div class="br-mix-eq-row" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;padding:5px;background:#12162a;border-radius:7px">
+      <div style="display:flex;gap:5px;align-items:center">
+        <select class="br-mix-eq-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${sel}</select>
+        <input type="number" class="br-mix-eq-factor" value="${ep.factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+        <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+      </div>
+      <input type="text" class="br-mix-eq-unit" value="${ep.unitLabel||''}" placeholder="Nombre/unidad para el reporte (ej: GALONES, LITROS) — opcional" style="width:100%;background:#0d0f18;color:#94a3b8;border:1px solid #2a3050;border-radius:6px;padding:4px 6px;font-size:11px"/>
     </div>`;
   }).join('');
 
@@ -5539,6 +5596,12 @@ function openBonusModal(cid, ri) {
     <div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:12px;text-align:center">${isEdit?'EDITAR':'NUEVA'} REGLA DE BONIFICACION</div>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">NOMBRE:</div>
     <input id="br-name" value="${r.name||''}" placeholder="Ej: Bonif. Q2 Laca" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">CLIENTES ADICIONALES (opcional — su consumo también cuenta para esta meta):</div>
+    <div style="position:relative;margin-bottom:6px">
+      <input type="text" id="br-extra-cli-search" class="inp" placeholder="Buscar cliente por nombre..." oninput="brSearchExtraClients()" autocomplete="off"/>
+      <div id="br-extra-cli-drop" class="ac-drop" style="position:absolute;left:0;right:0"></div>
+    </div>
+    <div id="br-extra-cli-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">TIPO:</div>
     <input type="hidden" id="br-type-fixed" value="mix"/>
     <div id="br-individual-section" style="display:none">
@@ -5565,14 +5628,18 @@ function openBonusModal(cid, ri) {
       <button onclick="addMixIndRow()" style="width:100%;background:#1e2a1a;border:1px dashed #4ade80;border-radius:7px;color:#4ade80;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto individual</button>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">POOL COMPARTIDO (opcional):</div>
       <div id="br-mix-pool-rows">${mixPoolHtml(r)}</div>
-      <button onclick="addMixPoolRow()" style="width:100%;background:#1e2a3a;border:1px dashed #a78bfa;border-radius:7px;color:#a78bfa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:3px">+ Producto al pool</button>
+      <button onclick="addMixPoolRow()" style="width:100%;background:#1e2a3a;border:1px dashed #a78bfa;border-radius:7px;color:#a78bfa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto al pool</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">TÍTULO PARA REPORTES (opcional, si no se llena se arma automático con los nombres):</div>
+      <input type="text" id="br-mix-pool-title" value="${r.ruleType==='mix'?(r.mixPoolTitle||''):''}" placeholder="Ej: Ácido Muriático + Thinner" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL COMPARTIDO (opcional):</div>
-      <input type="number" id="br-mix-pool-threshold" value="${r.ruleType==='mix'?r.mixPoolThreshold||'':''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+      <input type="number" id="br-mix-pool-threshold" value="${r.ruleType==='mix'?r.mixPoolThreshold||'':''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">POOL CON EQUIVALENCIAS (opcional):</div>
       <div id="br-mix-eq-rows">${mixEqHtml(r)}</div>
       <button onclick="addMixEqRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto con equivalencia</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">TÍTULO PARA REPORTES (opcional, si no se llena se arma automático con los nombres):</div>
+      <input type="text" id="br-mix-eq-title" value="${r.ruleType==='mix'?(r.mixEqTitle||''):''}" placeholder="Ej: Ácido Muriático y Thinner" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
       <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL (opcional):</div>
-      <input type="number" id="br-mix-eq-threshold" value="${r.ruleType==='mix'?r.mixEqThreshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+      <input type="number" id="br-mix-eq-threshold" value="${r.ruleType==='mix'?r.mixEqThreshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
     </div>
     <div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:5px">BONIFICACION A ENTREGAR:</div>
     <div id="br-bonus-rows">${bonusItemsHtml(r.bonusItems)}</div>
@@ -5595,7 +5662,9 @@ function openBonusModal(cid, ri) {
       <button onclick="saveBonusRule(${cid},${isEdit?ri:'null'})" style="flex:1;padding:10px;border-radius:9px;border:none;background:#f59e0b;color:#000;font-weight:800;cursor:pointer">Guardar</button>
     </div>`;
 
+  document.getElementById('bonus-modal').dataset.cid = cid;
   document.getElementById('bonus-modal').style.display = 'flex';
+  brRenderExtraClientChips();
 }
 
 function setBonusType(type) {
@@ -5687,16 +5756,19 @@ function saveBonusRule(cid, ri) {
       if (pid) mixPoolProds.push(Number(pid));
     });
     const mixPoolThreshold = Number(document.getElementById('br-mix-pool-threshold').value) || 0;
+    const mixPoolTitle = (document.getElementById('br-mix-pool-title')?.value || '').trim();
     const eqRows = document.querySelectorAll('.br-mix-eq-row');
     const mixEqProds = [];
     eqRows.forEach(row => {
       const pid = row.querySelector('.br-mix-eq-pid')?.value;
       const factor = Number(row.querySelector('.br-mix-eq-factor')?.value) || 1;
-      if (pid) mixEqProds.push({ productId: Number(pid), factor });
+      const unitLabel = (row.querySelector('.br-mix-eq-unit')?.value || '').trim();
+      if (pid) mixEqProds.push({ productId: Number(pid), factor, unitLabel });
     });
     const mixEqThreshold = Number(document.getElementById('br-mix-eq-threshold').value) || 0;
+    const mixEqTitle = (document.getElementById('br-mix-eq-title')?.value || '').trim();
     if (!mixIndTargets.length && !mixPoolProds.length && !mixEqProds.length) return toast('Agrega al menos un producto','#f59e0b');
-    rule = { ruleType:'mix', name, mixIndTargets, mixPoolProds, mixPoolThreshold, mixEqProds, mixEqThreshold, bonusItems, startDate, deadline, vigenciaStart, vigenciaEnd, manualUnits:0 };
+    rule = { ruleType:'mix', name, mixIndTargets, mixPoolProds, mixPoolThreshold, mixPoolTitle, mixEqProds, mixEqThreshold, mixEqTitle, bonusItems, startDate, deadline, vigenciaStart, vigenciaEnd, manualUnits:0, extraClientIds: _brExtraClients.slice() };
   } else if (isPoolEq) {
     const eqRows = document.querySelectorAll('.br-pooleq-row');
     const poolEqProds = [];
@@ -5823,16 +5895,20 @@ function showBonusReport(cid) {
         // Construir título: parte común + partes distintas en línea aparte
         const nombres = items.map(it => it.label.replace(/\s×[\d.]+$/, ''));
         const { parteComun, partesDistintas, comunLen } = splitTituloComun(nombres);
-        const titulo = parteComun && partesDistintas
-          ? `${parteComun}<br><span style="font-weight:700">${partesDistintas}</span>`
-          : nombres.join(' / ');
+        const _tituloManual = totalRow.mixPoolTitle ? totalRow.mixPoolTitle : totalRow.mixEqTitle ? totalRow.mixEqTitle : (r.ruleType==='poolEq' && r.poolLabel) ? r.poolLabel : '';
+        const titulo = _tituloManual
+          ? _tituloManual
+          : (parteComun && partesDistintas
+            ? `${parteComun}<br><span style="font-weight:700">${partesDistintas}</span>`
+            : nombres.join(' / '));
 
         // Datos por producto: nombre, unidad, cantidades por mes
         const prodData = items.map(it => {
-          const prodName = it.label.replace(/\s×[\d.]+$/, '');
-          const p2 = S.products.find(x => x.name === prodName);
+          const p2 = it.productId != null ? S.products.find(x => x.id === it.productId) : S.products.find(x => x.name === it.label.replace(/\s×[\d.]+$/, ''));
+          const prodName = p2 ? p2.name : it.label.replace(/\s×[\d.]+$/, '');
+          const eqDef = it.productId != null ? it : (r.ruleType==='mix' ? (r.mixEqProds||[]).find(e=>e.productId===p2?.id) : (r.poolEqProds||[]).find(e=>e.productId===p2?.id));
           const words = (p2?.name||'').trim().split(/\s+/);
-          const unitSing = words[words.length-1]||'unidad';
+          const unitSing = (eqDef && eqDef.unitLabel) ? eqDef.unitLabel : (words[words.length-1]||'unidad');
           // Pluralizar
           const pluralize = (u, q) => {
             if (q <= 1) return u;
@@ -5857,7 +5933,7 @@ function showBonusReport(cid) {
             });
             byMonth[label] = qty;
           });
-          return { prodName, p2, unitSing, pluralize, totalQty, byMonth };
+          return { prodName, p2, unitSing, pluralize, totalQty, byMonth, eqDef };
         });
 
         // Detectar si es pool con equivalencias (tiene ×factor) o pool compartido
@@ -5867,12 +5943,8 @@ function showBonusReport(cid) {
         if (esEquivalencias) {
           // Pool con equivalencias: "548 GALONES / 200 LITROS (72%)"
           consumidoStr = prodData.map(pd => pd.totalQty > 0 ? `${pd.totalQty} ${pd.pluralize(pd.unitSing, pd.totalQty)}` : null).filter(Boolean).join(' / ') + ` (${pct}%)`;
-          restanteStr = restante > 0 ? items.map((it, i) => {
-            const pd = prodData[i];
-            const factor = Number(it.label.match(/×([\d.]+)$/)?.[1]||1);
-            const restProd = factor > 0 ? Math.ceil(restante / factor) : restante;
-            return restProd > 0 ? `${restProd} ${pd.pluralize(pd.unitSing, restProd)}` : null;
-          }).filter(Boolean).join(' o ') : '0';
+          const restUniqueLabels = [...new Set(prodData.map(pd => (pd.eqDef && pd.eqDef.unitLabel) ? pd.eqDef.unitLabel : '').filter(Boolean))];
+          restanteStr = restUniqueLabels.length ? `${restante} ${restUniqueLabels.join(' / ')}` : String(restante);
         } else {
           // Pool compartido: cada producto en su línea, restante simple
           consumidoEsMultilinea = true;
@@ -5893,10 +5965,7 @@ function showBonusReport(cid) {
           months.forEach(({label}) => {
             const partes = prodData.map(pd => {
               if (pd.byMonth[label] <= 0) return null;
-              const etiqueta = consumidoEsMultilinea
-                ? (parteComun ? pd.prodName.split(' ').slice(comunLen).join(' ') : pd.prodName)
-                : pd.pluralize(pd.unitSing, pd.byMonth[label]);
-              return `${pd.byMonth[label]} ${etiqueta}`;
+              return `${pd.byMonth[label]} ${pd.prodName}`;
             }).filter(Boolean);
             if (partes.length) monthRowsPool += `<tr><td style="padding:2px 0 2px 12px;font-size:12px;color:#374151;vertical-align:top">${label}</td><td style="padding:2px 0;font-size:12px;color:#374151;text-align:right">${partes.join('<br>')}</td></tr>`;
           });
@@ -6357,14 +6426,23 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
   const sectionsHtml = rules.map((rule, ruleIndex) => {
     const ruleProds = getRuleProds(rule);
 
+    // Si esta regla tiene clientes adicionales relacionados, su consumo también cuenta
+    const ruleOrders = (rule.extraClientIds && rule.extraClientIds.length)
+      ? S.orders.filter(o => [Number(cid), ...rule.extraClientIds.map(Number)].includes(Number(o.clientId)) &&
+          (o.status==='Confirmado'||o.status==='Concluido')).sort((a,b)=>ordDateTs(a)-ordDateTs(b))
+      : allOrders;
+
     const vigStart = rule.vigenciaStart || fromStr;
     const vigEnd   = rule.vigenciaEnd   || toStr;
     const effectiveFrom = vigStart > fromStr ? vigStart : fromStr;
     const effectiveTo   = vigEnd   < toStr   ? vigEnd   : toStr;
 
-    const rangeOrders = allOrders.filter(o => {
+    // Usamos la VIGENCIA COMPLETA de la regla (no el rango elegido en el reporte) para
+    // agrupar correctamente cada entrega con sus propios pedidos reales, sin importar
+    // qué rango de fechas se esté consultando en este reporte.
+    const vigOrders = ruleOrders.filter(o => {
       const ds = toYMD(o.date);
-      if (ds < effectiveFrom || ds > effectiveTo) return false;
+      if (ds < vigStart || ds > vigEnd) return false;
       // Incluir si tiene productos de la meta
       const tieneMetaProds = o.items.some(it => ruleProds.includes(Number(it.productId||it.pid)));
       // O si la bonificación fue generada específicamente con el botón "Enviar bonificación" de ESTA regla
@@ -6373,19 +6451,36 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
       return tieneMetaProds || tieneBonifDeEstaRegla;
     });
 
-    if (!rangeOrders.length) return '';
+    if (!vigOrders.length) return '';
 
-    const groups = [];
+    const allGroups = [];
     let currentGroup = [];
-    rangeOrders.forEach(o => {
+    vigOrders.forEach(o => {
       currentGroup.push(o);
       if (o.bonusLines && o.bonusLines.length &&
           o.bonusLines.some(bl => Number(bl.fromRuleId) === Number(ruleIndex))) {
-        groups.push({ orders: [...currentGroup], bonusOrd: o });
+        allGroups.push({ orders: [...currentGroup], bonusOrd: o });
         currentGroup = [];
       }
     });
-    if (currentGroup.length) groups.push({ orders: currentGroup, bonusOrd: null });
+    if (currentGroup.length) allGroups.push({ orders: currentGroup, bonusOrd: null });
+
+    // Mostrar solo los grupos relevantes al rango de fechas elegido en este reporte:
+    // una entrega completada se muestra si su fecha de entrega cae dentro del rango,
+    // y el grupo "en curso" se muestra si tiene actividad dentro del rango o si no hay
+    // fechas de filtro aplicadas.
+    const _repFrom = fromStr || '0000-00-00';
+    const _repTo   = toStr   || '9999-99-99';
+    const groups = allGroups.filter(g => {
+      if (g.bonusOrd) {
+        const ds = toYMD(g.bonusOrd.date);
+        return ds >= _repFrom && ds <= _repTo;
+      }
+      // Grupo en curso: mostrar si tiene algún pedido dentro del rango, o si no se filtró por fecha
+      return (!fromStr && !toStr) || g.orders.some(o => { const ds = toYMD(o.date); return ds >= _repFrom && ds <= _repTo; });
+    });
+
+    if (!groups.length) return '';
 
     let entregaNum = 0;
     const groupsHtml = groups.map(g => {
@@ -6438,8 +6533,8 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
         } else if (rule.ruleType === 'mix') {
           rTargets = [
             ...(rule.mixIndTargets||[]),
-            ...(rule.mixPoolProds&&rule.mixPoolProds.length&&rule.mixPoolThreshold ? [{productId:null,threshold:rule.mixPoolThreshold,isPool:true,poolProds:rule.mixPoolProds}] : []),
-            ...(rule.mixEqProds&&rule.mixEqProds.length&&rule.mixEqThreshold ? [{productId:null,threshold:rule.mixEqThreshold,isPool:true,poolEqProds:rule.mixEqProds,isPoolEq:true}] : [])
+            ...(rule.mixPoolProds&&rule.mixPoolProds.length&&rule.mixPoolThreshold ? [{productId:null,threshold:rule.mixPoolThreshold,isPool:true,poolProds:rule.mixPoolProds,mixPoolTitle:rule.mixPoolTitle}] : []),
+            ...(rule.mixEqProds&&rule.mixEqProds.length&&rule.mixEqThreshold ? [{productId:null,threshold:rule.mixEqThreshold,isPool:true,poolEqProds:rule.mixEqProds,isPoolEq:true,mixEqTitle:rule.mixEqTitle}] : [])
           ];
         } else {
           rTargets = (rule.targets||[]);
@@ -6473,7 +6568,7 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               const p2 = S.products.find(x=>x.id===Number(ep.productId));
               const equiv = Math.round(qty*(Number(ep.factor)||1)*100)/100;
               totalEq += equiv;
-              return { name: p2?p2.name:'Producto', qty, factor: ep.factor };
+              return { name: p2?p2.name:'Producto', qty, factor: ep.factor, unitLabel: ep.unitLabel||'' };
             });
             const meta = t.threshold||0;
             const pct  = meta>0 ? Math.min(100,Math.round(totalEq/meta*100)) : 100;
@@ -6482,15 +6577,12 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             // Título con parte común
             const nombres = prodQtys.map(p=>p.name);
             const { parteComun, partesDistintas } = splitTituloComun(nombres);
-            const tituloHtml = parteComun && partesDistintas
-              ? `${parteComun}<br>${partesDistintas}`
-              : `${nombres.join(' / ')}`;
-            const consumidoRaw = prodQtys.map(p=>p.qty>0?`${p.qty} ${getUnitWord(p.name,p.qty)}`:null).filter(Boolean).join(' / ');
-            const restanteStr = eqProds.map((ep,i)=>{
-              const factor = Number(ep.factor)||1;
-              const rp = factor>0?Math.ceil(restante/factor):restante;
-              return rp>0?`${rp} ${getUnitWord(prodQtys[i].name,rp)}`:null;
-            }).filter(Boolean).join(' o ');
+            const tituloHtml = t.mixEqTitle
+              ? t.mixEqTitle
+              : (parteComun && partesDistintas ? `${parteComun}<br>${partesDistintas}` : `${nombres.join(' / ')}`);
+            const consumidoRaw = prodQtys.map(p=>p.qty>0?`${p.qty} ${p.unitLabel ? p.unitLabel : getUnitWord(p.name,p.qty)}`:null).filter(Boolean).join(' / ');
+            const eqUnitLabels = [...new Set(prodQtys.map(p=>p.unitLabel).filter(Boolean))];
+            const restanteStr = eqUnitLabels.length ? `${restante} ${eqUnitLabels.join(' / ')}` : String(restante);
             return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
               <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloHtml}</div>
               <div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px">
@@ -6526,9 +6618,11 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             const nombres = prodQtys.map(p=>p.name);
             const { comunLen } = splitTituloComun(nombres);
             const tieneComun = comunLen > 0 && nombres.length > 1;
-            // Título
+            // Título (prioriza el título manual configurado en la regla)
             let tituloPool;
-            if (tieneComun) {
+            if (t.mixPoolTitle) {
+              tituloPool = t.mixPoolTitle;
+            } else if (tieneComun) {
               const parteComun = nombres[0].split(' ').slice(0,comunLen).join(' ');
               const partesDistintas = nombres.map(n=>n.split(' ').slice(comunLen).join(' ')).join(' / ');
               tituloPool = partesDistintas
@@ -6611,8 +6705,8 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
         } else if (rule.ruleType === 'mix') {
           rTargets = [
             ...(rule.mixIndTargets||[]),
-            ...(rule.mixPoolProds&&rule.mixPoolProds.length&&rule.mixPoolThreshold ? [{productId:null,threshold:rule.mixPoolThreshold,isPool:true,poolProds:rule.mixPoolProds}] : []),
-            ...(rule.mixEqProds&&rule.mixEqProds.length&&rule.mixEqThreshold ? [{productId:null,threshold:rule.mixEqThreshold,isPool:true,poolEqProds:rule.mixEqProds,isPoolEq:true}] : [])
+            ...(rule.mixPoolProds&&rule.mixPoolProds.length&&rule.mixPoolThreshold ? [{productId:null,threshold:rule.mixPoolThreshold,isPool:true,poolProds:rule.mixPoolProds,mixPoolTitle:rule.mixPoolTitle}] : []),
+            ...(rule.mixEqProds&&rule.mixEqProds.length&&rule.mixEqThreshold ? [{productId:null,threshold:rule.mixEqThreshold,isPool:true,poolEqProds:rule.mixEqProds,isPoolEq:true,mixEqTitle:rule.mixEqTitle}] : [])
           ];
         } else {
           rTargets = (rule.targets||[]);
@@ -6653,14 +6747,11 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
               // Título parte común
               const nombres = prodQtys.map(p=>p.name);
               const { parteComun, partesDistintas } = splitTituloComun(nombres);
-              const tituloEq = parteComun && partesDistintas ? `${parteComun}<br>${partesDistintas}` : `${nombres.join(' / ')}`;
-              const detalleEq = prodQtys.filter(p=>p.qty>0).map(p=>`${p.qty} ${getUnitWordCurso(p.name,p.qty)}`).join(' / ');
+              const tituloEq = t.mixEqTitle ? t.mixEqTitle : (parteComun && partesDistintas ? `${parteComun}<br>${partesDistintas}` : `${nombres.join(' / ')}`);
+              const detalleEq = prodQtys.filter(p=>p.qty>0).map((p,i)=>`${p.qty} ${eqProds[i]&&eqProds[i].unitLabel ? eqProds[i].unitLabel : getUnitWordCurso(p.name,p.qty)}`).join(' / ');
               const restanteEq = Math.max(0, meta - totalEq);
-              const restanteDetalle = restanteEq > 0 ? eqProds.map((ep,i)=>{
-                const factor = Number(ep.factor)||1;
-                const restProd = factor > 0 ? Math.ceil(restanteEq / factor) : restanteEq;
-                return `${restProd} ${getUnitWordCurso(prodQtys[i].name, restProd)}`;
-              }).join(' / ') : '';
+              const curEqUniqueLabels = [...new Set((eqProds||[]).map(ep=>ep.unitLabel).filter(Boolean))];
+              const restanteDetalle = curEqUniqueLabels.length ? `${restanteEq} ${curEqUniqueLabels.join(' / ')}` : String(restanteEq);
               return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
                 <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">${tituloEq}</div>
                 <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px">
@@ -6688,13 +6779,17 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
             // Título del pool compartido: nombres de los productos, con parte común si aplica
             let tituloPoolCurso = tName;
             if (t.isPool) {
-              const nombresPool = (t.poolProds||[]).map(pid2 => {
-                const p2 = S.products.find(x=>x.id===Number(pid2));
-                return p2 ? p2.name : 'Producto';
-              });
-              if (nombresPool.length) {
-                const { parteComun: pc2, partesDistintas: pd2 } = splitTituloComun(nombresPool);
-                tituloPoolCurso = (pc2 && pd2) ? `${pc2}<br>${pd2}` : nombresPool.join(' / ');
+              if (t.mixPoolTitle) {
+                tituloPoolCurso = t.mixPoolTitle;
+              } else {
+                const nombresPool = (t.poolProds||[]).map(pid2 => {
+                  const p2 = S.products.find(x=>x.id===Number(pid2));
+                  return p2 ? p2.name : 'Producto';
+                });
+                if (nombresPool.length) {
+                  const { parteComun: pc2, partesDistintas: pd2 } = splitTituloComun(nombresPool);
+                  tituloPoolCurso = (pc2 && pd2) ? `${pc2}<br>${pd2}` : nombresPool.join(' / ');
+                }
               }
             }
             return `<div style="margin-bottom:8px;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid ${col}">
@@ -10306,15 +10401,18 @@ function addMixIndRow(pid, threshold) {
   document.getElementById('br-mix-ind-rows').appendChild(row);
 }
 
-function addMixEqRow(pid, factor) {
+function addMixEqRow(pid, factor, unitLabel) {
   const prodOpts = S.products.map(p=>`<option value="${p.id}" ${String(p.id)===String(pid||'')?'selected':''}>${p.name}${p.presentation?' ('+p.presentation+')':''}</option>`).join('');
   const row = document.createElement('div');
   row.className = 'br-mix-eq-row';
-  row.style.cssText = 'display:flex;gap:5px;align-items:center;margin-bottom:5px';
+  row.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px;padding:5px;background:#12162a;border-radius:7px';
   row.innerHTML = `
-    <select class="br-mix-eq-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${prodOpts}</select>
-    <input type="number" class="br-mix-eq-factor" value="${factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
-    <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>`;
+    <div style="display:flex;gap:5px;align-items:center">
+      <select class="br-mix-eq-pid" style="flex:1;min-width:0;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:11px">${prodOpts}</select>
+      <input type="number" class="br-mix-eq-factor" value="${factor||1}" min="0.01" step="0.01" placeholder="Factor" style="width:70px;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:7px;padding:5px;font-size:12px"/>
+      <button onclick="this.closest('.br-mix-eq-row').remove()" style="background:#ef444420;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:3px 7px;font-size:12px;cursor:pointer">x</button>
+    </div>
+    <input type="text" class="br-mix-eq-unit" value="${unitLabel||''}" placeholder="Nombre/unidad para el reporte (ej: GALONES, LITROS) — opcional" style="width:100%;background:#0d0f18;color:#94a3b8;border:1px solid #2a3050;border-radius:6px;padding:4px 6px;font-size:11px"/>`;
   document.getElementById('br-mix-eq-rows').appendChild(row);
 }
 
