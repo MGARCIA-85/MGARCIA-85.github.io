@@ -2333,7 +2333,7 @@ function showDeliveryAlert(cid, addr) {
     <div style="margin-bottom:8px">📍 <strong>Entregar en:</strong> ${addr}</div>
     <div style="display:flex;gap:8px">
       <button onclick="confirmDelivery('${addr.replace(/'/g,"\\'")}');document.getElementById('delivery-alert').remove();" style="flex:1;padding:7px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">✅ Confirmar</button>
-      <button onclick="document.getElementById('delivery-alert').remove();document.getElementById('ord-delivery').value='';document.getElementById('ord-delivery').focus();" style="flex:1;padding:7px;background:#475569;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cambiar</button>
+      <button onclick="document.getElementById('delivery-alert').remove();document.getElementById('ord-delivery').value='';onDeliveryInputChange();const _sel=document.getElementById('ord-delivery-sel');if(_sel){_sel.focus();if(_sel.showPicker)_sel.showPicker();}" style="flex:1;padding:7px;background:#475569;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🔄 Cambiar</button>
     </div>`;
 
   inp.parentNode.insertBefore(alert, inp);
@@ -4634,7 +4634,10 @@ ${(()=>{
         <span style="font-size:10px;background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:10px;font-weight:700">🏷️ Lista compartida: ${_pl.name}</span>
         <button onclick="unlinkCliFromPriceList(${c.id})" style="font-size:10px;background:none;border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:2px 8px;cursor:pointer">Desvincular</button>
       </div>`
-    : `<div style="margin-bottom:6px"><span style="font-size:10px;background:#2a1f00;color:#f59e0b;padding:2px 8px;border-radius:10px;font-weight:700">✏️ Lista personalizada</span></div>`;
+    : `<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:10px;background:#2a1f00;color:#f59e0b;padding:2px 8px;border-radius:10px;font-weight:700">✏️ Lista personalizada</span>
+        <button onclick="openLinkToSharedList(${c.id})" style="font-size:10px;background:none;border:1px solid #60a5fa;color:#60a5fa;border-radius:8px;padding:2px 8px;cursor:pointer">🔗 Vincular a lista compartida</button>
+      </div>`;
 })()}
 <button class="bp2" onclick="editCliPrices(${c.id})">✏️ Editar precios de este cliente</button>
 <button class="bg" style="margin-top:6px;width:100%;font-size:12px" onclick="showPriceListDoc(${c.id})">📄 Generar listado de precios</button>
@@ -4690,7 +4693,19 @@ ${(()=>{
 })()}
 ${(()=>{
   if (!S.bonuses) S.bonuses = {};
-  const rules = S.bonuses[c.id] || [];
+  const ownRules = (S.bonuses[c.id] || []).map(r => ({ r, ownerCid: c.id }));
+  // Reglas de OTROS clientes donde este cliente fue agregado como "cliente adicional"
+  const sharedRules = [];
+  Object.keys(S.bonuses).forEach(ownerId => {
+    if (Number(ownerId) === Number(c.id)) return;
+    (S.bonuses[ownerId]||[]).forEach(r => {
+      if ((r.extraClientIds||[]).map(Number).includes(Number(c.id))) {
+        sharedRules.push({ r, ownerCid: Number(ownerId) });
+      }
+    });
+  });
+  const rulesWithOwner = [...ownRules, ...sharedRules];
+  const rules = rulesWithOwner.map(x=>x.r);
   if (!rules.length) return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
     <div onclick="toggleCliSec('csb-${c.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:2px 0;margin-bottom:4px">
       <span style="font-size:11px;color:#94a3b8;font-weight:700">🎁 BONIFICACIONES</span>
@@ -4701,9 +4716,13 @@ ${(()=>{
       <button class="bg" style="font-size:11px;padding:5px 12px" onclick="addBonusRule(${c.id})">+ Nueva regla</button>
     </div>
   </div>`;
-  const rulesHtml = rules.map((r,ri) => {
-    const progress = calcBonusProgress(c.id, r);
-    const complete = !r.inactive && isBonusComplete(c.id, r);
+  const rulesHtml = rulesWithOwner.map((_rw,ri) => {
+    const r = _rw.r;
+    const ownerCid = _rw.ownerCid;
+    const isSharedFromOther = Number(ownerCid) !== Number(c.id);
+    const ownerCli = isSharedFromOther ? S.clients.find(x=>x.id===ownerCid) : null;
+    const progress = calcBonusProgress(ownerCid, r);
+    const complete = !r.inactive && isBonusComplete(ownerCid, r);
     const readyBadge = complete ? `<span style="font-size:10px;background:#052e16;color:#10b981;padding:2px 7px;border-radius:8px;font-weight:700">🎁 Lista!</span>` : '';
     // Descripción de productos a acumular
     let accumDesc = '';
@@ -4739,15 +4758,16 @@ ${(()=>{
         </div>
         <div style="font-size:10px;color:#64748b;margin-bottom:4px">App: ${pg.app} · Manual: ${pg.manual}</div>
         <div style="display:flex;gap:5px">
-          <input type="number" min="0" step="1" placeholder="+ externas" id="bm-${c.id}-${ri}-${tidx}" style="flex:1;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;color:#f1f5f9;font-size:11px"/>
-          <button onclick="addBonusManual(${c.id},${ri},'${tidx}',1)" style="background:#1e3a5f;border:none;border-radius:6px;color:#60a5fa;padding:4px 10px;font-size:11px;cursor:pointer">+</button>
-          <button onclick="addBonusManual(${c.id},${ri},'${tidx}',-1)" style="background:#2d0f0f;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:4px 10px;font-size:11px;cursor:pointer">−</button>
+          <input type="number" min="0" step="1" placeholder="+ externas" id="bm-${ownerCid}-${ri}-${tidx}" style="flex:1;background:#0d0f18;border:1px solid #2a3050;border-radius:6px;padding:4px 8px;color:#f1f5f9;font-size:11px"/>
+          <button onclick="addBonusManual(${ownerCid},${ri},'${tidx}',1)" style="background:#1e3a5f;border:none;border-radius:6px;color:#60a5fa;padding:4px 10px;font-size:11px;cursor:pointer">+</button>
+          <button onclick="addBonusManual(${ownerCid},${ri},'${tidx}',-1)" style="background:#2d0f0f;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:4px 10px;font-size:11px;cursor:pointer">−</button>
         </div>
       </div>`;
     }).join('');
     return `<div style="background:#161929;border-radius:8px;padding:10px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="flex:1">
+          ${isSharedFromOther?`<div style="font-size:9px;background:#1e3a5f;color:#60a5fa;padding:1px 7px;border-radius:8px;font-weight:700;display:inline-block;margin-bottom:3px">🔗 Compartida desde ${ownerCli?ownerCli.name:'otro cliente'}</div>`:''}
           <div style="font-size:11px;font-weight:700;color:${r.inactive?'#64748b':'#f1f5f9'}">${r.name||accumDesc}${r.inactive?' (inactiva)':''}</div>
           <div style="font-size:10px;color:${r.inactive?'#475569':'#10b981'};margin-top:1px">🎁 ${bonusDesc}</div>
           ${r.deadline?`<div style="font-size:10px;color:#94a3b8">Período: ${fmtDDMMYYYY(r.startDate)||''}→${fmtDDMMYYYY(r.deadline)}</div>`:''}
@@ -4755,13 +4775,13 @@ ${(()=>{
         </div>
         <div style="display:flex;gap:4px;align-items:center;margin-left:6px">
           ${readyBadge}
-          <button onclick="editBonusRule(${c.id},${ri})" style="background:none;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:2px 6px;font-size:11px;cursor:pointer">✏️</button>
-          <button onclick="toggleBonusActive(${c.id},${ri})" style="background:none;border:1px solid ${r.inactive?'#10b981':'#f59e0b'};border-radius:6px;color:${r.inactive?'#10b981':'#f59e0b'};padding:2px 6px;font-size:11px;cursor:pointer">${r.inactive?'▶ Activar':'⏸'}</button>
-          <button onclick="delBonusRule(${c.id},${ri})" style="background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:2px 6px;font-size:11px;cursor:pointer">✕</button>
+          <button onclick="editBonusRule(${ownerCid},${ri})" style="background:none;border:1px solid #475569;border-radius:6px;color:#94a3b8;padding:2px 6px;font-size:11px;cursor:pointer">✏️</button>
+          <button onclick="toggleBonusActive(${ownerCid},${ri})" style="background:none;border:1px solid ${r.inactive?'#10b981':'#f59e0b'};border-radius:6px;color:${r.inactive?'#10b981':'#f59e0b'};padding:2px 6px;font-size:11px;cursor:pointer">${r.inactive?'▶ Activar':'⏸'}</button>
+          ${isSharedFromOther?'':`<button onclick="delBonusRule(${ownerCid},${ri})" style="background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:2px 6px;font-size:11px;cursor:pointer">✕</button>`}
         </div>
       </div>
       ${bars}
-      ${complete?`<button onclick="sendBonusOrder(${c.id},${ri})" style="width:100%;background:#052e16;border:1px solid #10b981;border-radius:6px;color:#10b981;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px">🎁 Enviar bonificación</button><button onclick="deliverBonus(${c.id},${ri})" style="width:100%;background:#1e293b;border:1px solid #64748b;border-radius:6px;color:#94a3b8;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Reiniciar</button>`:''}
+      ${complete?`<button onclick="sendBonusOrder(${ownerCid},${ri})" style="width:100%;background:#052e16;border:1px solid #10b981;border-radius:6px;color:#10b981;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px">🎁 Enviar bonificación</button><button onclick="deliverBonus(${ownerCid},${ri})" style="width:100%;background:#1e293b;border:1px solid #64748b;border-radius:6px;color:#94a3b8;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Reiniciar</button>`:''}
     </div>`;
   }).join('');
   return `<div style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px">
@@ -5827,20 +5847,37 @@ function saveBonusRule(cid, ri) {
 
 function showBonusReport(cid) {
   const c = S.clients.find(x => x.id === Number(cid));
-  const rules = (S.bonuses && S.bonuses[cid]) || [];
+  if (!S.bonuses) S.bonuses = {};
+  const ownRules = (S.bonuses[cid] || []).map(r => ({ r, ownerCid: Number(cid) }));
+  const sharedRules = [];
+  Object.keys(S.bonuses).forEach(ownerId => {
+    if (Number(ownerId) === Number(cid)) return;
+    (S.bonuses[ownerId]||[]).forEach(r => {
+      if ((r.extraClientIds||[]).map(Number).includes(Number(cid))) {
+        sharedRules.push({ r, ownerCid: Number(ownerId) });
+      }
+    });
+  });
+  const rulesWithOwner = [...ownRules, ...sharedRules];
+  const rules = rulesWithOwner.map(x=>x.r);
   if (!rules.length) { toast('No hay reglas de bonificación', '#f59e0b'); return; }
   const biz = S.biz || {};
 
-  const rulesHtml = rules.map(r => {
+  const rulesHtml = rulesWithOwner.map(_rw => {
+    const r = _rw.r;
+    const ownerCid = _rw.ownerCid;
     const startDate = r.startDate || '';
     const endDate   = r.endDate || r.deadline || '';
-    const progress  = calcBonusProgress(cid, r);
+    const progress  = calcBonusProgress(ownerCid, r);
+    const isSharedFromOther = Number(ownerCid) !== Number(cid);
+    const ownerCli = isSharedFromOther ? S.clients.find(x=>x.id===ownerCid) : null;
+    const _includedCidsRep = [ownerCid, ...(r.extraClientIds||[]).map(Number)];
 
     // Agrupar consumo por mes para cada producto
     const startDateStr = r.startDate || '2000-01-01';
     const endDateStr   = r.endDate || r.deadline || '2099-12-31';
     const orders = S.orders.filter(o =>
-      Number(o.clientId) === Number(cid) &&
+      _includedCidsRep.includes(Number(o.clientId)) &&
       (o.status === 'Confirmado' || o.status === 'Concluido')
     ).filter(o => {
       const parts = (o.date||'').split('/');
@@ -6211,7 +6248,17 @@ function setModalDrpPreset(preset) {
 }
 
 function showBonusEntregasReport(cid) {
-  const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
+  const ownRules2 = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
+  const sharedRules2 = [];
+  if (S.bonuses) {
+    Object.keys(S.bonuses).forEach(ownerId => {
+      if (Number(ownerId) === Number(cid)) return;
+      (S.bonuses[ownerId]||[]).forEach(r => {
+        if ((r.extraClientIds||[]).map(Number).includes(Number(cid))) sharedRules2.push(r);
+      });
+    });
+  }
+  const rules = [...ownRules2, ...sharedRules2];
   if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
   buildReportModal(cid, '📋 Reporte de Bonificaciones', '#10b981',
     `generateBonusHistoryReport(${cid},window._mdrpFrom,window._mdrpTo);document.getElementById('report-modal-overlay').remove()`);
@@ -6418,19 +6465,29 @@ function generateBonusHistoryReport(cid, fromStr, toStr) {
     .sort((a,b)=>ordDateTs(a)-ordDateTs(b));
 
   // Obtener reglas del cliente — activas e inactivas
-  const rules = (S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || [];
+  const ownRulesRep = ((S.bonuses && (S.bonuses[cid] || S.bonuses[String(cid)])) || []).map(r => ({ rule:r, ownerCid: Number(cid) }));
+  const sharedRulesRep = [];
+  if (S.bonuses) {
+    Object.keys(S.bonuses).forEach(ownerId => {
+      if (Number(ownerId) === Number(cid)) return;
+      (S.bonuses[ownerId]||[]).forEach(r => {
+        if ((r.extraClientIds||[]).map(Number).includes(Number(cid))) sharedRulesRep.push({ rule:r, ownerCid: Number(ownerId) });
+      });
+    });
+  }
+  const rulesWithOwnerRep = [...ownRulesRep, ...sharedRulesRep];
+  const rules = rulesWithOwnerRep.map(x=>x.rule);
 
   if (!rules.length) { toast('No hay reglas de bonificación configuradas', '#f59e0b'); return; }
 
   // Construir secciones por regla
-  const sectionsHtml = rules.map((rule, ruleIndex) => {
+  const sectionsHtml = rulesWithOwnerRep.map(({rule, ownerCid: _ruleOwnerCid}, ruleIndex) => {
     const ruleProds = getRuleProds(rule);
 
-    // Si esta regla tiene clientes adicionales relacionados, su consumo también cuenta
-    const ruleOrders = (rule.extraClientIds && rule.extraClientIds.length)
-      ? S.orders.filter(o => [Number(cid), ...rule.extraClientIds.map(Number)].includes(Number(o.clientId)) &&
-          (o.status==='Confirmado'||o.status==='Concluido')).sort((a,b)=>ordDateTs(a)-ordDateTs(b))
-      : allOrders;
+    // Usamos siempre el dueño REAL de la regla (más sus clientes adicionales si tiene),
+    // sin importar desde la ficha de qué cliente se esté viendo este reporte.
+    const ruleOrders = S.orders.filter(o => [_ruleOwnerCid, ...(rule.extraClientIds||[]).map(Number)].includes(Number(o.clientId)) &&
+          (o.status==='Confirmado'||o.status==='Concluido')).sort((a,b)=>ordDateTs(a)-ordDateTs(b));
 
     const vigStart = rule.vigenciaStart || fromStr;
     const vigEnd   = rule.vigenciaEnd   || toStr;
@@ -7613,6 +7670,117 @@ if (!inp||!el) return;
 const diff = Number(inp.value)-base;
 el.textContent = diff===0 ? '' : (diff>0?'▲':'▼')+Q(Math.abs(diff));
 el.style.color = diff>0?'#10b981':diff<0?'#ef4444':'';
+}
+
+let _linkExtraClients = [];
+
+function openLinkToSharedList(cid) {
+  cid = Number(cid);
+  const cli = S.clients.find(x=>x.id===cid);
+  if (!cli) return;
+  _linkExtraClients = [];
+  const modal = document.getElementById('confirm-modal');
+  const inner = modal.querySelector('div');
+  inner.innerHTML = `
+    <div style="font-weight:800;font-size:15px;color:#f59e0b;margin-bottom:10px;flex-shrink:0">🔗 Vincular a lista compartida</div>
+    <div style="overflow-y:auto;flex:1;min-height:0;text-align:left">
+    <div id="link-cli-name-desc" style="font-size:11px;color:#94a3b8;margin-bottom:4px"></div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">NOMBRE DE LA NUEVA LISTA:</div>
+    <input type="text" id="link-new-list-name" class="inp" placeholder="Ej: Lista Mayorista" style="margin-bottom:10px"/>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">CLIENTES A VINCULAR (opcional, puedes agregar más después):</div>
+    <div style="position:relative;margin-bottom:6px">
+      <input type="text" id="link-cli-search" class="inp" placeholder="Buscar cliente por nombre..." autocomplete="off"/>
+      <div id="link-cli-drop" class="ac-drop" style="position:absolute;left:0;right:0"></div>
+    </div>
+    <div id="link-cli-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-shrink:0">
+      <button onclick="confirmDel(false)" style="flex:1;padding:10px;border-radius:9px;border:1px solid #475569;background:transparent;color:#f1f5f9;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="confirmDel(true)" style="flex:1;padding:10px;border-radius:9px;border:none;background:#f59e0b;color:#000;font-weight:800;cursor:pointer">✔ Crear y vincular</button>
+    </div>`;
+  document.getElementById('link-cli-name-desc').textContent = 'Se creará una nueva lista compartida usando los precios actuales de ' + cli.name + '.';
+  const _linkSearchInput = document.getElementById('link-cli-search');
+  if (_linkSearchInput) _linkSearchInput.oninput = () => linkSearchClients(cid);
+  modal.style.display = 'flex';
+  _confirmCb = () => {
+    const name = (document.getElementById('link-new-list-name')?.value||'').trim();
+    if (!name) { toast('Escribe un nombre para la lista','#ef4444'); return; }
+    if (!S.priceLists) S.priceLists = [];
+    const cp = S.cp[cid] || {};
+    const visible = (cp._visible || []).map(Number);
+    const prices = {};
+    visible.forEach(pid => { prices[pid] = cp[pid] != null ? cp[pid] : (S.products.find(p=>p.id===pid)?.basePrice || 0); });
+    const listId = Date.now();
+    const clientIds = [Number(cid), ..._linkExtraClients];
+    S.priceLists.push({ id: listId, name, prices, clientIds, visibleProds: visible.slice() });
+    // Vincular a todos los clientes incluidos
+    clientIds.forEach(otherCid => {
+      if (!S.cp[otherCid]) S.cp[otherCid] = {};
+      const otherCp = S.cp[otherCid];
+      visible.forEach(pid => { otherCp[pid] = prices[pid]; });
+      otherCp._visible = visible.slice();
+      otherCp._priceListId = listId;
+    });
+    save(); renderClients();
+    toast('🔗 Lista compartida creada y vinculada','#10b981');
+  };
+}
+
+function linkSearchClients(cid) {
+  const txt = document.getElementById('link-cli-search');
+  const drop = document.getElementById('link-cli-drop');
+  if (!txt || !drop) return;
+  // Posicionar el desplegable de forma fija respecto a la pantalla,
+  // así queda siempre visible aunque esté dentro de un contenedor con scroll
+  const rect = txt.getBoundingClientRect();
+  drop.style.position = 'fixed';
+  drop.style.top = (rect.bottom + 2) + 'px';
+  drop.style.left = rect.left + 'px';
+  drop.style.width = rect.width + 'px';
+  drop.style.right = 'auto';
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.clients.filter(c =>
+    Number(c.id) !== Number(cid) &&
+    !_linkExtraClients.includes(c.id) &&
+    (q.length===0 || normalizeStr(c.name).includes(q))
+  ).slice(0, 30);
+  drop.innerHTML = '';
+  if (!matches.length) { drop.innerHTML = '<div class="ac-empty">Sin resultados</div>'; acOpen('link-cli-drop'); return; }
+  matches.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ac-opt';
+    d.textContent = c.name;
+    d.onmousedown = () => {
+      _linkExtraClients.push(c.id);
+      txt.value = '';
+      acClose('link-cli-drop');
+      linkRenderClientChips();
+    };
+    drop.appendChild(d);
+  });
+  acOpen('link-cli-drop');
+}
+
+function linkRenderClientChips() {
+  const wrap = document.getElementById('link-cli-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _linkExtraClients.forEach(cid => {
+    const c = S.clients.find(x=>x.id===cid);
+    if (!c) return;
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:#1e2236;border:1px solid #2a3050;border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;color:#f1f5f9';
+    chip.innerHTML = `<span>${c.name}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px';
+    btn.onclick = () => {
+      _linkExtraClients = _linkExtraClients.filter(x=>x!==cid);
+      linkRenderClientChips();
+    };
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
 }
 
 function unlinkCliFromPriceList(cid) {
