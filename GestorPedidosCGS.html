@@ -5523,6 +5523,15 @@ function brRenderExtraClientChips() {
   });
 }
 
+function toggleBrSection(id) {
+  const body = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▶' : '▼';
+}
+
 function openBonusModal(cid, ri) {
   if (!S.bonuses) S.bonuses = {};
   if (!S.bonuses[cid]) S.bonuses[cid] = [];
@@ -5642,24 +5651,45 @@ function openBonusModal(cid, ri) {
       <input type="number" id="br-pooleq-threshold" value="${r.ruleType==='poolEq'?r.threshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
     </div>
     <div id="br-mix-section" style="display:block">
-      <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:6px">🎯 PRODUCTO MIX — cumplir lo que aplique:</div>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">UMBRALES INDIVIDUALES (opcional):</div>
-      <div id="br-mix-ind-rows">${mixIndHtml(r)}</div>
-      <button onclick="addMixIndRow()" style="width:100%;background:#1e2a1a;border:1px dashed #4ade80;border-radius:7px;color:#4ade80;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto individual</button>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">POOL COMPARTIDO (opcional):</div>
-      <div id="br-mix-pool-rows">${mixPoolHtml(r)}</div>
-      <button onclick="addMixPoolRow()" style="width:100%;background:#1e2a3a;border:1px dashed #a78bfa;border-radius:7px;color:#a78bfa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto al pool</button>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">TÍTULO PARA REPORTES (opcional, si no se llena se arma automático con los nombres):</div>
-      <input type="text" id="br-mix-pool-title" value="${r.ruleType==='mix'?(r.mixPoolTitle||''):''}" placeholder="Ej: Ácido Muriático + Thinner" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL COMPARTIDO (opcional):</div>
-      <input type="number" id="br-mix-pool-threshold" value="${r.ruleType==='mix'?r.mixPoolThreshold||'':''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">POOL CON EQUIVALENCIAS (opcional):</div>
-      <div id="br-mix-eq-rows">${mixEqHtml(r)}</div>
-      <button onclick="addMixEqRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto con equivalencia</button>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">TÍTULO PARA REPORTES (opcional, si no se llena se arma automático con los nombres):</div>
-      <input type="text" id="br-mix-eq-title" value="${r.ruleType==='mix'?(r.mixEqTitle||''):''}" placeholder="Ej: Ácido Muriático y Thinner" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL (opcional):</div>
-      <input type="number" id="br-mix-eq-threshold" value="${r.ruleType==='mix'?r.mixEqThreshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
+      <div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:8px">🎯 PRODUCTO MIX — cumplir lo que aplique:</div>
+
+      ${(()=>{ const hasInd = (r.mixIndTargets||[]).length > 0; return `
+      <div onclick="toggleBrSection('br-ind-body')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#12162a;border-radius:7px;padding:8px 10px;margin-bottom:${hasInd?'6px':'8px'}">
+        <span style="font-size:12px;color:#4ade80;font-weight:700">🔹 Umbrales individuales${hasInd?` (${r.mixIndTargets.length})`:''}</span>
+        <span id="br-ind-body-arrow" style="color:#4ade80;font-size:11px">${hasInd?'▼':'▶'}</span>
+      </div>
+      <div id="br-ind-body" style="display:${hasInd?'block':'none'}">
+        <div id="br-mix-ind-rows">${mixIndHtml(r)}</div>
+        <button onclick="addMixIndRow()" style="width:100%;background:#1e2a1a;border:1px dashed #4ade80;border-radius:7px;color:#4ade80;padding:5px;font-size:12px;cursor:pointer;margin-bottom:10px">+ Producto individual</button>
+      </div>`; })()}
+
+      ${(()=>{ const hasPool = (r.mixPoolProds||[]).length > 0; return `
+      <div onclick="toggleBrSection('br-pool-body')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#12162a;border-radius:7px;padding:8px 10px;margin-bottom:${hasPool?'6px':'8px'}">
+        <span style="font-size:12px;color:#a78bfa;font-weight:700">🔹 Pool compartido${hasPool?` (${r.mixPoolProds.length})`:''}</span>
+        <span id="br-pool-body-arrow" style="color:#a78bfa;font-size:11px">${hasPool?'▼':'▶'}</span>
+      </div>
+      <div id="br-pool-body" style="display:${hasPool?'block':'none'}">
+        <div id="br-mix-pool-rows">${mixPoolHtml(r)}</div>
+        <button onclick="addMixPoolRow()" style="width:100%;background:#1e2a3a;border:1px dashed #a78bfa;border-radius:7px;color:#a78bfa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto al pool</button>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">TÍTULO PARA REPORTES (opcional, si no se llena se arma automático con los nombres):</div>
+        <input type="text" id="br-mix-pool-title" value="${r.ruleType==='mix'?(r.mixPoolTitle||''):''}" placeholder="Ej: Ácido Muriático + Thinner" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL COMPARTIDO (opcional):</div>
+        <input type="number" id="br-mix-pool-threshold" value="${r.ruleType==='mix'?r.mixPoolThreshold||'':''}" placeholder="Ej: 15" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:10px;font-size:13px"/>
+      </div>`; })()}
+
+      ${(()=>{ const hasEq = (r.mixEqProds||[]).length > 0; return `
+      <div onclick="toggleBrSection('br-eq-body')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#12162a;border-radius:7px;padding:8px 10px;margin-bottom:${hasEq?'6px':'0px'}">
+        <span style="font-size:12px;color:#60a5fa;font-weight:700">🔹 Pool con equivalencias${hasEq?` (${r.mixEqProds.length})`:''}</span>
+        <span id="br-eq-body-arrow" style="color:#60a5fa;font-size:11px">${hasEq?'▼':'▶'}</span>
+      </div>
+      <div id="br-eq-body" style="display:${hasEq?'block':'none'}">
+        <div id="br-mix-eq-rows">${mixEqHtml(r)}</div>
+        <button onclick="addMixEqRow()" style="width:100%;background:#1e3a5f;border:1px dashed #60a5fa;border-radius:7px;color:#60a5fa;padding:5px;font-size:12px;cursor:pointer;margin-bottom:6px">+ Producto con equivalencia</button>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">TÍTULO PARA REPORTES (opcional, si no se llena se arma automático con los nombres):</div>
+        <input type="text" id="br-mix-eq-title" value="${r.ruleType==='mix'?(r.mixEqTitle||''):''}" placeholder="Ej: Ácido Muriático y Thinner" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">UMBRAL TOTAL DEL POOL (opcional):</div>
+        <input type="number" id="br-mix-eq-threshold" value="${r.ruleType==='mix'?r.mixEqThreshold||'':''}" placeholder="Ej: 900" min="1" style="width:100%;background:#0d0f18;color:#f1f5f9;border:1px solid #2a3050;border-radius:8px;padding:7px;margin-bottom:6px;font-size:13px"/>
+      </div>`; })()}
     </div>
     <div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:5px">BONIFICACION A ENTREGAR:</div>
     <div id="br-bonus-rows">${bonusItemsHtml(r.bonusItems)}</div>
