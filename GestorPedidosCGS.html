@@ -8579,7 +8579,14 @@ async function driveEnsureToken() {
       renderDriveStatus();
       toast('⚠️ Drive desconectado (token revocado) — reconecta en Empresa', '#ef4444');
     } else {
-      toast('⚠️ Drive: respuesta inesperada — ' + JSON.stringify(data).slice(0,80), '#ef4444');
+      // Respuesta no reconocida del servicio: limpiar la conexión rota automáticamente
+      // para que el usuario solo tenga que tocar "Conectar" de nuevo, sin quedar en un estado inconsistente.
+      _driveToken = null;
+      _driveRefreshToken = null;
+      localStorage.removeItem('gpgt_drive_refresh');
+      localStorage.removeItem('gpgt_drive_token');
+      renderDriveStatus();
+      toast('⚠️ Drive: la conexión dejó de responder — vuelve a conectar en Empresa', '#ef4444');
     }
     return false;
   } catch(e) {
