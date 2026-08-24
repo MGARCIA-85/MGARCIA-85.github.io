@@ -1995,6 +1995,21 @@ return item;
 if (editingOid !== null) {
 const ord = S.orders.find(x => x.id===editingOid);
 if (ord) {
+// Verificar si la fecha del pedido fue modificada
+const dateFieldEl = document.getElementById('ord-date');
+let newDateStr = null;
+if (dateFieldEl && dateFieldEl.value) {
+  const [y,m,d] = dateFieldEl.value.split('-');
+  newDateStr = `${parseInt(d)}/${parseInt(m)}/${y}, 12:00:00 a.\u00a0m.`;
+}
+const originalDateYMD = (ord.date||'').split(',')[0].trim();
+const newDateYMD = (newDateStr||'').split(',')[0].trim();
+if (newDateStr && newDateYMD !== originalDateYMD) {
+  const confirmChange = confirm('Vas a cambiar la fecha original de este pedido.\n\n¿Deseas continuar?');
+  if (confirmChange) {
+    ord.date = newDateStr;
+  }
+}
 ord.clientId   = cli.id;
 ord.clientName = cli.name;
 ord.items        = items;
