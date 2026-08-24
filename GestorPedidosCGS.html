@@ -2948,13 +2948,20 @@ function generateOrderReport(selIds) {
 
   // Resumen de productos
   const prodTotals = {};
+  const prodWeights = {};
   filtered.forEach(o => o.items.forEach(it=>{
     const p=S.products.find(x=>x.id===(it.productId||Number(it.pid)));
     const key=(p?p.name:'—');
     prodTotals[key]=(prodTotals[key]||0)+Number(it.qty);
+    if (p && p.weightKg) prodWeights[key]=(prodWeights[key]||0)+Number(it.qty)*Number(p.weightKg);
   }));
-  const prodSummaryRows = Object.entries(prodTotals).sort((a,b)=>a[0].localeCompare(b[0],'es'))
-    .map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${k}</span><strong>${v}</strong></div>`).join('');
+  const totalWeightKg = Object.values(prodWeights).reduce((s,w)=>s+w,0);
+  const prodSummaryRows = Object.entries(prodTotals).sort((a,b)=>(prodWeights[b[0]]||0)-(prodWeights[a[0]]||0) || a[0].localeCompare(b[0],'es'))
+    .map(([k,v])=>{
+      const w = prodWeights[k];
+      const wTxt = w ? ` (${w.toLocaleString('es-GT',{maximumFractionDigits:2})} kg)` : '';
+      return `<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${k}</span><strong>${v}${wTxt}</strong></div>`;
+    }).join('');
 
   // Filas de pedidos
   const rows = filtered.map((o,i)=>{
@@ -3068,9 +3075,8 @@ function generateOrderReport(selIds) {
   </div>
   <div class="sum">
     <div class="sb"><div class="l">Pedidos</div><div class="v">${filtered.length}</div></div>
-    <div class="sb"><div class="l">Confirmado</div><div class="v" style="color:#b45309">${Q(tPend)}</div></div>
-    <div class="sb"><div class="l">Concluido</div><div class="v" style="color:#15803d">${Q(tFact)}</div></div>
     <div class="sb"><div class="l">TOTAL</div><div class="v" style="color:#d97706">${Q(tot)}</div></div>
+    ${totalWeightKg > 0 ? `<div class="sb"><div class="l">PESO TOTAL</div><div class="v" style="color:#1d4ed8">${totalWeightKg.toLocaleString('es-GT',{maximumFractionDigits:2})} kg</div></div>` : ''}
   </div>
   <div style="margin-bottom:14px;display:flex;gap:16px;padding:0 12px">
     <button onclick="document.body.style.zoom=(parseFloat(document.body.style.zoom||1)-0.1).toFixed(1)" style="padding:16px 28px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:32px;cursor:pointer;font-weight:700;line-height:1">－</button>
@@ -8181,6 +8187,8 @@ row.innerHTML = `
 <input class="inp" id="epus-${id}" type="number" step="0.001" min="0.001" value="${p.unitSize||1}"/>
 <label class="lbl">Precio por unidad (Q)</label>
 <input class="inp" id="eppr-${id}" type="number" step="0.01" value="${p.basePrice}"/>
+<label class="lbl">Peso por unidad (kg) — opcional, para reportes</label>
+<input class="inp" id="epweight-${id}" type="number" step="0.001" min="0" value="${p.weightKg||''}" placeholder="Ej: 168"/>
 <label class="lbl">Color del producto (selector de pedidos)</label>
 <input type="hidden" id="epcolor-${id}" value="${p.color||''}"/>
 <div id="epcolor-pal-${id}" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
@@ -8199,6 +8207,8 @@ p.presentation = document.getElementById('epp-'+id).value.trim();
 p.unitLabel    = document.getElementById('epul-'+id).value.trim() || 'unidad';
 p.unitSize     = Number(document.getElementById('epus-'+id).value) || 1;
 p.basePrice    = Number(document.getElementById('eppr-'+id).value);
+const weightEl = document.getElementById('epweight-'+id);
+p.weightKg     = weightEl && weightEl.value !== '' ? Number(weightEl.value) : null;
 const colorEl  = document.getElementById('epcolor-'+id);
 p.color        = colorEl ? colorEl.value : '';
 save(); toast('✔ Producto actualizado'); renderProducts();
@@ -9952,16 +9962,23 @@ function generateRouteReport(rid, selIds, returnHTML=false) {
 
 // Resumen de productos
 const prodTotals = {};
+const prodWeights = {};
 orders.forEach(o => {
   o.items.forEach(it => {
     const p = S.products.find(x=>x.id===(it.productId||Number(it.pid)));
     const key = (p ? p.name : '—');
     prodTotals[key] = (prodTotals[key]||0) + Number(it.qty);
+    if (p && p.weightKg) prodWeights[key] = (prodWeights[key]||0) + Number(it.qty)*Number(p.weightKg);
   });
 });
+const totalWeightKg = Object.values(prodWeights).reduce((s,w)=>s+w,0);
 const prodSummaryRows = Object.entries(prodTotals)
-  .sort((a,b)=>a[0].localeCompare(b[0],'es'))
-  .map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${k}</span><strong style="margin-left:8px;white-space:nowrap">${v}</strong></div>`)
+  .sort((a,b)=>(prodWeights[b[0]]||0)-(prodWeights[a[0]]||0) || a[0].localeCompare(b[0],'es'))
+  .map(([k,v])=>{
+    const w = prodWeights[k];
+    const wTxt = w ? ` (${w.toLocaleString('es-GT',{maximumFractionDigits:2})} kg)` : '';
+    return `<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${k}</span><strong style="margin-left:8px;white-space:nowrap">${v}${wTxt}</strong></div>`;
+  })
   .join('');
 const prodSummaryHTML = `<div style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
   <div style="background:#1e3a8a;color:#fff;padding:7px 12px;font-weight:800;font-size:13px">📦 Resumen de Productos</div>
@@ -9994,9 +10011,8 @@ table{font-size:17px}th,td{font-size:17px}
 </div>
 <div class="sum">
   <div class="sb"><div class="l">Pedidos</div><div class="v">${orders.length}</div></div>
-  <div class="sb"><div class="l">Confirmado</div><div class="v" style="color:#b45309">${Q(tPend)}</div></div>
-  <div class="sb"><div class="l">Concluido</div><div class="v" style="color:#15803d">${Q(tFact)}</div></div>
   <div class="sb"><div class="l">TOTAL RUTA</div><div class="v" style="color:#d97706">${Q(tDisp)}</div></div>
+  ${totalWeightKg > 0 ? `<div class="sb"><div class="l">PESO TOTAL</div><div class="v" style="color:#1d4ed8">${totalWeightKg.toLocaleString('es-GT',{maximumFractionDigits:2})} kg</div></div>` : ''}
 </div>
 <div style="margin-bottom:14px;display:flex;gap:16px;padding:0 12px">
   <button onclick="document.body.style.zoom=(parseFloat(document.body.style.zoom||1)-0.1).toFixed(1)" style="padding:16px 28px;background:#475569;color:#fff;border:none;border-radius:8px;font-size:32px;cursor:pointer;font-weight:700;line-height:1">－</button>
