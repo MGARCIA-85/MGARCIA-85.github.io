@@ -7526,6 +7526,24 @@ c.municipioId= selMun  ? Number(selMun)  : null;
 save(); toast("✔ Cliente actualizado"); renderClients();
 }
 
+function captureCliPriceInputs(cid) {
+  // Captura los valores actuales de los inputs de precio en pantalla,
+  // sin guardarlos todavía, para no perderlos al agregar/quitar productos
+  const captured = {};
+  document.querySelectorAll(`[id^="pe-${cid}-"]`).forEach(inp => {
+    const pid = inp.id.replace(`pe-${cid}-`, '');
+    if (inp.value !== '' && !isNaN(Number(inp.value))) captured[pid] = Number(inp.value);
+  });
+  return captured;
+}
+
+function applyCapturedCliPrices(cid, captured) {
+  if (!captured) return;
+  const cp = S.cp[cid] || {};
+  Object.keys(captured).forEach(pid => { cp[pid] = captured[pid]; });
+  S.cp[cid] = cp;
+}
+
 function editCliPrices(cid) {
 const c  = S.clients.find(x=>x.id===cid);
 const cp = S.cp[cid] || S.cp[String(cid)] || {};
@@ -7620,12 +7638,14 @@ addCliCategory(cid, fam);
 }
 
 function addCliCategory(cid, fam) {
+const captured = captureCliPriceInputs(cid);
 const cp = S.cp[cid] || {};
 let visible = (cp._visible || []).map(Number);
 S.products.filter(p => (p.family&&p.family.trim()?p.family.trim():'— Sin departamento —') === fam)
   .forEach(p => { if (!visible.includes(Number(p.id))) visible.push(Number(p.id)); });
 cp._visible = visible;
 S.cp[cid] = cp;
+applyCapturedCliPrices(cid, captured);
 editCliPrices(cid);
 }
 
@@ -7685,12 +7705,14 @@ setTimeout(() => {
 }
 
 function addCliCategory(cid, fam) {
+const captured = captureCliPriceInputs(cid);
 const cp = S.cp[cid] || {};
 let visible = (cp._visible || []).map(Number);
 S.products.filter(p => (p.family&&p.family.trim()?p.family.trim():'— Sin departamento —') === fam)
   .forEach(p => { if (!visible.includes(Number(p.id))) visible.push(Number(p.id)); });
 cp._visible = visible;
 S.cp[cid] = cp;
+applyCapturedCliPrices(cid, captured);
 editCliPrices(cid);
 }
 
@@ -7699,20 +7721,24 @@ const sel = document.getElementById('cli-add-prod-'+cid);
 if (!sel) return;
 const selected = Array.from(sel.selectedOptions).map(o => Number(o.value)).filter(Boolean);
 if (!selected.length) return toast('Selecciona al menos un producto','#f59e0b');
+const captured = captureCliPriceInputs(cid);
 const cp = S.cp[cid] || {};
 let visible = (cp._visible || []).map(Number);
 selected.forEach(pid => { if (!visible.includes(pid)) visible.push(pid); });
 cp._visible = visible;
 S.cp[cid] = cp;
+applyCapturedCliPrices(cid, captured);
 editCliPrices(cid);
 }
 
 function removeCliProduct(cid, pid) {
+const captured = captureCliPriceInputs(cid);
 const cp = S.cp[cid] || {};
 let visible = (cp._visible || []).map(Number);
 visible = visible.filter(id => id !== Number(pid));
 cp._visible = visible;
 S.cp[cid] = cp;
+applyCapturedCliPrices(cid, captured);
 editCliPrices(cid);
 }
 
