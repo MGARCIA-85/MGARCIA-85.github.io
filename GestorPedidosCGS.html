@@ -512,6 +512,10 @@ Selecciona un cliente para continuar.<br><br>
       <input type="checkbox" id="mfr-include-bonus" checked style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
       <span style="font-size:12px;color:#f1f5f9">Incluir bonificaciones en el reporte</span>
     </label>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+      <input type="checkbox" id="mfr-bonus-filtered" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
+      <span style="font-size:12px;color:#f1f5f9">Filtrar también las bonificaciones por los productos seleccionados</span>
+    </label>
     <button onclick="generateMultiFilterReport()" style="width:100%;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📄 Generar reporte por clientes y productos</button>
   </div>
 </div>
@@ -2626,6 +2630,8 @@ function clearReportFilters() {
   if (prodSearch) prodSearch.value = '';
   const bonusChk = document.getElementById('mfr-include-bonus');
   if (bonusChk) bonusChk.checked = true;
+  const bonusFilteredChk = document.getElementById('mfr-bonus-filtered');
+  if (bonusFilteredChk) bonusFilteredChk.checked = false;
   renderList();
 }
 
@@ -3206,6 +3212,7 @@ function generateMultiFilterReport() {
   if (!clientNames.length) { toast('Selecciona al menos un cliente', '#f59e0b'); return; }
   const clientIds = S.clients.filter(c => clientNames.includes(c.name)).map(c => c.id);
   const includeBonus = document.getElementById('mfr-include-bonus')?.checked !== false;
+  const bonusFiltered = document.getElementById('mfr-bonus-filtered')?.checked === true;
   const prodIds = _mfrProductIds.slice(); // vacío = todos los productos
 
   const fFrom = document.getElementById('f-date-from')?.value;
@@ -3226,7 +3233,16 @@ function generateMultiFilterReport() {
   ).filter(o => { const ds=toYMD(o.date); return ds>=fromStr && ds<=toStr; });
 
   if (prodIds.length) {
-    filtered = filtered.filter(o => o.items.some(it => prodIds.includes(Number(it.productId||it.pid))));
+    filtered = filtered.filter(o => {
+      const hasProdItem = o.items.some(it => prodIds.includes(Number(it.productId||it.pid)));
+      if (hasProdItem) return true;
+      if (!includeBonus) return false;
+      const hasBonus = (o.bonusLines||[]).length > 0;
+      if (!hasBonus) return false;
+      // Caso 1 (solo includeBonus): cualquier bonificación incluye el pedido.
+      // Caso 2 (includeBonus + bonusFiltered): solo si la bonificación es de un producto filtrado.
+      return bonusFiltered ? (o.bonusLines||[]).some(bl => prodIds.includes(Number(bl.productId))) : true;
+    });
   }
 
   if (!filtered.length) { toast('No hay pedidos que coincidan con los filtros', '#f59e0b'); return; }
@@ -3250,6 +3266,7 @@ function generateMultiFilterReport() {
   // Resumen de productos: por mes y total general
   const prodByMonth = {}; // { monthKey: { prodName: qty } }
   const prodGrandTotal = {}; // { prodName: qty }
+  const prodWeightTotal = {}; // { prodName: kg } — para ordenar el resumen general por peso
   filtered.forEach(o => {
     const ds = toYMD(o.date);
     const key = ds ? ds.slice(0,7) : 'sin-fecha';
@@ -3263,6 +3280,7 @@ function generateMultiFilterReport() {
       if (!prodByMonth[key]) prodByMonth[key] = {};
       prodByMonth[key][name] = (prodByMonth[key][name]||0) + Number(it.qty);
       prodGrandTotal[name] = (prodGrandTotal[name]||0) + Number(it.qty);
+      if (p && p.weightKg) prodWeightTotal[name] = (prodWeightTotal[name]||0) + Number(it.qty)*Number(p.weightKg);
     });
   });
 
@@ -3284,18 +3302,22 @@ function generateMultiFilterReport() {
         ordTotal += sub;
         return `<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:13px"><span>${it.qty} ${p?p.name:'—'}</span><strong>${Q(sub)}</strong></div>`;
       }).join('');
-      const bonusHtml = (includeBonus && o.bonusLines && o.bonusLines.length)
-        ? `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px"><div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:3px">🎁 Bonificación</div>${o.bonusLines.map(bl=>{
+      const bonusLinesToShowMfr = (bonusFiltered && prodIds.length)
+        ? (o.bonusLines||[]).filter(bl => prodIds.includes(Number(bl.productId)))
+        : (o.bonusLines||[]);
+      const bonusHtml = (includeBonus && bonusLinesToShowMfr.length)
+        ? `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px"><div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:3px">🎁 Bonificación</div>${bonusLinesToShowMfr.map(bl=>{
             const p = S.products.find(x=>x.id===Number(bl.productId));
             return `<div style="font-size:12px;color:#1e3a8a">${bl.qty} ${p?p.name:'—'}</div>`;
           }).join('')}</div>`
         : '';
       monthTotal += ordTotal;
       return `<div style="margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px;border-left:3px solid #94a3b8">
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;font-weight:700;margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;font-weight:700;margin-bottom:2px">
           <span>${fmtD(o.date)} · ${o.clientName}</span>
           <strong style="color:#1e293b">${Q(ordTotal)}</strong>
         </div>
+        ${o.oc?`<div style="font-size:14px;font-weight:800;color:#1e3a8a;margin-bottom:4px">Orden: ${o.oc}</div>`:''}
         ${itemsHtml}
         ${bonusHtml}
       </div>`;
@@ -3315,7 +3337,7 @@ function generateMultiFilterReport() {
   const monthSummaryBlocks = Object.keys(byMonth).sort().map(monthKey => {
     const [y, m] = monthKey.split('-');
     const mesLabel = m ? `${MESES[parseInt(m)-1]} ${y}` : 'Sin fecha';
-    const rows = Object.entries(prodByMonth[monthKey]||{}).sort((a,b)=>a[0].localeCompare(b[0],'es'))
+    const rows = Object.entries(prodByMonth[monthKey]||{}).sort((a,b)=>(prodWeightTotal[b[0]]||0)-(prodWeightTotal[a[0]]||0) || b[1]-a[1])
       .map(([name,qty])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${name}</span><strong>${qty}</strong></div>`).join('');
     return `<div style="margin-bottom:8px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
       <div style="background:#eff6ff;color:#1e3a8a;padding:4px 8px;font-weight:700;font-size:12px">${mesLabel}</div>
@@ -3323,7 +3345,7 @@ function generateMultiFilterReport() {
     </div>`;
   }).join('');
 
-  const grandProdSummary = Object.entries(prodGrandTotal).sort((a,b)=>b[1]-a[1])
+  const grandProdSummary = Object.entries(prodGrandTotal).sort((a,b)=>(prodWeightTotal[b[0]]||0)-(prodWeightTotal[a[0]]||0) || b[1]-a[1])
     .map(([name,qty])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${name}</span><strong>${qty}</strong></div>`).join('');
 
   const titleClients = clientNames.length > 2 ? `${clientNames.length} clientes` : clientNames.join(', ');
@@ -6616,16 +6638,87 @@ function showBonusEntregasReport(cid) {
     `generateBonusHistoryReport(${cid},window._mdrpFrom,window._mdrpTo);document.getElementById('report-modal-overlay').remove()`);
 }
 
+let _bhrProductIds = [];
+
+function bhrSearchProds() {
+  const txt = document.getElementById('bhr-prod-search');
+  const drop = document.getElementById('bhr-prod-drop');
+  if (!txt || !drop) return;
+  const rect = txt.getBoundingClientRect();
+  drop.style.position = 'fixed';
+  drop.style.top = (rect.bottom + 2) + 'px';
+  drop.style.left = rect.left + 'px';
+  drop.style.width = rect.width + 'px';
+  drop.style.right = 'auto';
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.products.filter(p =>
+    !_bhrProductIds.includes(p.id) &&
+    (q.length===0 || normalizeStr(p.name).includes(q) || normalizeStr(p.presentation||'').includes(q))
+  ).slice(0, 30);
+  drop.innerHTML = '';
+  if (!matches.length) { drop.innerHTML = '<div class="ac-empty">Sin resultados</div>'; acOpen('bhr-prod-drop'); return; }
+  matches.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'ac-opt';
+    d.innerHTML = `${p.name}${p.presentation?` <small>${p.presentation}</small>`:''}`;
+    d.onmousedown = () => {
+      _bhrProductIds.push(p.id);
+      txt.value = '';
+      acClose('bhr-prod-drop');
+      bhrRenderProdChips();
+    };
+    drop.appendChild(d);
+  });
+  acOpen('bhr-prod-drop');
+}
+
+function bhrRenderProdChips() {
+  const wrap = document.getElementById('bhr-prod-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _bhrProductIds.forEach(pid => {
+    const p = S.products.find(x=>x.id===pid);
+    if (!p) return;
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:#1e2236;border:1px solid #2a3050;border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;color:#f1f5f9';
+    chip.innerHTML = `<span>${p.name}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px';
+    btn.onclick = () => {
+      _bhrProductIds = _bhrProductIds.filter(x=>x!==pid);
+      bhrRenderProdChips();
+    };
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
 function showBonusHistoryReport(cid) {
+  _bhrProductIds = [];
   buildReportModal(cid, '📋 Reporte de Pedidos', '#10b981',
-    `generateBonusSimpleReport(${cid},window._mdrpFrom,window._mdrpTo,document.getElementById('bhr-include-bonus').checked);document.getElementById('report-modal-overlay').remove()`,
-    `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+    `generateBonusSimpleReport(${cid},window._mdrpFrom,window._mdrpTo,document.getElementById('bhr-include-bonus').checked,_bhrProductIds.slice(),document.getElementById('bhr-only-filtered').checked,document.getElementById('bhr-bonus-filtered').checked);document.getElementById('report-modal-overlay').remove()`,
+    `<div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Productos (opcional — vacío incluye todos):</div>
+    <div style="position:relative;margin-bottom:6px">
+      <input type="text" id="bhr-prod-search" class="inp" placeholder="Buscar producto por nombre..." oninput="bhrSearchProds()" autocomplete="off"/>
+      <div id="bhr-prod-drop" class="ac-drop" style="position:absolute;left:0;right:0"></div>
+    </div>
+    <div id="bhr-prod-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+      <input type="checkbox" id="bhr-only-filtered" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
+      <span style="font-size:13px;color:#f1f5f9">Mostrar solo el producto filtrado (ocultar los demás del pedido)</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
       <input type="checkbox" id="bhr-include-bonus" checked style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
       <span style="font-size:13px;color:#f1f5f9">Incluir bonificaciones en el reporte</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+      <input type="checkbox" id="bhr-bonus-filtered" style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
+      <span style="font-size:13px;color:#f1f5f9">Filtrar también las bonificaciones por los productos seleccionados</span>
     </label>`);
 }
 
-function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
+function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true, prodIds=[], onlyFiltered=false, bonusFiltered=false) {
   const c   = S.clients.find(x => x.id === Number(cid));
   const biz = S.biz || {};
 
@@ -6650,11 +6743,25 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
   }
 
   // Todos los pedidos del cliente en el rango
-  const allOrders = S.orders
+  let allOrders = S.orders
     .filter(o => Number(o.clientId)===Number(cid) &&
       (o.status==='Confirmado'||o.status==='Concluido'))
     .sort((a,b)=>ordDateTs(a)-ordDateTs(b))
     .filter(o => { const ds=toYMD(o.date); return ds>=fromStr && ds<=toStr; });
+
+  // Filtrar por productos seleccionados (si hay alguno)
+  if (prodIds && prodIds.length) {
+    allOrders = allOrders.filter(o => {
+      const hasProdItem = o.items.some(it => prodIds.includes(Number(it.productId||it.pid)));
+      if (hasProdItem) return true;
+      if (!includeBonus) return false;
+      const hasBonus = (o.bonusLines||[]).length > 0;
+      if (!hasBonus) return false;
+      // Caso 1 (solo includeBonus): cualquier bonificación incluye el pedido.
+      // Caso 2 (includeBonus + bonusFiltered): solo si la bonificación es de un producto filtrado.
+      return bonusFiltered ? (o.bonusLines||[]).some(bl => prodIds.includes(Number(bl.productId))) : true;
+    });
+  }
 
   if (!allOrders.length) { toast('No hay pedidos en el rango seleccionado', '#f59e0b'); return; }
 
@@ -6685,7 +6792,10 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
 
     const ordersHtml = monthOrders.map(o => {
       let ordTotal = 0;
-      const itemsHtml = o.items.map(it => {
+      const itemsForOrder = (onlyFiltered && prodIds && prodIds.length)
+        ? o.items.filter(it => prodIds.includes(Number(it.productId||it.pid)))
+        : o.items;
+      const itemsHtml = itemsForOrder.map(it => {
         const pid = Number(it.productId||it.pid);
         const p = S.products.find(x=>x.id===pid);
         const us = Number(p?.unitSize)||1;
@@ -6710,9 +6820,12 @@ function generateBonusSimpleReport(cid, fromStr, toStr, includeBonus=true) {
 
       const ocPart = o.oc ? ` · Orden: ${o.oc}` : '';
       let bonifRow = '';
-      if (includeBonus && o.bonusLines && o.bonusLines.length) {
+      const bonusLinesToShow = (bonusFiltered && prodIds && prodIds.length)
+        ? (o.bonusLines||[]).filter(bl => prodIds.includes(Number(bl.productId)))
+        : (o.bonusLines||[]);
+      if (includeBonus && bonusLinesToShow.length) {
         entregaNum++;
-        const bItems = o.bonusLines.map(bl => {
+        const bItems = bonusLinesToShow.map(bl => {
           const p = S.products.find(x=>x.id===Number(bl.productId));
           const us = Number(p?.unitSize)||1;
           const ul = p?.unitLabel||'unidad';
