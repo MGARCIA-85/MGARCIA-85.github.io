@@ -458,14 +458,22 @@ Selecciona un cliente para continuar.<br><br>
     </div>
   </div>
 </div>
+<!-- Pestañas de estado -->
+<div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto">
+  <button id="tab-all"   onclick="setOrderTab('all')"   style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#2a3050;color:#f1f5f9">Todos</button>
+  <button id="tab-Cotización" onclick="setOrderTab('Cotización')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#2a3050;color:#94a3b8">📄 Cotización <span id="cnt-Cotización" style="font-size:10px"></span></button>
+  <button id="tab-Confirmado" onclick="setOrderTab('Confirmado')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#60a5fa">✅ Confirmado <span id="cnt-Confirmado" style="font-size:10px"></span></button>
+  <button id="tab-Concluido"  onclick="setOrderTab('Concluido')"  style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#052e16;color:#10b981">✔ Concluido <span id="cnt-Concluido" style="font-size:10px"></span></button>
+</div>
 <!-- Filtros colapsables -->
-<div id="order-filters-panel" style="display:none;position:fixed;top:52px;left:0;right:0;z-index:400;background:#161929;border-bottom:2px solid #2a3050;padding:10px 12px;box-shadow:0 8px 24px #0008;max-height:80vh;overflow-y:auto;overflow-x:visible">
+<div id="order-filters-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)toggleOrderFilters()">
+<div id="order-filters-panel" style="display:none;background:#1e2236;border:1px solid #10b981;border-radius:14px;padding:14px;box-shadow:0 8px 24px #0008;max-height:80vh;overflow-y:auto;overflow-x:visible;max-width:400px;width:100%">
   <!-- Multi-select cliente -->
   <div style="position:relative;margin-bottom:6px">
     <div id="f-cli-multibox" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;background:#1e2640;border:1px solid #f59e0b;border-radius:8px;padding:6px 8px;min-height:38px;cursor:text" onclick="document.getElementById('f-cli-report').focus()">
-      <div id="f-cli-tags" style="display:contents"></div>
       <input id="f-cli-report" autocomplete="off" placeholder="🔍 Buscar cliente..." style="border:none;background:transparent;color:#f1f5f9;font-size:12px;outline:none;flex:1;min-width:120px;padding:2px 4px" oninput="filterReportCli()" onfocus="filterReportCli()" onblur="setTimeout(()=>{const d=document.getElementById('f-cli-drop');if(d)d.style.display='none'},250)"/>
     </div>
+    <div id="f-cli-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
     <div id="f-cli-drop" style="display:none;position:fixed;left:12px;right:12px;background:#1e2640;border:1px solid #2a3050;border-radius:8px;z-index:600;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px #0006;margin-top:2px"></div>
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -488,15 +496,25 @@ Selecciona un cliente para continuar.<br><br>
     <!-- inputs ocultos para mantener compatibilidad con filtros existentes -->
     <input type="date" id="f-date-from" style="display:none" onchange="renderList()"/>
     <input type="date" id="f-date-to"   style="display:none" onchange="renderList()"/>
+    <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap;background:#10b981;color:#fff;border:none" onclick="renderList();toggleOrderFilters()">🔍 Filtrar</button>
     <button class="bs" style="padding:6px 10px;font-size:12px;white-space:nowrap" onclick="clearReportFilters()">✕ Limpiar</button>
   </div>
+
+  <div style="border-top:1px solid #2a3050;margin-top:12px;padding-top:12px">
+    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">📄 REPORTE POR CLIENTES Y PRODUCTOS:</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:4px">Productos (opcional — vacío incluye todos):</div>
+    <div style="position:relative;margin-bottom:6px">
+      <input type="text" id="mfr-prod-search" class="inp" placeholder="Buscar producto por nombre..." oninput="mfrSearchProds()" autocomplete="off"/>
+      <div id="mfr-prod-drop" class="ac-drop" style="position:absolute;left:0;right:0"></div>
+    </div>
+    <div id="mfr-prod-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;padding:8px;background:#0d0f18;border-radius:8px;border:1px solid #2a3050">
+      <input type="checkbox" id="mfr-include-bonus" checked style="width:16px;height:16px;cursor:pointer;accent-color:#10b981"/>
+      <span style="font-size:12px;color:#f1f5f9">Incluir bonificaciones en el reporte</span>
+    </label>
+    <button onclick="generateMultiFilterReport()" style="width:100%;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📄 Generar reporte por clientes y productos</button>
+  </div>
 </div>
-<!-- Pestañas de estado -->
-<div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto">
-  <button id="tab-all"   onclick="setOrderTab('all')"   style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#2a3050;color:#f1f5f9">Todos</button>
-  <button id="tab-Cotización" onclick="setOrderTab('Cotización')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#2a3050;color:#94a3b8">📄 Cotización <span id="cnt-Cotización" style="font-size:10px"></span></button>
-  <button id="tab-Confirmado" onclick="setOrderTab('Confirmado')" style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#1e3a5f;color:#60a5fa">✅ Confirmado <span id="cnt-Confirmado" style="font-size:10px"></span></button>
-  <button id="tab-Concluido"  onclick="setOrderTab('Concluido')"  style="padding:7px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:#052e16;color:#10b981">✔ Concluido <span id="cnt-Concluido" style="font-size:10px"></span></button>
 </div>
 <!-- Barra fija selección pedidos generales -->
 <div id="ord-sel-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#0d1a2e;border-bottom:2px solid #3b82f6;padding:10px 12px;flex-direction:column;gap:8px;box-shadow:0 4px 20px #00000090">
@@ -513,7 +531,7 @@ Selecciona un cliente para continuar.<br><br>
     <button id="ord-btn-fin" onclick="toggleOrdByStatus('Concluido')" style="flex:1;font-size:11px;padding:4px 8px;background:transparent;border:1px solid #15803d;border-radius:6px;color:#4ade80;cursor:pointer">Concluido</button>
   </div>
   <div id="ord-sel-summary" style="font-size:11px;color:#94a3b8;line-height:1.6"></div>
-  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">🖨️ Imprimir seleccionados</button>
+  <button onclick="generateOrderReportSel()" style="width:100%;padding:9px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:6px">🖨️ Imprimir seleccionados</button>
   <button onclick="shareOrderReportSel()" style="width:100%;padding:9px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📤 Enviar / Compartir seleccionados</button>
 </div>
 <div id="lst-body"></div>
@@ -2539,12 +2557,20 @@ let _selectedClients = [];
 function renderCliTags() {
   const tagsEl = document.getElementById('f-cli-tags');
   if (!tagsEl) return;
-  tagsEl.innerHTML = _selectedClients.map(n =>
-    `<span style="display:inline-flex;align-items:center;gap:4px;background:#2a3a60;color:#93c5fd;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap">
-      ${n}
-      <span onmousedown="removeCliTag('${n.replace(/'/g,"\\'")}',event)" style="cursor:pointer;color:#f87171;font-size:13px;line-height:1">×</span>
-    </span>`
-  ).join('');
+  tagsEl.innerHTML = '';
+  _selectedClients.forEach(n => {
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:#1e2236;border:1px solid #2a3050;border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;color:#f1f5f9';
+    const span = document.createElement('span');
+    span.textContent = n;
+    chip.appendChild(span);
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px';
+    btn.onmousedown = (e) => removeCliTag(n, e);
+    chip.appendChild(btn);
+    tagsEl.appendChild(chip);
+  });
 }
 
 function removeCliTag(name, e) {
@@ -2593,6 +2619,13 @@ function clearReportFilters() {
   const d2 = document.getElementById('f-date-to');
   if (d1) d1.value = '';
   if (d2) d2.value = '';
+  // Limpiar también productos y la casilla de bonificaciones del reporte multi-filtro
+  _mfrProductIds = [];
+  mfrRenderProdChips();
+  const prodSearch = document.getElementById('mfr-prod-search');
+  if (prodSearch) prodSearch.value = '';
+  const bonusChk = document.getElementById('mfr-include-bonus');
+  if (bonusChk) bonusChk.checked = true;
   renderList();
 }
 
@@ -3112,18 +3145,235 @@ function _shareReport() {
   }
 }
 
+let _mfrProductIds = [];
+
+function mfrSearchProds() {
+  const txt = document.getElementById('mfr-prod-search');
+  const drop = document.getElementById('mfr-prod-drop');
+  if (!txt || !drop) return;
+  const rect = txt.getBoundingClientRect();
+  drop.style.position = 'fixed';
+  drop.style.top = (rect.bottom + 2) + 'px';
+  drop.style.left = rect.left + 'px';
+  drop.style.width = rect.width + 'px';
+  drop.style.right = 'auto';
+  const q = normalizeStr(txt.value.trim());
+  const matches = S.products.filter(p =>
+    !_mfrProductIds.includes(p.id) &&
+    (q.length===0 || normalizeStr(p.name).includes(q) || normalizeStr(p.presentation||'').includes(q))
+  ).slice(0, 30);
+  drop.innerHTML = '';
+  if (!matches.length) { drop.innerHTML = '<div class="ac-empty">Sin resultados</div>'; acOpen('mfr-prod-drop'); return; }
+  matches.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'ac-opt';
+    d.innerHTML = `${p.name}${p.presentation?` <small>${p.presentation}</small>`:''}`;
+    d.onmousedown = () => {
+      _mfrProductIds.push(p.id);
+      txt.value = '';
+      acClose('mfr-prod-drop');
+      mfrRenderProdChips();
+    };
+    drop.appendChild(d);
+  });
+  acOpen('mfr-prod-drop');
+}
+
+function mfrRenderProdChips() {
+  const wrap = document.getElementById('mfr-prod-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _mfrProductIds.forEach(pid => {
+    const p = S.products.find(x=>x.id===pid);
+    if (!p) return;
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:5px;background:#1e2236;border:1px solid #2a3050;border-radius:20px;padding:4px 6px 4px 12px;font-size:12px;color:#f1f5f9';
+    chip.innerHTML = `<span>${p.name}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px';
+    btn.onclick = () => {
+      _mfrProductIds = _mfrProductIds.filter(x=>x!==pid);
+      mfrRenderProdChips();
+    };
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
+function generateMultiFilterReport() {
+  const clientNames = _selectedClients.slice();
+  if (!clientNames.length) { toast('Selecciona al menos un cliente', '#f59e0b'); return; }
+  const clientIds = S.clients.filter(c => clientNames.includes(c.name)).map(c => c.id);
+  const includeBonus = document.getElementById('mfr-include-bonus')?.checked !== false;
+  const prodIds = _mfrProductIds.slice(); // vacío = todos los productos
+
+  const fFrom = document.getElementById('f-date-from')?.value;
+  const fTo   = document.getElementById('f-date-to')?.value;
+  const fromStr = fFrom || '2000-01-01';
+  const toStr   = fTo   || '2099-12-31';
+
+  function toYMD(d) {
+    if (!d) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(d))) return d;
+    const p = String(d).split(',')[0].split('/');
+    return p.length===3 ? `${p[2].trim()}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : d;
+  }
+
+  let filtered = S.orders.filter(o =>
+    clientIds.includes(Number(o.clientId)) &&
+    (o.status==='Confirmado'||o.status==='Concluido')
+  ).filter(o => { const ds=toYMD(o.date); return ds>=fromStr && ds<=toStr; });
+
+  if (prodIds.length) {
+    filtered = filtered.filter(o => o.items.some(it => prodIds.includes(Number(it.productId||it.pid))));
+  }
+
+  if (!filtered.length) { toast('No hay pedidos que coincidan con los filtros', '#f59e0b'); return; }
+
+  filtered.sort((a,b)=>ordDateTs(a)-ordDateTs(b));
+
+  const b = S.biz || {};
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  function fmtD(d) {
+    if (!d) return '—';
+    if (String(d).includes('/')) {
+      const parts = String(d).split(',')[0].split('/');
+      if (parts.length===3) return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[2].trim()}`;
+      return String(d).split(',')[0];
+    }
+    return d;
+  }
+
+  let grandTotal = 0;
+  const byMonth = {};
+  // Resumen de productos: por mes y total general
+  const prodByMonth = {}; // { monthKey: { prodName: qty } }
+  const prodGrandTotal = {}; // { prodName: qty }
+  filtered.forEach(o => {
+    const ds = toYMD(o.date);
+    const key = ds ? ds.slice(0,7) : 'sin-fecha';
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(o);
+    const itemsForSummary = prodIds.length ? o.items.filter(it => prodIds.includes(Number(it.productId||it.pid))) : o.items;
+    itemsForSummary.forEach(it => {
+      const pid = Number(it.productId||it.pid);
+      const p = S.products.find(x=>x.id===pid);
+      const name = p ? p.name : '—';
+      if (!prodByMonth[key]) prodByMonth[key] = {};
+      prodByMonth[key][name] = (prodByMonth[key][name]||0) + Number(it.qty);
+      prodGrandTotal[name] = (prodGrandTotal[name]||0) + Number(it.qty);
+    });
+  });
+
+  const groupsHtml = Object.keys(byMonth).sort().map(monthKey => {
+    const [y, m] = monthKey.split('-');
+    const mesLabel = m ? `${MESES[parseInt(m)-1]} ${y}` : 'Sin fecha';
+    const monthOrders = byMonth[monthKey];
+    let monthTotal = 0;
+
+    const ordersHtml = monthOrders.map(o => {
+      let ordTotal = 0;
+      const itemsToShow = prodIds.length ? o.items.filter(it => prodIds.includes(Number(it.productId||it.pid))) : o.items;
+      const itemsHtml = itemsToShow.map(it => {
+        const pid = Number(it.productId||it.pid);
+        const p = S.products.find(x=>x.id===pid);
+        const us = Number(p?.unitSize)||1;
+        const pr = (it.customPrice!=null) ? it.customPrice : cliPrice(o.clientId, pid, p?.basePrice||0);
+        const sub = pr * us * Number(it.qty);
+        ordTotal += sub;
+        return `<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:13px"><span>${it.qty} ${p?p.name:'—'}</span><strong>${Q(sub)}</strong></div>`;
+      }).join('');
+      const bonusHtml = (includeBonus && o.bonusLines && o.bonusLines.length)
+        ? `<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px"><div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:3px">🎁 Bonificación</div>${o.bonusLines.map(bl=>{
+            const p = S.products.find(x=>x.id===Number(bl.productId));
+            return `<div style="font-size:12px;color:#1e3a8a">${bl.qty} ${p?p.name:'—'}</div>`;
+          }).join('')}</div>`
+        : '';
+      monthTotal += ordTotal;
+      return `<div style="margin-bottom:8px;padding:8px;background:#f8fafc;border-radius:6px;border-left:3px solid #94a3b8">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#374151;font-weight:700;margin-bottom:4px">
+          <span>${fmtD(o.date)} · ${o.clientName}</span>
+          <strong style="color:#1e293b">${Q(ordTotal)}</strong>
+        </div>
+        ${itemsHtml}
+        ${bonusHtml}
+      </div>`;
+    }).join('');
+
+    grandTotal += monthTotal;
+    return `<div style="margin-bottom:16px">
+      <div style="background:#1e3a8a;padding:6px 12px;border-radius:6px;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:800;color:#fff">${mesLabel}</span>
+        <span style="font-size:11px;color:#93c5fd;margin-left:8px">Total: ${Q(monthTotal)}</span>
+      </div>
+      ${ordersHtml}
+    </div>`;
+  }).join('');
+
+  // Resumen de productos por mes (agrupado todo junto, arriba del detalle de pedidos)
+  const monthSummaryBlocks = Object.keys(byMonth).sort().map(monthKey => {
+    const [y, m] = monthKey.split('-');
+    const mesLabel = m ? `${MESES[parseInt(m)-1]} ${y}` : 'Sin fecha';
+    const rows = Object.entries(prodByMonth[monthKey]||{}).sort((a,b)=>a[0].localeCompare(b[0],'es'))
+      .map(([name,qty])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${name}</span><strong>${qty}</strong></div>`).join('');
+    return `<div style="margin-bottom:8px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+      <div style="background:#eff6ff;color:#1e3a8a;padding:4px 8px;font-weight:700;font-size:12px">${mesLabel}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  const grandProdSummary = Object.entries(prodGrandTotal).sort((a,b)=>b[1]-a[1])
+    .map(([name,qty])=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;border-bottom:1px solid #f0f0f0"><span>${name}</span><strong>${qty}</strong></div>`).join('');
+
+  const titleClients = clientNames.length > 2 ? `${clientNames.length} clientes` : clientNames.join(', ');
+  const titleProds = prodIds.length ? S.products.filter(p=>prodIds.includes(p.id)).map(p=>p.name).join(', ') : 'Todos los productos';
+
+  const b2 = S.biz || {};
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reporte por clientes y productos</title>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:16px;background:#fff;color:#1e293b;zoom:175%}@media print{body{padding:8px}}</style></head>
+  <body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a8a">
+      <div>
+        <div style="font-size:20px;font-weight:900;color:#1e3a8a">${b2.name||'Empresa'}</div>
+        ${b2.exec?`<div style="font-size:12px;color:#64748b">${b2.exec}</div>`:''}
+        ${b2.phone?`<div style="font-size:12px;color:#64748b">📞 ${b2.phone}</div>`:''}
+      </div>
+      <div style="text-align:right"><div style="font-size:11px;color:#64748b">Generado: ${fmtOrdDate((()=>{ const n=new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })())}</div></div>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:800;color:#1e3a8a">📄 Reporte por Clientes y Productos</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Clientes: ${titleClients}</div>
+      <div style="font-size:12px;color:#64748b">Productos: ${titleProds}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">Período: ${fFrom||'inicio'} → ${fTo||'hoy'}</div>
+    </div>
+    <div style="margin-bottom:16px;border:1px solid #1e3a8a;border-radius:8px;overflow:hidden">
+      <div style="background:#1e3a8a;color:#fff;padding:7px 12px;font-weight:800;font-size:14px">📦 Resumen de Productos por Mes</div>
+      <div style="padding:8px">${monthSummaryBlocks}</div>
+      ${grandProdSummary?`<div style="border-top:2px solid #1e3a8a">
+        <div style="background:#eff6ff;color:#1e3a8a;padding:5px 8px;font-weight:700;font-size:12px">TOTAL GENERAL</div>
+        ${grandProdSummary}
+      </div>`:''}
+    </div>
+    ${groupsHtml}
+    <div style="background:#1e3a8a;padding:10px 14px;border-radius:8px;display:flex;justify-content:space-between;margin-top:8px">
+      <span style="font-size:14px;font-weight:800;color:#fff">TOTAL GENERAL:</span>
+      <span style="font-size:14px;font-weight:800;color:#fde68a">${Q(grandTotal)}</span>
+    </div>
+    <script>window.onload=function(){window.print()}<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  window.open(URL.createObjectURL(blob), '_blank');
+}
+
 function toggleOrderFilters() {
   const p = document.getElementById('order-filters-panel');
-  if (!p) return;
-  const isOpen = p.style.display !== 'none';
+  const ov = document.getElementById('order-filters-overlay');
+  if (!p || !ov) return;
+  const isOpen = ov.style.display !== 'none';
+  ov.style.display = isOpen ? 'none' : 'flex';
   p.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) {
-    setTimeout(() => {
-      document.addEventListener('click', closeOrderFiltersOutside);
-    }, 100);
-  } else {
-    document.removeEventListener('click', closeOrderFiltersOutside);
-  }
 }
 
 function closeOrderFiltersOutside(e) {
