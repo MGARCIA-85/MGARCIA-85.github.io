@@ -3748,6 +3748,8 @@ function generateRouteOrders(rid, routeTitle, selDepts, selMuns, selRutas) {
   if (selRutas && selRutas.length) clis = clis.filter(c => selRutas.includes(Number(c.rutaClienteId)));
   if (selDepts && selDepts.length) clis = clis.filter(c => selDepts.map(Number).includes(Number(c.deptId)));
   if (selMuns  && selMuns.length)  clis = clis.filter(c => selMuns.map(Number).includes(Number(c.municipioId)));
+  // Excluir clientes marcados para no incluirse en la generación automática de rutas
+  clis = clis.filter(c => c.excludeFromAutoRoute !== true);
 
   if (!clis.length) {
     toast("⚠️ No hay clientes que coincidan con los filtros seleccionados.", "#f59e0b");
@@ -7567,6 +7569,10 @@ document.getElementById("cc-"+id).innerHTML =
 '<input type="hidden" id="ecm-'+id+'" value="'+(c.municipioId||'')+'"/>' +
 '<div id="ecmdrop-'+id+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>' +
 '</div>' +
+'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#f1f5f9;margin-bottom:10px;cursor:pointer">' +
+'<input type="checkbox" id="ecautoroute-'+id+'" '+(c.excludeFromAutoRoute?'':'checked')+' style="width:16px;height:16px;accent-color:#10b981"/>' +
+'🚚 Incluir en generación automática de rutas' +
+'</label>' +
 '<label class="lbl">Dirección</label><input class="inp" id="eca-'+id+'" value="'+(c.address||"")+'" />' +
 '<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'" />' +
 '<div class="two">' +
@@ -7620,6 +7626,8 @@ c.deptId     = selDept ? Number(selDept) : null;
 c.municipioId= selMun  ? Number(selMun)  : null;
   const selRoute = document.getElementById('ecr-'+id)?.value;
   c.rutaClienteId = selRoute ? Number(selRoute) : null;
+  const autoRouteChk = document.getElementById('ecautoroute-'+id);
+  c.excludeFromAutoRoute = autoRouteChk ? !autoRouteChk.checked : false;
 save(); toast("✔ Cliente actualizado"); renderClients();
 }
 
