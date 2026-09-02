@@ -285,6 +285,8 @@ function fmtDDMMYYYY(d) {
 <button onclick="goTab('clients')">👥 Clientes</button>
 <button onclick="goTab('products')">🏷️ Productos</button>
 <button onclick="goTab('routes')">🚚 Rutas</button>
+<button onclick="goTab('prospects')">🧲 Prospectos</button>
+<button onclick="goTab('quotes')">📝 Cotizaciones</button>
 <button onclick="goTab('bizinfo')">🏢 Empresa</button>
 <button onclick="goTab('backup')">💾 Respaldo</button>
 </div>
@@ -454,7 +456,7 @@ Selecciona un cliente para continuar.<br><br>
     <div style="display:flex;gap:6px;align-items:center">
       <button id="btn-ord-sort" class="bs" style="padding:8px 14px;font-size:13px" onclick="toggleOrderSort()">🕐 Recientes</button>
       <button class="bs" style="padding:8px 14px;font-size:13px;line-height:1" onclick="toggleOrderFilters()" title="Filtros"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18l-7 9v7l-4-2V13L3 4z"/></svg> Filtro</button>
-      <button class="bp" style="padding:10px 18px;font-size:14px;font-weight:800;white-space:nowrap;color:#000" onclick="goTab('order')">🛒 + Nuevo</button>
+      <button class="bp" style="padding:10px 18px;font-size:14px;font-weight:800;white-space:nowrap;color:#000" onclick="window._prospectFirstMode=false;goTab('order')">🛒 + Nuevo</button>
     </div>
   </div>
 </div>
@@ -577,7 +579,7 @@ Selecciona un cliente para continuar.<br><br>
 
   <!-- Botón Nuevo Cliente -->
   <button class="bp" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
-    onclick="(function(){var b=document.getElementById('cli-form-body'),d=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),r=document.getElementById('ruta-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){d.style.display='none';m.style.display='none';r.style.display='none';refreshNcRouteList();}})()">
+    onclick="(function(){var b=document.getElementById('cli-form-body'),d=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),r=document.getElementById('ruta-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){d.style.display='none';m.style.display='none';r.style.display='none';refreshNcRouteList();var tc=document.getElementById('nc-type-client');if(tc)tc.checked=true;}})()">
     ➕ Nuevo Cliente
   </button>
 
@@ -611,6 +613,17 @@ Selecciona un cliente para continuar.<br><br>
 <div id="cli-form-body" style="display:none;background:#0d1525;border:1px solid #2a3050;border-radius:12px;padding:12px 14px;margin-bottom:10px">
   <label class="lbl">Nombre *</label>
   <input class="inp" id="nc-n" placeholder="Ej: Carlos Martínez"/>
+  <label class="lbl">Guardar como</label>
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <label style="flex:1;display:flex;align-items:center;gap:6px;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;cursor:pointer">
+      <input type="radio" name="nc-type" id="nc-type-client" value="client" checked style="accent-color:#10b981"/>
+      <span style="font-size:13px;color:#f1f5f9">👥 Cliente</span>
+    </label>
+    <label style="flex:1;display:flex;align-items:center;gap:6px;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;cursor:pointer">
+      <input type="radio" name="nc-type" id="nc-type-prospect" value="prospect" style="accent-color:#f59e0b"/>
+      <span style="font-size:13px;color:#f1f5f9">🧲 Prospecto</span>
+    </label>
+  </div>
   <label class="lbl">🚚 Ruta</label>
   <select id="nc-route-id" class="sel" style="margin-bottom:12px;width:100%">
     <option value="">— Sin ruta asignada —</option>
@@ -842,6 +855,33 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 <div id="routes-list"></div>
 </div>
+</div>
+
+<!-- ══════════════════════ PROSPECTOS ══════════════════════ -->
+<div id="page-prospects" class="page">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:baseline;gap:6px">
+    <div class="sec" style="margin-bottom:0;border:none">🧲 Prospectos</div>
+    <span id="prospects-title-top" style="font-size:13px;color:#94a3b8;font-weight:600"></span>
+  </div>
+  <button class="bp" style="padding:8px 14px;font-size:13px;font-weight:800" onclick="openNewProspectForm()">+ Nuevo</button>
+</div>
+<div style="padding:0 12px 12px;font-size:12px;color:#64748b">Clientes potenciales. Cuando acepten, conviértelos en clientes reales, o confirma una cotización suya y se convertirán automáticamente.</div>
+
+<div id="prospects-body" style="padding:0 12px 12px"></div>
+</div>
+
+<!-- ══════════════════════ COTIZACIONES ══════════════════════ -->
+<div id="page-quotes" class="page">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:baseline;gap:6px">
+    <div class="sec" style="margin-bottom:0;border:none">📝 Cotizaciones</div>
+    <span id="quotes-title-top" style="font-size:13px;color:#94a3b8;font-weight:600"></span>
+  </div>
+  <button class="bp" style="padding:8px 14px;font-size:13px;font-weight:800" onclick="window._prospectFirstMode=true;goTab('order')">🛒 + Nueva</button>
+</div>
+<div style="padding:0 12px 12px;font-size:12px;color:#64748b">Pedidos hechos a prospectos. Al confirmarse, el prospecto se convierte en cliente y el pedido pasa a Pedidos normales.</div>
+<div id="quotes-list-body" style="padding:0 12px 12px"></div>
 </div>
 
 <!-- ══════════════════════ NEGOCIO ══════════════════════ -->
@@ -1297,13 +1337,157 @@ t.classList.add('show');
 setTimeout(() => t.classList.remove('show'), 2600);
 }
 
+// ═══════════════════════════════════════════════════════
+//  PROSPECTOS (clientes potenciales)
+// ═══════════════════════════════════════════════════════
+
+function openProspectFullCard(id) {
+  goTab('clients');
+  setTimeout(() => {
+    window._cliOpen = window._cliOpen || {};
+    Object.keys(window._cliOpen).forEach(k => { window._cliOpen[k] = false; });
+    window._cliOpen[id] = true;
+    window._floatCid = Number(id);
+    renderClients();
+    setTimeout(() => restoreFloatingCard(id), 150);
+  }, 150);
+}
+
+function editProspect(id) {
+  window._prospectEditAfterLoad = Number(id);
+  goTab('clients');
+  setTimeout(() => {
+    const card = document.getElementById('cc-'+id);
+    if (card) editCliForm(id);
+    window._prospectEditAfterLoad = null;
+  }, 150);
+}
+
+function deleteProspect(id) {
+  const hasOrders = S.orders.some(o => Number(o.clientId) === id);
+  const sub = hasOrders ? 'Este prospecto tiene cotizaciones asociadas. Se eliminarán también.' : 'Esta acción no se puede deshacer.';
+  askConfirm('¿Eliminar este prospecto?', sub, () => {
+    S.orders = S.orders.filter(o => Number(o.clientId) !== id);
+    S.clients = S.clients.filter(c => c.id !== id);
+    delete S.cp[id];
+    save();
+    renderProspects();
+    toast('🗑 Prospecto eliminado');
+  });
+}
+
+function convertProspectToClient(id) {
+  const c = S.clients.find(x=>x.id===id);
+  if (!c) return;
+  askConfirm('✅ Convertir en cliente', `"${c.name}" pasará a formar parte de tu catálogo de clientes normal, junto con todas sus cotizaciones (que pasarán a ser pedidos).`, () => {
+    delete c.isProspect;
+    c.excludeFromAutoRoute = false; // al convertirse en cliente, se incluye en rutas automáticas
+    save();
+    toast('✅ Cliente convertido: ' + c.name, '#10b981');
+    goTab('clients');
+  }, 'Convertir', '#10b981', '✅');
+}
+
+function renderProspects() {
+  const body = document.getElementById('prospects-body');
+  const titleTop = document.getElementById('prospects-title-top');
+  if (!body) return;
+  const prospects = S.clients.filter(c => c.isProspect);
+  if (titleTop) titleTop.textContent = `(${prospects.length})`;
+  if (!prospects.length) {
+    body.innerHTML = '<div style="text-align:center;color:#64748b;padding:30px 10px;font-size:13px">Aún no tienes prospectos.<br>Presiona "+ Nuevo" para agregar el primero.</div>';
+    return;
+  }
+  body.innerHTML = prospects.map(c => {
+    const cliOrders = [...S.orders].filter(o => Number(o.clientId) === c.id).sort((a,b)=>ordDateTs(b)-ordDateTs(a));
+    const total = cliOrders.reduce((s,o) => s + orderTotal(o.items, o.clientId), 0);
+    const sCls2 = {Cotización:'#f1f5f9', Confirmado:'#60a5fa', Concluido:'#4ade80'};
+    const ordersHtml = cliOrders.length ? `<div style="margin-bottom:8px">
+      ${cliOrders.map(o => {
+        const oTot = orderTotal(o.items, o.clientId);
+        const oDisp = o.applyIva ? oTot*1.12 : oTot;
+        return `<div style="background:#0d1525;border-radius:7px;padding:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="startEditOrder(${o.id})">
+          <div>
+            <div style="font-size:12px;color:#f1f5f9">${(o.date||'').split(',')[0]}</div>
+            <div style="font-size:10px;color:${sCls2[o.status]||'#94a3b8'}">${o.status}</div>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:#f59e0b">${Q(oDisp)}</div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+    return `<div style="background:#161929;border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid #2a3050">
+      <div style="font-weight:800;font-size:14px;color:#f1f5f9;margin-bottom:4px;cursor:pointer;text-decoration:underline" onclick="openProspectFullCard(${c.id})">${c.name}</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">${c.phone?'📞 '+c.phone+' · ':''}${cliOrders.length} cotización(es)${total>0?' · '+Q(total):''}</div>
+      ${ordersHtml}
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button class="br" style="width:100%;padding:8px" onclick="deleteProspect(${c.id})">🗑 Eliminar</button>
+      </div>
+      <button style="width:100%;padding:8px;background:#052e16;border:1px solid #10b981;border-radius:8px;color:#10b981;font-size:12px;font-weight:800;cursor:pointer" onclick="convertProspectToClient(${c.id})">✅ Convertir en cliente</button>
+    </div>`;
+  }).join('');
+}
+
+function renderQuotesList() {
+  const body = document.getElementById('quotes-list-body');
+  const titleTop = document.getElementById('quotes-title-top');
+  if (!body) return;
+  const prospectIds = new Set(S.clients.filter(c=>c.isProspect).map(c=>c.id));
+  const quotes = S.orders.filter(o => prospectIds.has(Number(o.clientId)) && !o.cancelled);
+  if (titleTop) titleTop.textContent = `(${quotes.length})`;
+  if (!quotes.length) {
+    body.innerHTML = '<div style="text-align:center;color:#64748b;padding:30px 10px;font-size:13px">Aún no tienes cotizaciones.<br>Presiona "+ Nueva" y elige un prospecto como cliente.</div>';
+    return;
+  }
+  const sorted = [...quotes].sort((a,b)=>ordDateTs(b)-ordDateTs(a));
+  body.innerHTML = sorted.map(o => {
+    const total = orderTotal(o.items, o.clientId);
+    const disp = o.applyIva ? total*1.12 : total;
+    const sCls = o.cancelled?'#ef4444':o.status==='Concluido'?'#4ade80':o.status==='Confirmado'?'#60a5fa':'#f1f5f9';
+    return `<div style="background:#161929;border-radius:10px;padding:12px;margin-bottom:10px;border-left:3px solid ${sCls}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div style="font-weight:800;font-size:14px;color:#f1f5f9;cursor:pointer;text-decoration:underline" onclick="openProspectFullCard(${o.clientId})">${o.clientName}</div>
+        <div style="font-weight:800;font-size:14px;color:#f59e0b">${Q(disp)}</div>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">${(o.date||'').split(',')[0]} · <span style="color:${sCls}">${o.cancelled?'🚫 CANCELADO':o.status}</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="bb" style="flex:1;min-width:70px;padding:7px 0;font-size:11px" onclick="showQuoteFromOrder(${o.id})">📄 Cotizar</button>
+        <button class="bs" style="flex:1;min-width:70px;padding:7px 0;font-size:11px" onclick="startEditOrder(${o.id})">✏️ Editar</button>
+        ${o.status==='Cotización'&&!o.cancelled?`<button class="bs" style="flex:1;min-width:70px;padding:7px 0;font-size:11px;color:#f59e0b;border-color:#f59e0b" onclick="cancelOrder(${o.id})">🚫 Cancelar</button>`:''}
+        <button class="br" style="flex-shrink:0;padding:7px 10px;font-size:11px" onclick="delOrder(${o.id})">🗑</button>
+      </div>
+      ${o.cancelled?`<button onclick="reactivateOrder(${o.id})" style="width:100%;padding:7px 0;background:transparent;border:1px solid #10b981;border-radius:6px;color:#10b981;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px">🔄 Reactivar pedido</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function openNewProspectForm() {
+  goTab('clients');
+  setTimeout(() => {
+    const cliForm = document.getElementById('cli-form-body');
+    const deptForm = document.getElementById('dept-form-body');
+    const munForm = document.getElementById('mun-form-body');
+    const rutaForm = document.getElementById('ruta-form-body');
+    if (deptForm) deptForm.style.display = 'none';
+    if (munForm) munForm.style.display = 'none';
+    if (rutaForm) rutaForm.style.display = 'none';
+    if (cliForm) cliForm.style.display = 'block';
+    refreshNcRouteList();
+    const typeProspectEl = document.getElementById('nc-type-prospect');
+    if (typeProspectEl) typeProspectEl.checked = true;
+    const nameField = document.getElementById('nc-n');
+    if (nameField) { nameField.scrollIntoView({behavior:'smooth', block:'center'}); }
+    // Refuerzo: asegurar que la lista de rutas quede cargada, aunque la primera vez llegue demasiado pronto
+    setTimeout(refreshNcRouteList, 200);
+  }, 150);
+}
+
 function goTab(name, _fromPop) {
 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active'));
 const pageEl = document.getElementById('page-'+name);
 if (pageEl) pageEl.classList.add('active');
-// Nuevo orden del nav: list, clients, products, routes, bizinfo, backup
-const tabs = ['list','clients','products','routes','bizinfo','backup'];
+// Nuevo orden del nav: list, clients, products, routes, prospects, quotes, bizinfo, backup
+const tabs = ['list','clients','products','routes','prospects','quotes','bizinfo','backup'];
 const idx  = tabs.indexOf(name);
 if (idx >= 0) {
   const btns = document.querySelectorAll('#nav button');
@@ -1316,6 +1500,8 @@ if (name==='products') { renderProducts(); renderPriceLists(); }
 if (name==='bizinfo')  { loadBizForm(); setTimeout(refreshActivationInfo, 100); }
 if (name==='backup')   renderBackup();
 if (name==='routes')   renderRoutes();
+if (name==='prospects') renderProspects();
+if (name==='quotes')    renderQuotesList();
 // Registrar en el historial del navegador para el botón Atrás de Android
 if (!_fromPop) {
   _currentTab = name;
@@ -1423,7 +1609,10 @@ function acCliInput() {
   const txt = document.getElementById('ord-cli-txt');
   const drop = document.getElementById('ac-cli-drop');
   const q = normalizeStr(txt.value.trim());
-  const matches = S.clients.filter(c => normalizeStr(c.name).includes(q) || normalizeStr(c.phone||'').includes(q));
+  let matches = S.clients.filter(c => normalizeStr(c.name).includes(q) || normalizeStr(c.phone||'').includes(q));
+  if (window._prospectFirstMode) {
+    matches = [...matches].sort((a,b) => (b.isProspect?1:0) - (a.isProspect?1:0));
+  }
   drop.innerHTML = '';
   if (!matches.length) {
     drop.innerHTML = '<div class="ac-empty">Sin resultados</div>';
@@ -1432,7 +1621,7 @@ function acCliInput() {
   matches.forEach(c => {
     const d = document.createElement('div');
     d.className = 'ac-opt';
-    d.innerHTML = c.name + (c.phone ? '<small>📞 '+c.phone+'</small>' : '');
+    d.innerHTML = c.name + (c.isProspect ? ' <small style="color:#f59e0b">(Prospecto)</small>' : '') + (c.phone ? '<small>📞 '+c.phone+'</small>' : '');
     d.onmousedown = () => {
       document.getElementById('ord-cli').value = c.id;
       txt.value = c.name;
@@ -1631,6 +1820,11 @@ if (!cid) { body.style.display='none'; ph.style.display='block'; info.textConten
 const c = S.clients.find(x => x.id === cid);
 info.innerHTML = (c.phone ? '📞 '+c.phone : '') + (c.address ? ' &nbsp;📍 '+c.address : '');
 body.style.display = 'block'; ph.style.display = 'none';
+// Si es un pedido nuevo (no edición ni duplicado), limpiar el contacto del pedido anterior
+if (editingOid === null && !_duplicatingData) {
+  const contactField = document.getElementById('ord-contact');
+  if (contactField) contactField.value = '';
+}
 refreshDeliverySel(cid);
 
 // Sugerir o precargar dirección
@@ -2636,7 +2830,8 @@ function clearReportFilters() {
 }
 
 function getReportFiltered() {
-  const ords = S.orders;
+  const _prospectIds1 = new Set(S.clients.filter(c=>c.isProspect).map(c=>c.id));
+  const ords = S.orders.filter(o=>!_prospectIds1.has(Number(o.clientId)) && !o.cancelled);
   const base = _orderAsc ? [...ords].filter(o=>!o.routeId).sort((a,b)=>{ const td=ordDateTs(a)-ordDateTs(b); return td!==0?td:a.id-b.id; }) : [...ords].filter(o=>!o.routeId).sort((a,b)=>{ const td=ordDateTs(b)-ordDateTs(a); return td!==0?td:b.id-a.id; });
   let filtered = _orderTab === 'all' ? base : base.filter(o=>o.status===_orderTab);
   const fCli  = (document.getElementById('f-cli-report')?.value||'').trim();
@@ -2702,7 +2897,13 @@ function closeFloatingCard() {
     el.style.opacity = '1';
   });
 
-  renderClients();
+  // Si el cliente cerrado es un prospecto, regresar a la pestaña de Prospectos
+  const wasProspect = cid && S.clients.find(c=>Number(c.id)===Number(cid) && c.isProspect);
+  if (wasProspect) {
+    goTab('prospects');
+  } else {
+    renderClients();
+  }
 }
 
 function toggleOrdSel(oid, checked) {
@@ -3432,7 +3633,8 @@ function setOrderTab(tab) {
 
 function renderList() {
 
-const ords = S.orders;
+const _prospectIds2 = new Set(S.clients.filter(c=>c.isProspect).map(c=>c.id));
+const ords = S.orders.filter(o=>!_prospectIds2.has(Number(o.clientId)) && !o.cancelled);
 // Poblar clientes ya no es necesario con autocompletado
 ['Cotización','Confirmado','Concluido'].forEach(st => {
   const el = document.getElementById('cnt-'+st);
@@ -3574,6 +3776,7 @@ ${o.routeId ? '<option value="__remove__">✕ Quitar de ruta</option>' : ''}
 <button class="bv" style="flex:1" onclick="duplicateOrder(${o.id})" title="Duplicar pedido">📋 Duplicar</button>
 <button class="bb" style="flex:1" onclick="showQuoteFromOrder(${o.id})">📄 Cotizar</button>
 <button class="bs" style="flex:1" onclick="startEditOrder(${o.id})">✏️ Editar</button>
+${o.status==='Cotización'?`<button class="bs" style="flex:1;color:#f59e0b;border-color:#f59e0b" onclick="cancelOrder(${o.id})">🚫 Cancelar</button>`:''}
 <button class="br" style="flex:0" onclick="delOrder(${o.id})">🗑</button>
 </div>`;
 body.appendChild(card);
@@ -3619,9 +3822,16 @@ function setOrderStatus(id, checked, type) {
     }
     o.status = newSt;
     if (o.status==='Confirmado') {
+      // Si el cliente de este pedido es un prospecto, se convierte en cliente automáticamente
+      const clientOfOrder = S.clients.find(c=>c.id===Number(o.clientId));
+      if (clientOfOrder && clientOfOrder.isProspect) {
+        delete clientOfOrder.isProspect;
+        clientOfOrder.excludeFromAutoRoute = false;
+        toast('✅ "' + clientOfOrder.name + '" se convirtió en cliente automáticamente', '#10b981');
+      }
       save();
-      const triggered = checkBonusAlert(o.clientId, o.id, ()=>{ renderList(); renderRoutes(); }, o);
-      if (!triggered) { renderList(); renderRoutes(); }
+      const triggered = checkBonusAlert(o.clientId, o.id, ()=>{ renderList(); renderRoutes(); renderQuotesList(); renderProspects(); }, o);
+      if (!triggered) { renderList(); renderRoutes(); renderQuotesList(); renderProspects(); }
       return;
     }
   } else if (type==='check') {
@@ -3645,12 +3855,18 @@ if (!o.delivery && newStatus !== 'Cotización') {
 // Si va a Confirmado, verificar bonificaciones primero
 if (newStatus === 'Confirmado') {
   o.status = 'Confirmado';
+  const clientOfOrder2 = S.clients.find(c=>c.id===Number(o.clientId));
+  if (clientOfOrder2 && clientOfOrder2.isProspect) {
+    delete clientOfOrder2.isProspect;
+    clientOfOrder2.excludeFromAutoRoute = false;
+    toast('✅ "' + clientOfOrder2.name + '" se convirtió en cliente automáticamente', '#10b981');
+  }
   save();
   const triggered = checkBonusAlert(o.clientId, o.id, () => {
-    renderList(); renderRoutes();
+    renderList(); renderRoutes(); renderQuotesList(); renderProspects();
   }, o);
   if (!triggered) {
-    renderList(); renderRoutes();
+    renderList(); renderRoutes(); renderQuotesList(); renderProspects();
   }
   return;
 }
@@ -3702,6 +3918,31 @@ function confirmDel(yes) {
   if (yes && _confirmCb) _confirmCb();
   _confirmCb = null;
   window._bonusOnCancel = null;
+}
+
+function cancelOrder(id) {
+  const o = S.orders.find(x => x.id===id);
+  if (!o) return;
+  if (o.status !== 'Cotización') { toast('⚠️ Solo se pueden cancelar pedidos en estado Cotización', '#ef4444'); return; }
+  askConfirm('¿Cancelar este pedido?', `Dejará de aparecer en Pedidos, pero se conservará en la ficha de ${o.clientName} y podrás reactivarlo cuando quieras.`, () => {
+    o.cancelled = true;
+    save();
+    renderList();
+    toast('🚫 Pedido cancelado');
+  }, 'Cancelar pedido', '#ef4444', '🚫');
+}
+
+function reactivateOrder(id) {
+  const o = S.orders.find(x => x.id===id);
+  if (!o) return;
+  askConfirm('¿Reactivar este pedido?', 'Volverá a aparecer en Pedidos como Cotización.', () => {
+    delete o.cancelled;
+    o.status = 'Cotización';
+    save();
+    renderList();
+    renderClients();
+    toast('✅ Pedido reactivado', '#10b981');
+  }, 'Reactivar', '#10b981', '✅');
 }
 
 function delOrder(id) {
@@ -4560,10 +4801,11 @@ function addClient() {
   if (!name) return alert('Ingresa el nombre del cliente.');
   const dup = S.clients.find(c => c.name.toLowerCase() === name.toLowerCase());
   if (dup) { toast('⚠️ Ya existe este cliente', '#ef4444'); return; }
+  const isProspect = document.getElementById('nc-type-prospect')?.checked === true;
   const id = S.nextCid++;
   const deptVal = document.getElementById('nc-dept-id')?.value;
   const munVal  = document.getElementById('nc-mun-id')?.value;
-  S.clients.push({
+  const newClient = {
     id,
     name,
     phone:       document.getElementById('nc-p').value.trim(),
@@ -4571,15 +4813,26 @@ function addClient() {
     deptId:      deptVal  ? Number(deptVal)  : null,
     municipioId: munVal   ? Number(munVal)   : null,
     rutaClienteId: document.getElementById('nc-route-id')?.value ? Number(document.getElementById('nc-route-id').value) : null
-  });
+  };
+  // Un prospecto nace excluido de la generación automática de rutas; un cliente normal nace incluido
+  if (isProspect) { newClient.isProspect = true; newClient.excludeFromAutoRoute = true; }
+  S.clients.push(newClient);
   const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
   S.cp[id] = init;
   save();
   ['nc-n','nc-p','nc-a','nc-dept-lbl','nc-mun-lbl','nc-dept-id','nc-mun-id'].forEach(i => {
     const el = document.getElementById(i); if (el) el.value = '';
   });
+  const typeClientEl = document.getElementById('nc-type-client');
+  if (typeClientEl) typeClientEl.checked = true;
   collapseForm('cli-form-body');
-  toast('👥 Cliente agregado'); renderClients();
+  if (isProspect) {
+    toast('🧲 Prospecto agregado');
+    goTab('prospects');
+  } else {
+    toast('👥 Cliente agregado');
+    renderClients();
+  }
 }
 
 // ── Edición masiva de clientes ──────────────────
@@ -4845,8 +5098,9 @@ function restoreFloatingCard(cid) {
 
 function _renderClientsInternal() {
 if (!window._cliOpen) window._cliOpen = {};
-const _ct = document.getElementById('cli-title-top'); if (_ct) _ct.textContent = '(' + S.clients.length + ')';
-document.getElementById('cli-title').value = S.clients.length;
+const _cliCountVisible = S.clients.filter(c=>!c.isProspect).length;
+const _ct = document.getElementById('cli-title-top'); if (_ct) _ct.textContent = '(' + _cliCountVisible + ')';
+document.getElementById('cli-title').value = _cliCountVisible;
 // Poblar selector de rutas en clientes
 const cliRutaSel = document.getElementById('cli-ruta-filter');
 if (cliRutaSel) {
@@ -4889,11 +5143,12 @@ const routeFilter = rfSel ? rfSel.value : '';
 const munFilter   = munSel ? munSel.value : '';
 
 const body = document.getElementById('cli-body');
-if (!S.clients.length) { body.innerHTML='<div style="text-align:center;color:#64748b;padding:20px">Sin clientes aún.</div>'; return; }
+const _visibleClients = S.clients.filter(c=>!c.isProspect || Number(c.id)===Number(window._floatCid) || Number(c.id)===Number(window._prospectEditAfterLoad));
+if (!_visibleClients.length) { body.innerHTML='<div style="text-align:center;color:#64748b;padding:20px">Sin clientes aún.</div>'; return; }
 body.innerHTML = '';
 let list = clientSortMode==='alpha'
-? [...S.clients].sort((a,b)=>a.name.localeCompare(b.name,'es'))
-: S.clients;
+? [...(_visibleClients)].sort((a,b)=>a.name.localeCompare(b.name,'es'))
+: _visibleClients;
 
 // Aplicar filtros
 const rutaFilter = document.getElementById('cli-ruta-filter')?.value || '';
@@ -4905,8 +5160,8 @@ if (munFilter === '__none__') list = list.filter(c => !c.municipioId);
 else if (munFilter) list = list.filter(c => String(c.municipioId) === munFilter);
 
 document.getElementById('cli-title').textContent = (rutaFilter||routeFilter||munFilter)
-  ? `Clientes (${list.length} de ${S.clients.length})`
-  : `Clientes (${S.clients.length})`;
+  ? `Clientes (${list.length} de ${_visibleClients.length})`
+  : `Clientes (${_visibleClients.length})`;
 list.forEach(c => {
 const card = document.createElement('div');
 card.className = 'card sortable-item'; card.id = 'cc-'+c.id; card.dataset.id = c.id;
@@ -5199,7 +5454,7 @@ ${(()=>{
   cliOrds.forEach(o=>{
     const tot = orderTotal(o.items,o.clientId);
     const disp = o.applyIva?tot*1.12:tot;
-    const sCls = o.status==='Concluido'?'#4ade80':o.status==='Confirmado'?'#60a5fa':'#f1f5f9';
+    const sCls = o.cancelled?'#ef4444':o.status==='Concluido'?'#4ade80':o.status==='Confirmado'?'#60a5fa':'#f1f5f9';
     const itemsHtml = o.items.map(it=>{
       const p = S.products.find(x=>x.id===it.productId);
       if (!p) return '';
@@ -5218,6 +5473,7 @@ ${(()=>{
     const editBtn = `<button onclick="openEditFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:11px;cursor:pointer">✏️ Editar</button>`;
     const duplBtn = `<button onclick="openDuplFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #a855f7;border-radius:6px;color:#a855f7;font-size:11px;cursor:pointer">📋 Dupl.</button>`;
     const delBtn  = `<button onclick="openDelFromCli(${o.id})" style="flex:1;padding:5px 0;background:transparent;border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:11px;cursor:pointer">🗑</button>`;
+    const reactBtn = o.cancelled ? `<button onclick="reactivateOrder(${o.id})" style="width:100%;padding:6px 0;background:transparent;border:1px solid #10b981;border-radius:6px;color:#10b981;font-size:11px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Reactivar pedido</button>` : '';
     const rowHtml = `<div data-cli-oid="${o.id}" style="background:#161929;border-radius:8px;padding:8px 10px;margin-bottom:8px;border-left-width:3px;border-left-style:solid;border-left-color:${sCls};touch-action:pan-y">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -5227,7 +5483,7 @@ ${(()=>{
         </div>
         <div style="display:flex;align-items:center;gap:5px">
           ${o.routeId?`<span style="font-size:10px;color:#f59e0b;font-weight:700">(RUTA)</span>`:''}
-          <span style="font-size:10px;color:${sCls};font-weight:700">${o.status}</span>
+          <span style="font-size:10px;color:${sCls};font-weight:700">${o.cancelled?'🚫 CANCELADO':o.status}</span>
         </div>
       </div>
       ${o.delivery?`<div style="font-size:11px;color:#a78bfa;font-weight:600;margin-bottom:3px">📍 ${o.delivery}</div>`:''}
@@ -5254,6 +5510,7 @@ ${(()=>{
         return `<div style="margin-top:4px"><div style="font-size:11px;color:#10b981;font-weight:700;margin-bottom:3px">🎁 BONIFICACIÓN${bonusBadge2}</div><div style="background:#0d0f18;border-radius:5px;padding:4px 6px">${bLines}</div></div>`;
       })()}
       <div style="display:flex;gap:5px;margin-top:4px">${cotBtn}${editBtn}${duplBtn}${delBtn}</div>
+      ${reactBtn}
     </div>`;
     rows_map[o.id] = rowHtml;
   });
@@ -7598,6 +7855,12 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
       deliveredItems.push({ productId:pid, qty, price:pr });
     });
     ord.status = 'Confirmado';
+    const clientOfOrder3 = S.clients.find(c=>c.id===Number(cid));
+    if (clientOfOrder3 && clientOfOrder3.isProspect) {
+      delete clientOfOrder3.isProspect;
+      clientOfOrder3.excludeFromAutoRoute = false;
+      toast('✅ "' + clientOfOrder3.name + '" se convirtió en cliente automáticamente', '#10b981');
+    }
 
     // Reset automático con nuevo período desde hoy
     resetBonusRule(r, oid, ord.date);
@@ -7619,6 +7882,12 @@ function checkBonusAlert(cid, oid, onDone, extraOrd) {
       // Guardar el índice de la regla rechazada para este pedido
       if (!ord.bonusDeclined.includes(ri)) ord.bonusDeclined.push(ri);
       ord.status = 'Confirmado';
+      const clientOfOrder4 = S.clients.find(c=>c.id===Number(ord.clientId));
+      if (clientOfOrder4 && clientOfOrder4.isProspect) {
+        delete clientOfOrder4.isProspect;
+        clientOfOrder4.excludeFromAutoRoute = false;
+        toast('✅ "' + clientOfOrder4.name + '" se convirtió en cliente automáticamente', '#10b981');
+      }
       save();
     }
     document.getElementById('bonus-modal').style.display = 'none';
@@ -7909,6 +8178,15 @@ function toggleCli(cid) {
     renderClients();
   }
 }
+function cancelEditCliForm(id) {
+  const c = S.clients.find(x=>x.id===Number(id));
+  if (c && c.isProspect) {
+    goTab('prospects');
+  } else {
+    renderClients();
+  }
+}
+
 function editCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
 const curDept = (S.depts||[]).find(d=>d.id===c.deptId);
@@ -7940,7 +8218,7 @@ document.getElementById("cc-"+id).innerHTML =
 '<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'" />' +
 '<div class="two">' +
 '<button class="bg" onclick="saveCliForm('+id+')">✔ Guardar</button>' +
-'<button class="bs" onclick="renderClients()">Cancelar</button>' +
+'<button class="bs" onclick="cancelEditCliForm('+id+')">Cancelar</button>' +
 '</div>';
 }
 
@@ -7982,6 +8260,8 @@ function saveCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
 c.name       = document.getElementById("ecn-"+id).value.trim();
 c.phone      = document.getElementById("ecp-"+id).value.trim();
+// Actualizar el nombre guardado en todos sus pedidos/cotizaciones existentes
+S.orders.forEach(o => { if (Number(o.clientId) === id) o.clientName = c.name; });
 c.address    = document.getElementById("eca-"+id).value.trim();
 const selDept = document.getElementById("ecc-"+id)?.value;
 const selMun  = document.getElementById("ecm-"+id)?.value;
@@ -7991,7 +8271,14 @@ c.municipioId= selMun  ? Number(selMun)  : null;
   c.rutaClienteId = selRoute ? Number(selRoute) : null;
   const autoRouteChk = document.getElementById('ecautoroute-'+id);
   c.excludeFromAutoRoute = autoRouteChk ? !autoRouteChk.checked : false;
-save(); toast("✔ Cliente actualizado"); renderClients();
+save();
+if (c.isProspect) {
+  toast("✔ Prospecto actualizado");
+  goTab('prospects');
+} else {
+  toast("✔ Cliente actualizado");
+  renderClients();
+}
 }
 
 function captureCliPriceInputs(cid) {
