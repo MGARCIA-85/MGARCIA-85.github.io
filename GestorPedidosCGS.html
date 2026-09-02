@@ -217,6 +217,7 @@ function fmtDDMMYYYY(d) {
   };
   window._firebaseReady = true;
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 </head>
 <body>
@@ -613,6 +614,10 @@ Selecciona un cliente para continuar.<br><br>
 <div id="cli-form-body" style="display:none;background:#0d1525;border:1px solid #2a3050;border-radius:12px;padding:12px 14px;margin-bottom:10px">
   <label class="lbl">Nombre *</label>
   <input class="inp" id="nc-n" placeholder="Ej: Carlos Martínez"/>
+  <label class="lbl">ID Cliente</label>
+  <input class="inp" id="nc-cid" placeholder="Código de identificación"/>
+  <label class="lbl">Contacto</label>
+  <input class="inp" id="nc-contact" placeholder="Nombre de la persona de contacto"/>
   <label class="lbl">Guardar como</label>
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <label style="flex:1;display:flex;align-items:center;gap:6px;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;cursor:pointer">
@@ -948,6 +953,15 @@ Selecciona un cliente para continuar.<br><br>
 <button id="drive-sync-btn" class="bs" style="width:100%;max-width:280px;margin:0 auto;padding:10px;display:none" onclick="driveSaveBackup(true)">☁️ Guardar en Drive ahora</button>
 <button id="drive-restore-btn" class="bp" style="width:100%;max-width:280px;margin:0 auto;padding:10px;margin-top:6px;display:none" onclick="driveRestoreBackup()">📥 Importar desde Drive</button>
 <button id="drive-disconnect-btn" class="br" style="width:100%;max-width:280px;margin:0 auto;padding:8px;margin-top:6px;display:none;font-size:12px" onclick="driveDisconnect()">Desconectar Drive</button>
+</div>
+
+<div class="bbx">
+<h3>📇 Exportar / Importar Clientes (Excel)</h3>
+<p>Descarga un Excel con todos tus clientes para editarlo, o súbelo de nuevo para actualizar sus datos en bloque (ID Cliente, Contacto, teléfono, dirección, etc).</p>
+<button class="bp" style="width:100%;max-width:280px;margin:0 auto;margin-bottom:8px" onclick="exportClientsExcel()">⬇ Descargar Excel de Clientes</button>
+<input type="file" id="import-clients-file" accept=".xlsx" style="display:none" onchange="importClientsExcel(event)"/>
+<button class="bs" style="width:100%;max-width:280px;margin:0 auto" onclick="document.getElementById('import-clients-file').click()">⬆ Subir Excel para Actualizar</button>
+<div style="font-size:11px;color:#94a3b8;margin-top:8px" id="import-clients-status"></div>
 </div>
 
 <div class="bbx">
@@ -1820,10 +1834,10 @@ if (!cid) { body.style.display='none'; ph.style.display='block'; info.textConten
 const c = S.clients.find(x => x.id === cid);
 info.innerHTML = (c.phone ? '📞 '+c.phone : '') + (c.address ? ' &nbsp;📍 '+c.address : '');
 body.style.display = 'block'; ph.style.display = 'none';
-// Si es un pedido nuevo (no edición ni duplicado), limpiar el contacto del pedido anterior
+// Si es un pedido nuevo (no edición ni duplicado), precargar el contacto guardado en la ficha del cliente
 if (editingOid === null && !_duplicatingData) {
   const contactField = document.getElementById('ord-contact');
-  if (contactField) contactField.value = '';
+  if (contactField) contactField.value = c.contact || '';
 }
 refreshDeliverySel(cid);
 
@@ -4789,7 +4803,7 @@ function refreshNcRouteList() {
 }
 
 function cancelNewClient() {
-  ['nc-n','nc-a','nc-p','nc-dept-lbl','nc-dept-id','nc-mun-lbl','nc-mun-id'].forEach(id => {
+  ['nc-n','nc-cid','nc-contact','nc-a','nc-p','nc-dept-lbl','nc-dept-id','nc-mun-lbl','nc-mun-id'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const sel = document.getElementById('nc-route-id'); if (sel) sel.value = '';
@@ -4808,6 +4822,8 @@ function addClient() {
   const newClient = {
     id,
     name,
+    clientCode:  document.getElementById('nc-cid')?.value.trim() || '',
+    contact:     document.getElementById('nc-contact')?.value.trim() || '',
     phone:       document.getElementById('nc-p').value.trim(),
     address:     document.getElementById('nc-a').value.trim(),
     deptId:      deptVal  ? Number(deptVal)  : null,
@@ -4820,7 +4836,7 @@ function addClient() {
   const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
   S.cp[id] = init;
   save();
-  ['nc-n','nc-p','nc-a','nc-dept-lbl','nc-mun-lbl','nc-dept-id','nc-mun-id'].forEach(i => {
+  ['nc-n','nc-cid','nc-contact','nc-p','nc-a','nc-dept-lbl','nc-mun-lbl','nc-dept-id','nc-mun-id'].forEach(i => {
     const el = document.getElementById(i); if (el) el.value = '';
   });
   const typeClientEl = document.getElementById('nc-type-client');
@@ -8193,6 +8209,8 @@ const curDept = (S.depts||[]).find(d=>d.id===c.deptId);
 const curMun  = (S.municipios||[]).find(m=>m.id===c.municipioId);
 document.getElementById("cc-"+id).innerHTML =
 '<label class="lbl">Nombre</label><input class="inp" id="ecn-'+id+'" value="'+c.name+'"/>' +
+'<label class="lbl">ID Cliente</label><input class="inp" id="eccid-'+id+'" value="'+(c.clientCode||'')+'" placeholder="Código de identificación"/>' +
+'<label class="lbl">Contacto</label><input class="inp" id="eccontact-'+id+'" value="'+(c.contact||'')+'" placeholder="Nombre de la persona de contacto"/>' +
 '<label class="lbl">🚚 Ruta</label>' +
 '<select id="ecr-'+id+'" class="sel" style="margin-bottom:12px;width:100%">' +
 '<option value="">— Sin ruta —</option>' +
@@ -8259,6 +8277,8 @@ function selectCliField(type, cid, id, name) {
 function saveCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
 c.name       = document.getElementById("ecn-"+id).value.trim();
+c.clientCode = document.getElementById("eccid-"+id)?.value.trim() || '';
+c.contact    = document.getElementById("eccontact-"+id)?.value.trim() || '';
 c.phone      = document.getElementById("ecp-"+id).value.trim();
 // Actualizar el nombre guardado en todos sus pedidos/cotizaciones existentes
 S.orders.forEach(o => { if (Number(o.clientId) === id) o.clientName = c.name; });
@@ -9080,6 +9100,74 @@ function initAutoBackup() {
     if (document.visibilityState === 'visible') checkAutoBackupDue();
   });
   renderBackup();
+}
+
+function exportClientsExcel() {
+const rows = S.clients.map(c => {
+  const dept = (S.depts||[]).find(d=>d.id===c.deptId);
+  const mun  = (S.municipios||[]).find(m=>m.id===c.municipioId);
+  const ruta = (S.rutasCliente||[]).find(r=>r.id===c.rutaClienteId);
+  return {
+    'ID Sistema': 'GP-0' + c.id,
+    'Nombre': c.name || '',
+    'ID Cliente': c.clientCode || '',
+    'Contacto': c.contact || '',
+    'Teléfono': c.phone || '',
+    'Dirección': c.address || '',
+    'Departamento': dept ? dept.name : '',
+    'Sector': mun ? mun.name : '',
+    'Ruta': ruta ? ruta.name : '',
+    'Tipo': c.isProspect ? 'Prospecto' : 'Cliente'
+  };
+});
+const ws = XLSX.utils.json_to_sheet(rows);
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+XLSX.writeFile(wb, `clientes_${new Date().toISOString().slice(0,10)}.xlsx`);
+toast('📇 Excel de clientes descargado');
+}
+
+function importClientsExcel(e) {
+const file = e.target.files[0]; if (!file) return;
+const status = document.getElementById('import-clients-status');
+const reader = new FileReader();
+reader.onload = function(ev) {
+  try {
+    const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+    let actualizados = 0, noEncontrados = 0;
+    rows.forEach(row => {
+      const sysIdRaw = (row['ID Sistema']||'').toString().trim().replace(/^GP-0*/i, '');
+      const sysId = sysIdRaw !== '' ? Number(sysIdRaw) : null;
+      const nombre = (row['Nombre']||'').toString().trim();
+      let c = null;
+      if (sysId !== null && !isNaN(sysId)) c = S.clients.find(x => x.id === sysId);
+      if (!c && nombre) c = S.clients.find(x => x.name.toLowerCase() === nombre.toLowerCase());
+      if (!c) { noEncontrados++; return; }
+      if (row['ID Cliente'] !== undefined && row['ID Cliente'] !== '') c.clientCode = row['ID Cliente'].toString().trim();
+      if (row['Contacto']   !== undefined && row['Contacto']   !== '') c.contact    = row['Contacto'].toString().trim();
+      if (row['Teléfono']   !== undefined && row['Teléfono']   !== '') c.phone      = row['Teléfono'].toString().trim();
+      if (row['Dirección']  !== undefined && row['Dirección']  !== '') c.address    = row['Dirección'].toString().trim();
+      // Actualizar el nombre guardado en pedidos existentes si el nombre cambió en el archivo
+      if (nombre && nombre !== c.name) {
+        c.name = nombre;
+        S.orders.forEach(o => { if (Number(o.clientId) === c.id) o.clientName = c.name; });
+      }
+      actualizados++;
+    });
+    save();
+    renderClients(); renderProspects();
+    status.textContent = `✅ ${actualizados} cliente(s) actualizado(s)` + (noEncontrados ? `, ${noEncontrados} no encontrado(s)` : '');
+    toast(`✅ ${actualizados} cliente(s) actualizado(s)`);
+  } catch(err) {
+    console.error(err);
+    status.textContent = '❌ Error al leer el archivo. Verifica que sea el Excel exportado por la app.';
+    toast('❌ Error al procesar el archivo', '#ef4444');
+  }
+  e.target.value = '';
+};
+reader.readAsArrayBuffer(file);
 }
 
 function exportBackup() {
