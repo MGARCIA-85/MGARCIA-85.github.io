@@ -618,6 +618,7 @@ Selecciona un cliente para continuar.<br><br>
   <input class="inp" id="nc-cid" placeholder="Código de identificación"/>
   <label class="lbl">Contacto</label>
   <input class="inp" id="nc-contact" placeholder="Nombre de la persona de contacto"/>
+  <div style="font-size:11px;color:#64748b;margin-bottom:10px">🔒 Los permisos de productos restringidos se configuran después, editando el cliente ya guardado.</div>
   <label class="lbl">Guardar como</label>
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <label style="flex:1;display:flex;align-items:center;gap:6px;background:#0d0f18;border:1px solid #2a3050;border-radius:8px;padding:8px;cursor:pointer">
@@ -1647,7 +1648,8 @@ function acProdInput(i) {
   const assigned = cp._visible;
   const hasAssigned = assigned && assigned.length > 0;
 
-  const activeProducts = S.products.filter(p => !p.inactive);
+  const cliAuthProds = (() => { const c = S.clients.find(x=>x.id===cid); return (c && c.authorizedProducts) || []; })();
+  const activeProducts = S.products.filter(p => !p.inactive && (!(S.restrictedFamilies||[]).includes((p.family||'').trim()) || cliAuthProds.includes(p.id)));
   const pool = hasAssigned
     ? activeProducts.filter(p => assigned.includes(p.id) || assigned.includes(String(p.id)))
     : activeProducts;
@@ -1928,11 +1930,14 @@ const card = document.createElement('div');
 card.className = 'card sortable-item';
 card.dataset.idx = i;
 let opts = '<option value="">-- Seleccionar producto --</option>';
-// Agrupar productos por familia
+// Agrupar productos por familia (excluyendo restringidas si el cliente no tiene permiso)
+const cliAuthProdsSel = (() => { const c = S.clients.find(x=>x.id===cid); return (c && c.authorizedProducts) || []; })();
 const families = [];
 const famMap   = {};
 S.products.forEach(p => {
-const fam = p.family && p.family.trim() ? p.family.trim() : '— Sin departamento —';
+const famRaw = p.family && p.family.trim() ? p.family.trim() : '';
+if (famRaw && (S.restrictedFamilies||[]).includes(famRaw) && !cliAuthProdsSel.includes(p.id) && String(p.id)!==String(it.pid)) return;
+const fam = famRaw || '— Sin departamento —';
 if (!famMap[fam]) { famMap[fam] = []; families.push(fam); }
 famMap[fam].push(p);
 });
@@ -2164,6 +2169,41 @@ if (!valid.length && !ordBonusLines.length) return alert('Agrega al menos un pro
 const delivery = document.getElementById('ord-delivery')?.value.trim() || '';
 if (!delivery) return toast('El campo Entrega no puede estar vacío.', '#ef4444');
 if (document.getElementById('delivery-alert')) return toast('Confirma o cambia la dirección de entrega sugerida.', '#f59e0b');
+
+// Validar productos restringidos (por producto específico, no toda la familia)
+const cliRest = S.clients.find(x=>x.id===cid);
+{
+  const cliAuthProdsVal = (cliRest && cliRest.authorizedProducts) || [];
+  const restrictedItems = [];
+  valid.forEach((it) => {
+    const p = S.products.find(x=>x.id===Number(it.pid));
+    const fam = p && p.family ? p.family.trim() : '';
+    if (fam && (S.restrictedFamilies||[]).includes(fam) && !cliAuthProdsVal.includes(p.id)) {
+      restrictedItems.push({idx: ordItems.indexOf(it), p, fam});
+    }
+  });
+  if (restrictedItems.length) {
+    const listHtml = restrictedItems.map(r => `<div style="font-size:13px;color:#f1f5f9;margin-bottom:2px">🔒 ${r.p.name} <span style="color:#94a3b8;font-size:11px">(${r.fam})</span></div>`).join('');
+    const restPids = restrictedItems.map(r=>r.p.id);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #ef4444;border-radius:14px;padding:20px;max-width:360px;width:100%">
+      <div style="font-size:15px;font-weight:800;color:#ef4444;margin-bottom:8px">🔒 Producto restringido</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:10px">${cliRest?cliRest.name:'Este cliente'} no tiene permiso para comprar:</div>
+      ${listHtml}
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+        <button onclick="const c=S.clients.find(x=>x.id===${cid});if(c){c.authorizedProducts=[...(c.authorizedProducts||[]),...[${restPids.join(',')}]];save();}this.closest('div[style*=fixed]').remove();submitOrder(${isQuote})"
+          style="padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">✅ Dar permiso a este cliente y continuar</button>
+        <button onclick="[${restrictedItems.map(r=>r.idx).join(',')}].sort((a,b)=>b-a).forEach(i=>ordItems.splice(i,1));renderItems();this.closest('div[style*=fixed]').remove();toast('🗑 Producto(s) restringido(s) quitado(s) del pedido','#f59e0b')"
+          style="padding:10px;background:transparent;border:1px solid #ef4444;border-radius:8px;color:#ef4444;font-weight:700;font-size:14px;cursor:pointer">🗑 Quitar producto(s) y continuar editando</button>
+        <button onclick="this.closest('div[style*=fixed]').remove()"
+          style="padding:10px;background:#2a3050;border:none;border-radius:8px;color:#94a3b8;font-weight:700;font-size:14px;cursor:pointer">Cancelar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    return;
+  }
+}
 
 // Alerta de bonificación al duplicar
 if (_duplicatingFrom && ordBonusLines.length > 0 && !window._bonusConfirmed) {
@@ -2875,6 +2915,7 @@ function openClientCard(cid) {
 function closeFloatingCard() {
   const cid = window._floatCid;
   window._floatCid = null;
+  if (cid && window['_restProdOutsideHandler_'+cid]) closeRestProdList(cid);
 
   // Colapsar ficha del cliente
   if (cid && window._cliOpen) window._cliOpen[cid] = false;
@@ -7990,6 +8031,70 @@ function cancelEditCliForm(id) {
   }
 }
 
+function updateRestProdCount(cid) {
+  const list = document.getElementById('restprod-list-'+cid);
+  const countEl = document.getElementById('restprod-count-'+cid);
+  if (!list || !countEl) return;
+  const n = list.querySelectorAll('.restprod-chk:checked').length;
+  countEl.textContent = n ? (n+' producto(s) autorizado(s)') : 'Ninguno autorizado';
+}
+
+function closeRestProdList(cid) {
+  const list = document.getElementById('restprod-list-'+cid);
+  const arrow = document.getElementById('restprod-arrow-'+cid);
+  if (list) list.style.display = 'none';
+  if (arrow) arrow.textContent = '▸';
+  document.removeEventListener('click', window['_restProdOutsideHandler_'+cid]);
+  delete window['_restProdOutsideHandler_'+cid];
+}
+
+function toggleRestProdList(cid) {
+  const list = document.getElementById('restprod-list-'+cid);
+  const arrow = document.getElementById('restprod-arrow-'+cid);
+  if (!list) return;
+  const opening = list.style.display === 'none';
+  list.style.display = opening ? 'block' : 'none';
+  if (arrow) arrow.textContent = opening ? '▾' : '▸';
+
+  if (opening) {
+    const handler = function(e) {
+      const wrap = document.getElementById('restprod-wrap-'+cid);
+      if (wrap && !wrap.contains(e.target)) closeRestProdList(cid);
+    };
+    window['_restProdOutsideHandler_'+cid] = handler;
+    setTimeout(() => document.addEventListener('click', handler), 0);
+  } else {
+    document.removeEventListener('click', window['_restProdOutsideHandler_'+cid]);
+    delete window['_restProdOutsideHandler_'+cid];
+  }
+}
+
+function buildRestrictedProdChecklist(c) {
+  const restFams = S.restrictedFamilies || [];
+  if (!restFams.length) return '';
+  const authorized = c.authorizedProducts || (c.authorizedRestricted ? S.products.filter(p=>restFams.includes((p.family||'').trim())).map(p=>p.id) : []);
+  const countTxt = authorized.length ? (authorized.length+' producto(s) autorizado(s)') : 'Ninguno autorizado';
+  let html = '<div onclick="toggleRestProdList('+c.id+')" style="display:flex;justify-content:space-between;align-items:center;background:#052e16;border:1px solid #10b981;border-radius:8px;padding:10px;margin-bottom:2px;cursor:pointer">'
+            + '<span style="font-size:12px;color:#10b981;font-weight:700">🔒 Permisos de productos restringidos</span>'
+            + '<span style="font-size:11px;color:#94a3b8"><span id="restprod-count-'+c.id+'">'+countTxt+'</span> <span id="restprod-arrow-'+c.id+'" style="display:inline-block">▸</span></span>'
+            + '</div>';
+  html += '<div id="restprod-list-'+c.id+'" style="display:none;background:#052e16;border:1px solid #10b981;border-top:none;border-radius:0 0 8px 8px;padding:10px;margin-bottom:12px;max-height:220px;overflow-y:auto">';
+  restFams.forEach(fam => {
+    const prods = S.products.filter(p => (p.family||'').trim() === fam);
+    if (!prods.length) return;
+    html += '<div style="font-size:11px;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin:8px 0 4px">'+fam+'</div>';
+    prods.forEach(p => {
+      const checked = authorized.includes(p.id) ? 'checked' : '';
+      html += '<label style="display:flex;align-items:center;gap:7px;padding:4px 0;cursor:pointer">'
+            + '<input type="checkbox" class="restprod-chk" data-pid="'+p.id+'" data-cid="'+c.id+'" '+checked+' onchange="updateRestProdCount('+c.id+')" style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0"/>'
+            + '<span style="font-size:12px;color:#f1f5f9">'+p.name+(p.presentation?' ('+p.presentation+')':'')+'</span>'
+            + '</label>';
+    });
+  });
+  html += '</div>';
+  return html;
+}
+
 function editCliForm(id) {
 const c = S.clients.find(x=>x.id===id);
 const curDept = (S.depts||[]).find(d=>d.id===c.deptId);
@@ -7998,6 +8103,7 @@ document.getElementById("cc-"+id).innerHTML =
 '<label class="lbl">Nombre</label><input class="inp" id="ecn-'+id+'" value="'+c.name+'"/>' +
 '<label class="lbl">ID Cliente</label><input class="inp" id="eccid-'+id+'" value="'+(c.clientCode||'')+'" placeholder="Código de identificación"/>' +
 '<label class="lbl">Contacto</label><input class="inp" id="eccontact-'+id+'" value="'+(c.contact||'')+'" placeholder="Nombre de la persona de contacto"/>' +
+'<div id="restprod-wrap-'+id+'">' + buildRestrictedProdChecklist(c) + '</div>' +
 '<label class="lbl">🚚 Ruta</label>' +
 '<select id="ecr-'+id+'" class="sel" style="margin-bottom:12px;width:100%">' +
 '<option value="">— Sin ruta —</option>' +
@@ -8066,6 +8172,9 @@ const c = S.clients.find(x=>x.id===id);
 c.name       = document.getElementById("ecn-"+id).value.trim();
 c.clientCode = document.getElementById("eccid-"+id)?.value.trim() || '';
 c.contact    = document.getElementById("eccontact-"+id)?.value.trim() || '';
+const restWrap = document.getElementById("restprod-wrap-"+id);
+c.authorizedProducts = restWrap ? [...restWrap.querySelectorAll('.restprod-chk:checked')].map(el=>Number(el.dataset.pid)) : (c.authorizedProducts||[]);
+delete c.authorizedRestricted;
 c.phone      = document.getElementById("ecp-"+id).value.trim();
 // Actualizar el nombre guardado en todos sus pedidos/cotizaciones existentes
 S.orders.forEach(o => { if (Number(o.clientId) === id) o.clientName = c.name; });
@@ -8591,7 +8700,7 @@ if (prodSortMode === 'family') {
     lastFamHeader = fam;
     const h = document.createElement('div');
     h.style.cssText = 'font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;padding:10px 0 4px';
-    h.textContent = fam;
+    h.textContent = fam + ((S.restrictedFamilies||[]).includes(fam) ? ' 🔒' : '');
     body.appendChild(h);
   }
 }
@@ -8632,6 +8741,10 @@ row.innerHTML = `
 <input class="inp" id="epn-${id}" value="${p.name}"/>
 <label class="lbl">Familia / Categoría</label>
 <input class="inp" id="epfam-${id}" value="${p.family||''}" placeholder="Ej: Thinner, Ácido..." list="fam-list"/>
+<label style="display:flex;align-items:center;gap:8px;background:#2a1f00;border:1px solid #f59e0b;border-radius:8px;padding:8px 10px;margin-bottom:12px;cursor:pointer">
+<input type="checkbox" id="epfamrestricted-${id}" ${p.family && (S.restrictedFamilies||[]).includes(p.family.trim()) ? 'checked' : ''} style="width:17px;height:17px;accent-color:#f59e0b"/>
+<span style="font-size:12px;color:#f59e0b;font-weight:700">🔒 Familia restringida (requiere permiso especial del cliente)</span>
+</label>
 <label class="lbl">Especificación</label>
 <input class="inp" id="epp-${id}" value="${p.presentation||''}"/>
 <label class="lbl">Unidad de precio</label>
@@ -8664,6 +8777,17 @@ const weightEl = document.getElementById('epweight-'+id);
 p.weightKg     = weightEl && weightEl.value !== '' ? Number(weightEl.value) : null;
 const colorEl  = document.getElementById('epcolor-'+id);
 p.color        = colorEl ? colorEl.value : '';
+// Aplicar/quitar restricción a TODA la familia
+const restrictedChk = document.getElementById('epfamrestricted-'+id);
+if (!S.restrictedFamilies) S.restrictedFamilies = [];
+if (p.family) {
+  const idx = S.restrictedFamilies.indexOf(p.family);
+  if (restrictedChk && restrictedChk.checked) {
+    if (idx === -1) S.restrictedFamilies.push(p.family);
+  } else {
+    if (idx !== -1) S.restrictedFamilies.splice(idx, 1);
+  }
+}
 save(); toast('✔ Producto actualizado'); renderProducts();
 }
 
