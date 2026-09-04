@@ -4121,7 +4121,7 @@ function addDept() {
   S.depts.push({ id: S.nextDeptId++, name, rutaId });
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderDeptList(); renderClients(); renderConfigLists();
+  save(); renderDeptList(); renderClientsIfActive(); renderConfigLists();
   toast('🏛️ Departamento agregado');
 }
 
@@ -4191,7 +4191,7 @@ function savePriorityItem(idx) {
   S.priorityList[idx] = newName;
   S.clients.forEach(c => { if (c.priority === oldName) c.priority = newName; });
   window._editingPriority = null;
-  save(); renderConfigLists(); renderClients();
+  save(); renderConfigLists(); renderClientsIfActive();
   toast('✅ Prioridad actualizada','#10b981');
 }
 
@@ -4203,7 +4203,7 @@ function deletePriorityItem(idx) {
   askConfirm('🗑 Eliminar prioridad', msg, () => {
     S.clients.forEach(c => { if (c.priority === name) c.priority = ''; });
     S.priorityList.splice(idx, 1);
-    save(); renderConfigLists(); renderClients();
+    save(); renderConfigLists(); renderClientsIfActive();
     toast('Prioridad eliminada');
   });
 }
@@ -4256,7 +4256,7 @@ function moveFamilyItem(idx, dir) {
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= list.length) return;
   [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
-  save(); renderConfigLists(); renderProducts();
+  save(); renderConfigLists(); renderProductsIfActive();
 }
 
 function confirmSaveFamilyItem(idx) {
@@ -4276,7 +4276,7 @@ function saveFamilyItem(idx) {
   S.products.forEach(p => { if ((p.family||'').trim() === oldName) p.family = newName; });
   if (S.restrictedFamilies) S.restrictedFamilies = S.restrictedFamilies.map(f => f === oldName ? newName : f);
   window._editingFamily = null;
-  save(); renderConfigLists(); renderProducts();
+  save(); renderConfigLists(); renderProductsIfActive();
   toast('✅ Familia actualizada','#10b981');
 }
 
@@ -4289,7 +4289,7 @@ function deleteFamilyItem(idx) {
     S.products.forEach(p => { if ((p.family||'').trim() === name) p.family = ''; });
     if (S.restrictedFamilies) S.restrictedFamilies = S.restrictedFamilies.filter(f => f !== name);
     S.familyList.splice(idx, 1);
-    save(); renderConfigLists(); renderProducts();
+    save(); renderConfigLists(); renderProductsIfActive();
     toast('Familia eliminada');
   });
 }
@@ -4519,7 +4519,7 @@ function moveMunToDept(munId, deptId) {
   const m = (S.municipios||[]).find(x => x.id === munId);
   if (!m) return;
   m.deptIds = [deptId];
-  save(); renderDeptList(); renderMunList(); renderClients(); renderConfigLists();
+  save(); renderDeptList(); renderMunList(); renderClientsIfActive(); renderConfigLists();
   if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
   toast('🔀 Sector movido', '#10b981');
 }
@@ -4533,7 +4533,7 @@ function assignMunToDept(munId, deptId, checked) {
   } else {
     m.deptIds = m.deptIds.filter(id => id !== deptId);
   }
-  save(); renderDeptList(); renderMunList(); renderClients(); renderConfigLists();
+  save(); renderDeptList(); renderMunList(); renderClientsIfActive(); renderConfigLists();
   if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
   toast(checked ? '✅ Sector asignado' : 'Sector desasignado', '#10b981');
 }
@@ -4552,7 +4552,7 @@ function saveDeptName(id) {
   const dept = S.depts.find(d => d.id === id);
   if (dept) {
     dept.name = name;
-    save(); renderDeptList(); renderClients(); renderConfigLists();
+    save(); renderDeptList(); renderClientsIfActive(); renderConfigLists();
     toast('✅ Departamento actualizado','#10b981');
   }
   window._editingDept = null;
@@ -4569,7 +4569,7 @@ function deleteDept(id) {
     S.clients.forEach(c => { if (c.deptId===id) c.deptId=null; });
     (S.municipios||[]).forEach(m => { if (m.deptIds) m.deptIds = m.deptIds.filter(did => did !== id); });
     S.depts = S.depts.filter(c=>c.id!==id);
-    save(); renderDeptList(); renderMunList(); renderClients(); renderConfigLists();
+    save(); renderDeptList(); renderMunList(); renderClientsIfActive(); renderConfigLists();
     toast('Departamento eliminado');
   });
 }
@@ -4584,7 +4584,7 @@ function addRutaCliente() {
   S.rutasCliente.push({ id: S.nextRutaClienteId++, name });
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderRutaClienteList(); renderClients(); renderConfigLists();
+  save(); renderRutaClienteList(); renderClientsIfActive(); renderConfigLists();
   toast('🚚 Ruta agregada');
 }
 
@@ -4688,7 +4688,7 @@ function moveDeptToRuta(deptId, rutaId) {
   const dept = (S.depts||[]).find(d => d.id === deptId);
   if (!dept) return;
   dept.rutaIds = [rutaId];
-  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfigLists();
+  save(); renderRutaClienteList(); renderDeptList(); renderClientsIfActive(); renderConfigLists();
   if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
   toast('🔀 Departamento movido', '#10b981');
 }
@@ -4719,7 +4719,7 @@ function assignDeptToRuta(deptId, rutaId, checked) {
   } else {
     dept.rutaIds = dept.rutaIds.filter(id => id !== rutaId);
   }
-  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfigLists();
+  save(); renderRutaClienteList(); renderDeptList(); renderClientsIfActive(); renderConfigLists();
   if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
   toast(checked ? '✅ Departamento asignado' : 'Departamento desasignado', '#10b981');
 }
@@ -4736,7 +4736,7 @@ function saveRutaName(id) {
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const r = S.rutasCliente.find(x => x.id === id);
-  if (r) { r.name = name; save(); renderRutaClienteList(); renderClients(); renderConfigLists(); toast('✅ Ruta actualizada','#10b981'); }
+  if (r) { r.name = name; save(); renderRutaClienteList(); renderClientsIfActive(); renderConfigLists(); toast('✅ Ruta actualizada','#10b981'); }
   window._editingRuta = null;
 }
 
@@ -4751,7 +4751,7 @@ function deleteRutaCliente(id) {
     S.clients.forEach(c => { if (c.rutaClienteId===id) c.rutaClienteId=null; });
     (S.depts||[]).forEach(d => { if (d.rutaIds) d.rutaIds = d.rutaIds.filter(rid => rid !== id); });
     S.rutasCliente = S.rutasCliente.filter(x=>x.id!==id);
-    save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfigLists();
+    save(); renderRutaClienteList(); renderDeptList(); renderClientsIfActive(); renderConfigLists();
     toast('Ruta eliminada');
   });
 }
@@ -4767,7 +4767,7 @@ function addMun() {
   S.municipios.push({ id: S.nextMunId++, name, deptId });
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderMunList(); renderClients(); renderConfigLists();
+  save(); renderMunList(); renderClientsIfActive(); renderConfigLists();
   toast('🏘️ Sector agregado');
 }
 
@@ -4814,7 +4814,7 @@ function saveMunName(id) {
   const m = S.municipios.find(x => x.id === id);
   if (m) {
     m.name = name;
-    save(); renderMunList(); renderClients(); renderConfigLists();
+    save(); renderMunList(); renderClientsIfActive(); renderConfigLists();
     toast('✅ Sector actualizado','#10b981');
   }
   window._editingMun = null;
@@ -4830,7 +4830,7 @@ function deleteMun(id) {
   askConfirm('🗑 Eliminar sector', msg, () => {
     S.clients.forEach(c => { if (c.municipioId===id) c.municipioId=null; });
     S.municipios = S.municipios.filter(x=>x.id!==id);
-    save(); renderMunList(); renderClients(); renderConfigLists();
+    save(); renderMunList(); renderClientsIfActive(); renderConfigLists();
     toast('Sector eliminado');
   });
 }
@@ -5724,6 +5724,16 @@ function restoreFloatingCard(cid) {
       el.insertBefore(closeBtn, el.firstChild);
     }
   }
+}
+
+function renderClientsIfActive() {
+  // Evita reconstruir la lista completa de Clientes (potencialmente cientos de tarjetas)
+  // cuando el usuario está en otra pestaña, como Configuración, y no la está viendo.
+  if (_currentTab === 'clients') renderClients();
+}
+
+function renderProductsIfActive() {
+  if (_currentTab === 'products') renderProducts();
 }
 
 function _renderClientsInternal() {
