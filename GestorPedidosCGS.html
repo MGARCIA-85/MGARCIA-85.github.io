@@ -1095,6 +1095,19 @@ if (!S.familyList) {
 if (!S.priorityList) {
   S.priorityList = [...new Set((S.clients||[]).map(c=>(c.priority||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
 }
+// Migrar rutaId (uno solo) / deptId (uno solo) a rutaIds / deptIds (listas), permitiendo múltiples padres
+(S.depts||[]).forEach(d => {
+  if (!d.rutaIds) {
+    d.rutaIds = d.rutaId ? [d.rutaId] : [];
+    delete d.rutaId;
+  }
+});
+(S.municipios||[]).forEach(m => {
+  if (!m.deptIds) {
+    m.deptIds = m.deptId ? [m.deptId] : [];
+    delete m.deptId;
+  }
+});
 }
 
 let _driveSyncTimer = null;
@@ -4082,10 +4095,9 @@ function generateRouteOrdersFromPanel() {
 // ── Gestión de Categorías ─────────────────────────────
 function addDept() {
   const inp = document.getElementById('new-dept-name');
-  const rutaSel = document.getElementById('new-dept-ruta');
   const name = inp.value.trim();
   if (!name) { toast('Escribe el nombre del departamento', '#ef4444'); return; }
-  const rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
+  const rutaId = null;
   if (!S.depts) S.depts = [];
   if (S.depts.some(d => d.name.toLowerCase() === name.toLowerCase())) { toast('Ese departamento ya existe', '#f59e0b'); return; }
   S.depts.push({ id: S.nextDeptId++, name, rutaId });
@@ -4281,17 +4293,11 @@ function configAddFormHTML(key) {
     <button class="bg" style="width:100%;margin-bottom:10px" onclick="addRutaCliente()">✔ Agregar Ruta</button>`;
   if (key === 'depts') return `
     <input class="inp" id="new-dept-name" placeholder="Nombre del departamento"/>
-    <select id="new-dept-ruta" class="sel" style="width:100%;margin-bottom:10px">
-      <option value="">— Sin ruta —</option>
-      ${(S.rutasCliente||[]).map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
-    </select>
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px">La ruta se asigna después, desde la lista de Rutas.</div>
     <button class="bg" style="width:100%;margin-bottom:10px" onclick="addDept()">✔ Agregar Departamento</button>`;
   if (key === 'muns') return `
     <input class="inp" id="new-mun-name" placeholder="Nombre del sector"/>
-    <select id="new-mun-dept" class="sel" style="width:100%;margin-bottom:10px">
-      <option value="">— Sin departamento —</option>
-      ${(S.depts||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
-    </select>
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px">El departamento se asigna después, desde la lista de Departamentos.</div>
     <button class="bg" style="width:100%;margin-bottom:10px" onclick="addMun()">✔ Agregar Sector</button>`;
   if (key === 'priority') return `
     <input class="inp" id="new-priority-name" placeholder="Ej: Alta, VIP, 1..."/>
@@ -4339,6 +4345,15 @@ document.addEventListener('click', function(e) {
   }
 });
 
+document.addEventListener('click', function(e) {
+  // Cerrar dropdowns de búsqueda de departamento/sector si se toca fuera de ellos
+  document.querySelectorAll('[id^="ruta-dept-search-drop-"], [id^="dept-mun-search-drop-"]').forEach(drop => {
+    if (drop.style.display === 'none') return;
+    const container = drop.parentElement;
+    if (container && !container.contains(e.target)) drop.style.display = 'none';
+  });
+});
+
 function renderDeptList() {
   const wrap = document.getElementById('dept-list');
   if (!wrap) return;
@@ -4350,24 +4365,115 @@ function renderDeptList() {
   wrap.innerHTML = sorted.map(cat => {
     const count = S.clients.filter(c => c.deptId === cat.id).length;
     const isEditing = window._editingDept === cat.id;
-    const ruta = (S.rutasCliente||[]).find(r=>r.id===cat.rutaId);
+    const isExpanded = window._expandedDept === cat.id;
+    const rutas = (cat.rutaIds||[]).map(rid => (S.rutasCliente||[]).find(r=>r.id===rid)).filter(Boolean);
+    const munCount = (S.municipios||[]).filter(m => (m.deptIds||[]).includes(cat.id)).length;
     if (isEditing) {
-      const rutaOpts = '<option value="">— Sin ruta —</option>' + (S.rutasCliente||[]).map(r=>`<option value="${r.id}" ${cat.rutaId===r.id?'selected':''}>${r.name}</option>`).join('');
       return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
         <input id="edit-dept-${cat.id}" value="${cat.name.replace(/"/g,'&quot;')}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box"/>
-        <select id="edit-dept-ruta-${cat.id}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box">${rutaOpts}</select>
         <div style="display:flex;gap:6px">
           <button onclick="confirmSaveDeptName(${cat.id})" style="flex:1;background:#10b981;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">💾 Guardar</button>
           <button onclick="window._editingDept=null;renderDeptList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">✕</button>
         </div>
       </div>`;
     }
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <button onclick="window._editingDept=${cat.id};renderDeptList()" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
-      <span style="flex:1;font-size:13px;color:#f1f5f9">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span>${ruta?`<span style="display:block;font-size:11px;color:#10b981">🚚 ${ruta.name}</span>`:'<span style="display:block;font-size:11px;color:#f59e0b">⚠️ Sin ruta asignada</span>'}</span>
-      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteDept(${cat.id})">✕</button>
+    return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="event.stopPropagation();window._editingDept=${cat.id};renderDeptList()" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+        <span onclick="toggleExpandDept(${cat.id})" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''} · ${munCount} sector${munCount!==1?'es':''})</span>${rutas.length?`<span style="display:block;font-size:11px;color:#10b981">🚚 ${rutas.map(r=>r.name).join(', ')}</span>`:'<span style="display:block;font-size:11px;color:#f59e0b">⚠️ Sin ruta asignada</span>'}</span>
+        <span onclick="toggleExpandDept(${cat.id})" style="font-size:12px;color:#64748b;cursor:pointer;padding:2px 4px">${isExpanded?'▾':'▸'}</span>
+        <button class="br" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();deleteDept(${cat.id})">✕</button>
+      </div>
+      ${isExpanded ? `<div style="margin-top:8px;margin-left:24px;background:#0d1525;border:1px solid #2a3050;border-radius:8px;padding:8px">
+        <div id="dept-mun-list-${cat.id}"></div>
+        <div style="position:relative;margin-top:8px">
+          <input placeholder="🔍 Buscar otro sector (de cualquier departamento)..." oninput="searchMunForDept(${cat.id},this.value)" style="width:100%;background:#161929;border:1px solid #2a3050;border-radius:7px;padding:7px 9px;color:#f1f5f9;font-size:12px;box-sizing:border-box"/>
+          <div id="dept-mun-search-drop-${cat.id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto;margin-top:2px"></div>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
+}
+
+function toggleExpandDept(id) {
+  window._expandedDept = window._expandedDept === id ? null : id;
+  renderDeptList();
+  if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
+}
+
+function renderDeptMunChecklist(deptId) {
+  const wrap = document.getElementById('dept-mun-list-'+deptId);
+  if (!wrap) return;
+  const available = (S.municipios||[]).filter(m => !(m.deptIds||[]).length || (m.deptIds||[]).includes(deptId));
+  if (!available.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:#64748b">No hay sectores disponibles. Usa el buscador para tomar uno de otro departamento.</div>';
+    return;
+  }
+  wrap.innerHTML = [...available].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(m => {
+    const belongs = (m.deptIds||[]).includes(deptId);
+    return `<label style="display:flex;align-items:center;gap:7px;padding:4px 0;cursor:pointer">
+      <input type="checkbox" ${belongs?'checked':''} onchange="assignMunToDept(${m.id},${deptId},this.checked)" style="width:15px;height:15px;accent-color:#7c3aed;flex-shrink:0"/>
+      <span style="font-size:12px;color:#f1f5f9">🏘️ ${m.name}</span>
+    </label>`;
+  }).join('');
+}
+
+function searchMunForDept(deptId, q) {
+  const drop = document.getElementById('dept-mun-search-drop-'+deptId);
+  if (!drop) return;
+  const ql = (q||'').trim().toLowerCase();
+  if (!ql) { drop.style.display = 'none'; return; }
+  const matches = (S.municipios||[]).filter(m => m.name.toLowerCase().includes(ql));
+  if (!matches.length) { drop.style.display = 'block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#64748b">Sin resultados</div>'; return; }
+  drop.style.display = 'block';
+  drop.innerHTML = matches.map(m => {
+    const belongs = (m.deptIds||[]).includes(deptId);
+    const otherDepts = (m.deptIds||[]).filter(did=>did!==deptId).map(did=>(S.depts.find(x=>x.id===did)||{}).name).filter(Boolean);
+    return `<div onclick="pickMunForDept(${m.id},${deptId})" style="padding:9px 12px;font-size:13px;color:#f1f5f9;cursor:pointer;border-bottom:1px solid #2a3050">
+      🏘️ ${m.name}${otherDepts.length ? `<span style="display:block;font-size:11px;color:#f59e0b">⚠️ También en ${otherDepts.join(', ')}</span>` : ''}${belongs ? '<span style="display:block;font-size:11px;color:#10b981">Ya está en este departamento</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function pickMunForDept(munId, deptId) {
+  const drop = document.getElementById('dept-mun-search-drop-'+deptId);
+  if (drop) drop.style.display = 'none';
+  const m = (S.municipios||[]).find(x => x.id === munId);
+  if (!m) return;
+  if ((m.deptIds||[]).includes(deptId)) return;
+  const otherDepts = (m.deptIds||[]).map(did=>(S.depts.find(x=>x.id===did)||{}).name).filter(Boolean);
+  if (otherDepts.length) {
+    showMoveOrAddModal(
+      `"${m.name}" ya pertenece a ${otherDepts.join(', ')}`,
+      () => moveMunToDept(munId, deptId),
+      () => assignMunToDept(munId, deptId, true)
+    );
+  } else {
+    assignMunToDept(munId, deptId, true);
+  }
+}
+
+function moveMunToDept(munId, deptId) {
+  const m = (S.municipios||[]).find(x => x.id === munId);
+  if (!m) return;
+  m.deptIds = [deptId];
+  save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
+  if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
+  toast('🔀 Sector movido', '#10b981');
+}
+
+function assignMunToDept(munId, deptId, checked) {
+  const m = (S.municipios||[]).find(x => x.id === munId);
+  if (!m) return;
+  if (!m.deptIds) m.deptIds = [];
+  if (checked) {
+    if (!m.deptIds.includes(deptId)) m.deptIds.push(deptId);
+  } else {
+    m.deptIds = m.deptIds.filter(id => id !== deptId);
+  }
+  save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
+  if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
+  toast(checked ? '✅ Sector asignado' : 'Sector desasignado', '#10b981');
 }
 
 function confirmSaveDeptName(id) {
@@ -4379,13 +4485,11 @@ function confirmSaveDeptName(id) {
 
 function saveDeptName(id) {
   const inp = document.getElementById('edit-dept-'+id);
-  const rutaSel = document.getElementById('edit-dept-ruta-'+id);
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const dept = S.depts.find(d => d.id === id);
   if (dept) {
     dept.name = name;
-    dept.rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
     save(); renderDeptList(); renderClients(); renderConfig();
     toast('✅ Departamento actualizado','#10b981');
   }
@@ -4401,7 +4505,7 @@ function deleteDept(id) {
     : `¿Eliminar el departamento "${cat.name}"?`;
   askConfirm('🗑 Eliminar departamento', msg, () => {
     S.clients.forEach(c => { if (c.deptId===id) c.deptId=null; });
-    (S.municipios||[]).forEach(m => { if (m.deptId===id) m.deptId=null; });
+    (S.municipios||[]).forEach(m => { if (m.deptIds) m.deptIds = m.deptIds.filter(did => did !== id); });
     S.depts = S.depts.filter(c=>c.id!==id);
     save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
     toast('Departamento eliminado');
@@ -4433,6 +4537,8 @@ function renderRutaClienteList() {
   wrap.innerHTML = sorted.map(r => {
     const count = S.clients.filter(c => c.rutaClienteId === r.id).length;
     const isEditing = window._editingRuta === r.id;
+    const isExpanded = window._expandedRuta === r.id;
+    const deptCount = (S.depts||[]).filter(d => (d.rutaIds||[]).includes(r.id)).length;
     if (isEditing) {
       return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
         <input id="edit-ruta-${r.id}" value="${r.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
@@ -4440,12 +4546,120 @@ function renderRutaClienteList() {
         <button onclick="window._editingRuta=null;renderRutaClienteList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
       </div>`;
     }
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <button onclick="window._editingRuta=${r.id};renderRutaClienteList()" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
-      <span style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
-      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteRutaCliente(${r.id})">✕</button>
+    return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="event.stopPropagation();window._editingRuta=${r.id};renderRutaClienteList()" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+        <span onclick="toggleExpandRuta(${r.id})" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''} · ${deptCount} depto${deptCount!==1?'s':''})</span></span>
+        <span onclick="toggleExpandRuta(${r.id})" style="font-size:12px;color:#64748b;cursor:pointer;padding:2px 4px">${isExpanded?'▾':'▸'}</span>
+        <button class="br" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();deleteRutaCliente(${r.id})">✕</button>
+      </div>
+      ${isExpanded ? `<div style="margin-top:8px;margin-left:24px;background:#0d1525;border:1px solid #2a3050;border-radius:8px;padding:8px">
+        <div id="ruta-dept-list-${r.id}"></div>
+        <div style="position:relative;margin-top:8px">
+          <input placeholder="🔍 Buscar otro departamento (de cualquier ruta)..." oninput="searchDeptForRuta(${r.id},this.value)" style="width:100%;background:#161929;border:1px solid #2a3050;border-radius:7px;padding:7px 9px;color:#f1f5f9;font-size:12px;box-sizing:border-box"/>
+          <div id="ruta-dept-search-drop-${r.id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2640;border:1px solid #3b82f6;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto;margin-top:2px"></div>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
+}
+
+function toggleExpandRuta(id) {
+  window._expandedRuta = window._expandedRuta === id ? null : id;
+  renderRutaClienteList();
+  if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
+}
+
+function renderRutaDeptChecklist(rutaId) {
+  const wrap = document.getElementById('ruta-dept-list-'+rutaId);
+  if (!wrap) return;
+  const available = (S.depts||[]).filter(d => !(d.rutaIds||[]).length || (d.rutaIds||[]).includes(rutaId));
+  if (!available.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:#64748b">No hay departamentos disponibles. Usa el buscador para tomar uno de otra ruta.</div>';
+    return;
+  }
+  wrap.innerHTML = [...available].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(d => {
+    const belongs = (d.rutaIds||[]).includes(rutaId);
+    return `<label style="display:flex;align-items:center;gap:7px;padding:4px 0;cursor:pointer">
+      <input type="checkbox" ${belongs?'checked':''} onchange="assignDeptToRuta(${d.id},${rutaId},this.checked)" style="width:15px;height:15px;accent-color:#10b981;flex-shrink:0"/>
+      <span style="font-size:12px;color:#f1f5f9">🏛️ ${d.name}</span>
+    </label>`;
+  }).join('');
+}
+
+function searchDeptForRuta(rutaId, q) {
+  const drop = document.getElementById('ruta-dept-search-drop-'+rutaId);
+  if (!drop) return;
+  const ql = (q||'').trim().toLowerCase();
+  if (!ql) { drop.style.display = 'none'; return; }
+  const matches = (S.depts||[]).filter(d => d.name.toLowerCase().includes(ql));
+  if (!matches.length) { drop.style.display = 'block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#64748b">Sin resultados</div>'; return; }
+  drop.style.display = 'block';
+  drop.innerHTML = matches.map(d => {
+    const belongs = (d.rutaIds||[]).includes(rutaId);
+    const otherRutas = (d.rutaIds||[]).filter(rid=>rid!==rutaId).map(rid=>(S.rutasCliente.find(x=>x.id===rid)||{}).name).filter(Boolean);
+    return `<div onclick="pickDeptForRuta(${d.id},${rutaId})" style="padding:9px 12px;font-size:13px;color:#f1f5f9;cursor:pointer;border-bottom:1px solid #2a3050">
+      🏛️ ${d.name}${otherRutas.length ? `<span style="display:block;font-size:11px;color:#f59e0b">⚠️ También en ${otherRutas.join(', ')}</span>` : ''}${belongs ? '<span style="display:block;font-size:11px;color:#10b981">Ya está en esta ruta</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function pickDeptForRuta(deptId, rutaId) {
+  const drop = document.getElementById('ruta-dept-search-drop-'+rutaId);
+  if (drop) drop.style.display = 'none';
+  const d = (S.depts||[]).find(x => x.id === deptId);
+  if (!d) return;
+  if ((d.rutaIds||[]).includes(rutaId)) return; // ya está aquí, nada que hacer
+  const otherRutas = (d.rutaIds||[]).map(rid=>(S.rutasCliente.find(x=>x.id===rid)||{}).name).filter(Boolean);
+  if (otherRutas.length) {
+    showMoveOrAddModal(
+      `"${d.name}" ya pertenece a ${otherRutas.join(', ')}`,
+      () => moveDeptToRuta(deptId, rutaId),
+      () => assignDeptToRuta(deptId, rutaId, true)
+    );
+  } else {
+    assignDeptToRuta(deptId, rutaId, true);
+  }
+}
+
+function moveDeptToRuta(deptId, rutaId) {
+  const dept = (S.depts||[]).find(d => d.id === deptId);
+  if (!dept) return;
+  dept.rutaIds = [rutaId];
+  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
+  if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
+  toast('🔀 Departamento movido', '#10b981');
+}
+
+function showMoveOrAddModal(title, onMove, onAdd) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div style="background:#1e2236;border:1px solid #2a3050;border-radius:14px;padding:20px;max-width:340px;width:100%">
+    <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px">${title}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="mova-move-btn" style="padding:10px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">🔀 Mover aquí (lo quita de donde estaba)</button>
+      <button id="mova-add-btn" style="padding:10px;background:#10b981;border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">➕ Agregar también aquí</button>
+      <button id="mova-cancel-btn" style="padding:10px;background:transparent;border:1px solid #475569;border-radius:8px;color:#f1f5f9;font-weight:700;font-size:14px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#mova-move-btn').onclick = () => { overlay.remove(); onMove(); };
+  overlay.querySelector('#mova-add-btn').onclick = () => { overlay.remove(); onAdd(); };
+  overlay.querySelector('#mova-cancel-btn').onclick = () => overlay.remove();
+}
+
+function assignDeptToRuta(deptId, rutaId, checked) {
+  const dept = (S.depts||[]).find(d => d.id === deptId);
+  if (!dept) return;
+  if (!dept.rutaIds) dept.rutaIds = [];
+  if (checked) {
+    if (!dept.rutaIds.includes(rutaId)) dept.rutaIds.push(rutaId);
+  } else {
+    dept.rutaIds = dept.rutaIds.filter(id => id !== rutaId);
+  }
+  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
+  if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
+  toast(checked ? '✅ Departamento asignado' : 'Departamento desasignado', '#10b981');
 }
 
 function confirmSaveRutaName(id) {
@@ -4473,7 +4687,7 @@ function deleteRutaCliente(id) {
     : `¿Eliminar la ruta "${r.name}"?`;
   askConfirm('🗑 Eliminar ruta', msg, () => {
     S.clients.forEach(c => { if (c.rutaClienteId===id) c.rutaClienteId=null; });
-    (S.depts||[]).forEach(d => { if (d.rutaId===id) d.rutaId=null; });
+    (S.depts||[]).forEach(d => { if (d.rutaIds) d.rutaIds = d.rutaIds.filter(rid => rid !== id); });
     S.rutasCliente = S.rutasCliente.filter(x=>x.id!==id);
     save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
     toast('Ruta eliminada');
@@ -4483,10 +4697,9 @@ function deleteRutaCliente(id) {
 // ── Gestión de Sectores ──────────────────────────────
 function addMun() {
   const inp = document.getElementById('new-mun-name');
-  const deptSel = document.getElementById('new-mun-dept');
   const name = inp.value.trim();
   if (!name) { toast('Escribe el nombre del sector', '#ef4444'); return; }
-  const deptId = deptSel && deptSel.value ? Number(deptSel.value) : null;
+  const deptId = null;
   if (!S.municipios) S.municipios = [];
   if (S.municipios.some(m => m.name.toLowerCase() === name.toLowerCase())) { toast('Ese sector ya existe', '#f59e0b'); return; }
   S.municipios.push({ id: S.nextMunId++, name, deptId });
@@ -4507,12 +4720,10 @@ function renderMunList() {
   wrap.innerHTML = sorted.map(m => {
     const count = S.clients.filter(c => c.municipioId === m.id).length;
     const isEditing = window._editingMun === m.id;
-    const dept = (S.depts||[]).find(d=>d.id===m.deptId);
+    const depts = (m.deptIds||[]).map(did => (S.depts||[]).find(d=>d.id===did)).filter(Boolean);
     if (isEditing) {
-      const deptOpts = '<option value="">— Sin departamento —</option>' + (S.depts||[]).map(d=>`<option value="${d.id}" ${m.deptId===d.id?'selected':''}>${d.name}</option>`).join('');
       return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
         <input id="edit-mun-${m.id}" value="${m.name.replace(/"/g,'&quot;')}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box"/>
-        <select id="edit-mun-dept-${m.id}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box">${deptOpts}</select>
         <div style="display:flex;gap:6px">
           <button onclick="confirmSaveMunName(${m.id})" style="flex:1;background:#10b981;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">💾 Guardar</button>
           <button onclick="window._editingMun=null;renderMunList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">✕</button>
@@ -4521,7 +4732,7 @@ function renderMunList() {
     }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
       <button onclick="window._editingMun=${m.id};renderMunList()" style="background:none;border:none;color:#a78bfa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
-      <span style="flex:1;font-size:13px;color:#f1f5f9">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span>${dept?`<span style="display:block;font-size:11px;color:#10b981">🏛️ ${dept.name}</span>`:'<span style="display:block;font-size:11px;color:#f59e0b">⚠️ Sin departamento asignado</span>'}</span>
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span>${depts.length?`<span style="display:block;font-size:11px;color:#10b981">🏛️ ${depts.map(d=>d.name).join(', ')}</span>`:'<span style="display:block;font-size:11px;color:#f59e0b">⚠️ Sin departamento asignado</span>'}</span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteMun(${m.id})">✕</button>
     </div>`;
   }).join('');
@@ -4536,13 +4747,11 @@ function confirmSaveMunName(id) {
 
 function saveMunName(id) {
   const inp = document.getElementById('edit-mun-'+id);
-  const deptSel = document.getElementById('edit-mun-dept-'+id);
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const m = S.municipios.find(x => x.id === id);
   if (m) {
     m.name = name;
-    m.deptId = deptSel && deptSel.value ? Number(deptSel.value) : null;
     save(); renderMunList(); renderClients(); renderConfig();
     toast('✅ Sector actualizado','#10b981');
   }
@@ -5079,12 +5288,12 @@ function ncFieldSearch(type, q) {
   if (isDept) {
     const rutaSel = document.getElementById('nc-route-id');
     const rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
-    if (rutaId) list = list.filter(d => d.rutaId === rutaId);
+    if (rutaId) list = list.filter(d => (d.rutaIds||[]).includes(rutaId));
     else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero una Ruta</div>'; return; }
   } else {
     const deptHidden = document.getElementById('nc-dept-id');
     const deptId = deptHidden && deptHidden.value ? Number(deptHidden.value) : null;
-    if (deptId) list = list.filter(m => m.deptId === deptId);
+    if (deptId) list = list.filter(m => (m.deptIds||[]).includes(deptId));
     else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero un Departamento</div>'; return; }
   }
   const ql = (q||'').toLowerCase();
@@ -8469,12 +8678,12 @@ function cliFieldSearch(type, cid, q) {
   if (isDept) {
     const rutaSel = document.getElementById('ecr-'+cid);
     const rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
-    if (rutaId) list = list.filter(d => d.rutaId === rutaId);
+    if (rutaId) list = list.filter(d => (d.rutaIds||[]).includes(rutaId));
     else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero una Ruta</div>'; return; }
   } else {
     const deptHidden = document.getElementById('ecc-'+cid);
     const deptId = deptHidden && deptHidden.value ? Number(deptHidden.value) : null;
-    if (deptId) list = list.filter(m => m.deptId === deptId);
+    if (deptId) list = list.filter(m => (m.deptIds||[]).includes(deptId));
     else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero un Departamento</div>'; return; }
   }
   const ql = q.toLowerCase();
