@@ -278,6 +278,7 @@ function fmtDDMMYYYY(d) {
 </div>
 <button onclick="location.reload()" style="background:none;border:1px solid #2a3050;border-radius:8px;padding:6px 10px;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0" title="Actualizar">🔄</button>
 <button onclick="toggleGlobalSearch(event)" style="background:none;border:1px solid #2a3050;border-radius:8px;padding:6px 10px;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0" title="Buscar">🔍</button>
+<button onclick="goTab('config')" style="background:none;border:1px solid #2a3050;border-radius:8px;padding:6px 10px;color:#94a3b8;font-size:18px;cursor:pointer;flex-shrink:0" title="Configuración">⚙️</button>
 </div>
 
 <!-- Alerta de Drive desconectado -->
@@ -560,60 +561,19 @@ Selecciona un cliente para continuar.<br><br>
   <div style="display:flex;gap:5px;align-items:center">
     <button class="bs" style="padding:5px 8px;font-size:11px" onclick="sortClients('alpha')">A→Z</button>
     <button id="btn-cli-sort" class="bs" style="padding:5px 8px;font-size:11px" onclick="sortClients('recent')">🕐</button>
+    <button class="bs" style="padding:5px 8px;font-size:11px" onclick="sortClients('priority')">⭐</button>
   </div>
 </div>
 
 <!-- Fila de botones colapsables -->
 <div style="display:flex;gap:8px;margin-bottom:10px">
 
-  <!-- Botón Rutas Cliente -->
-  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#34d399;border-color:#064e3b"
-    onclick="(function(){var r=document.getElementById('ruta-form-body'),b=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),c=document.getElementById('cli-form-body');var open=r.style.display!=='none';r.style.display=open?'none':'block';if(!open){b.style.display='none';m.style.display='none';c.style.display='none';renderRutaClienteList();}})()">
-    🚚 Rutas
-  </button>
-
-  <!-- Botón Departamentos -->
-  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#60a5fa;border-color:#1e3a5f"
-    onclick="(function(){var b=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),c=document.getElementById('cli-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){m.style.display='none';c.style.display='none';renderDeptList();}})()">
-    🏛️ Departamentos
-  </button>
-
-  <!-- Botón Sectores -->
-  <button class="bs" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700;color:#a78bfa;border-color:#2e1a5f"
-    onclick="(function(){var m=document.getElementById('mun-form-body'),b=document.getElementById('dept-form-body'),c=document.getElementById('cli-form-body');var open=m.style.display!=='none';m.style.display=open?'none':'block';if(!open){b.style.display='none';c.style.display='none';renderMunList();}})()">
-    🏘️ Sectores
-  </button>
-
   <!-- Botón Nuevo Cliente -->
   <button class="bp" style="flex:1;padding:9px 6px;font-size:12px;font-weight:700"
-    onclick="(function(){var b=document.getElementById('cli-form-body'),d=document.getElementById('dept-form-body'),m=document.getElementById('mun-form-body'),r=document.getElementById('ruta-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){d.style.display='none';m.style.display='none';r.style.display='none';refreshNcRouteList();var tc=document.getElementById('nc-type-client');if(tc)tc.checked=true;}})()">
+    onclick="(function(){var b=document.getElementById('cli-form-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';if(!open){refreshNcRouteList();var tc=document.getElementById('nc-type-client');if(tc)tc.checked=true;}})()">
     ➕ Nuevo Cliente
   </button>
 
-</div>
-
-<!-- Panel Departamentos (colapsado) -->
-<div id="dept-form-body" style="display:none;background:#0d1525;border:1px solid #1e3a5f;border-radius:12px;padding:12px 14px;margin-bottom:10px">
-  <input id="new-dept-name" placeholder="Nombre del departamento (ej: Escuintla, Chimaltenango...)"
-    style="display:block;width:100%;box-sizing:border-box;background:#1e2640;color:#f1f5f9;border:1px solid #3b82f6;border-radius:8px;padding:12px 14px;font-size:14px;outline:none;margin-bottom:8px"/>
-  <button class="bp" style="width:100%;padding:11px;font-size:14px;font-weight:700" onclick="addDept()">+ Agregar departamento</button>
-  <div id="dept-list" style="margin-top:10px"></div>
-</div>
-
-<!-- Panel Municipios (colapsado) -->
-<div id="mun-form-body" style="display:none;background:#0d1525;border:1px solid #2e1a5f;border-radius:12px;padding:12px 14px;margin-bottom:10px">
-  <input id="new-mun-name" placeholder="Nombre del municipio (ej: Palín, Escuintla, Siquinalá...)"
-    style="display:block;width:100%;box-sizing:border-box;background:#1e2040;color:#f1f5f9;border:1px solid #7c3aed;border-radius:8px;padding:12px 14px;font-size:14px;outline:none;margin-bottom:8px"/>
-  <button style="width:100%;padding:11px;font-size:14px;font-weight:700;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer" onclick="addMun()">+ Agregar municipio</button>
-  <div id="mun-list" style="margin-top:10px"></div>
-</div>
-
-<!-- Panel Rutas Cliente (colapsado) -->
-<div id="ruta-form-body" style="display:none;background:#0d1a12;border:1px solid #064e3b;border-radius:12px;padding:12px 14px;margin-bottom:10px">
-  <input id="new-ruta-cliente-name" placeholder="Nombre de la ruta (ej: Ruta Escuintla, Ruta Occidente...)"
-    style="display:block;width:100%;box-sizing:border-box;background:#0d2010;color:#f1f5f9;border:1px solid #10b981;border-radius:8px;padding:12px 14px;font-size:14px;outline:none;margin-bottom:8px"/>
-  <button style="width:100%;padding:11px;font-size:14px;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer" onclick="addRutaCliente()">+ Agregar ruta</button>
-  <div id="ruta-cliente-list" style="margin-top:10px"></div>
 </div>
 
 <!-- Panel Nuevo Cliente (colapsado) -->
@@ -622,6 +582,8 @@ Selecciona un cliente para continuar.<br><br>
   <input class="inp" id="nc-n" placeholder="Ej: Carlos Martínez"/>
   <label class="lbl">ID Cliente</label>
   <input class="inp" id="nc-cid" placeholder="Código de identificación"/>
+  <label class="lbl">⭐ Prioridad</label>
+  <select class="sel" id="nc-priority" style="width:100%;margin-bottom:12px"><option value="">— Sin prioridad —</option></select>
   <label class="lbl">Contacto</label>
   <input class="inp" id="nc-contact" placeholder="Nombre de la persona de contacto"/>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px">🔒 Los permisos de productos restringidos se configuran después, editando el cliente ya guardado.</div>
@@ -637,7 +599,7 @@ Selecciona un cliente para continuar.<br><br>
     </label>
   </div>
   <label class="lbl">🚚 Ruta</label>
-  <select id="nc-route-id" class="sel" style="margin-bottom:12px;width:100%">
+  <select id="nc-route-id" class="sel" style="margin-bottom:12px;width:100%" onchange="clearNcDeptSector()">
     <option value="">— Sin ruta asignada —</option>
   </select>
   <label class="lbl">🏛️ Departamento</label>
@@ -730,8 +692,9 @@ Selecciona un cliente para continuar.<br><br>
 <label class="lbl">Nombre *</label>
 <input class="inp" id="np-n" placeholder="Ej: Thinner Laca"/>
 <label class="lbl">Familia / Categoría</label>
-<input class="inp" id="np-fam" placeholder="Ej: Thinner, Ácido, Soda, Pintura..." list="fam-list"/>
-<datalist id="fam-list"></datalist>
+<select class="sel" id="np-fam" style="width:100%;margin-bottom:12px">
+<option value="">— Selecciona una familia —</option>
+</select>
 <label class="lbl">Especificación</label>
 <input class="inp" id="np-pres" placeholder="Ej: Tonel, Galón, Litro, Caja..."/>
 <label class="lbl">Unidad del precio</label>
@@ -1014,6 +977,11 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 </div>
 
+<div id="page-config" class="page">
+<div class="sec">⚙️ Configuración</div>
+<div id="config-list"></div>
+</div>
+
 <!-- ══════════════════════ MODAL COTIZACIÓN ══════════════════════ -->
 <div id="quote-modal">
 <div id="quote-inner">
@@ -1120,6 +1088,13 @@ if (S.products) S.products.forEach(p => {
 if (!p.unitLabel) p.unitLabel = 'unidad';
 if (!p.unitSize)  p.unitSize  = 1;
 });
+// Migrar familias y prioridades ya usadas en texto libre a las listas maestras de Configuración
+if (!S.familyList) {
+  S.familyList = [...new Set((S.products||[]).map(p=>(p.family||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+}
+if (!S.priorityList) {
+  S.priorityList = [...new Set((S.clients||[]).map(c=>(c.priority||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+}
 }
 
 let _driveSyncTimer = null;
@@ -1422,6 +1397,7 @@ function renderProspects() {
 <div>
 <div style="font-weight:800;font-size:15px">${c.name}</div>
 ${c.clientCode ? `<div style="font-size:12px;color:#64748b">🆔 ${c.clientCode}</div>` : ''}
+${c.priority ? `<div style="font-size:12px;color:#f59e0b">⭐ ${c.priority}</div>` : ''}
 ${c.phone   ? `<div style="font-size:12px;color:#64748b">📞 ${c.phone}</div>` : ''}
 ${c.deptId ? (()=>{ const cat=(S.depts||[]).find(x=>x.id===c.deptId); return cat?`<div style="font-size:10px;display:inline-block;background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:8px;margin-top:2px">🏛️ ${cat.name}</div>`:''; })() : ''}
 ${c.municipioId ? (()=>{ const m=(S.municipios||[]).find(x=>x.id===c.municipioId); return m?`<div style="font-size:10px;display:inline-block;background:#1e1040;color:#a78bfa;padding:1px 8px;border-radius:8px;margin-top:2px;margin-left:3px">🏘️ ${m.name}</div>`:''; })() : ''}
@@ -1475,12 +1451,6 @@ function openNewProspectForm() {
   goTab('clients');
   setTimeout(() => {
     const cliForm = document.getElementById('cli-form-body');
-    const deptForm = document.getElementById('dept-form-body');
-    const munForm = document.getElementById('mun-form-body');
-    const rutaForm = document.getElementById('ruta-form-body');
-    if (deptForm) deptForm.style.display = 'none';
-    if (munForm) munForm.style.display = 'none';
-    if (rutaForm) rutaForm.style.display = 'none';
     if (cliForm) cliForm.style.display = 'block';
     refreshNcRouteList();
     const typeProspectEl = document.getElementById('nc-type-prospect');
@@ -1513,6 +1483,7 @@ if (name==='backup')   renderBackup();
 if (name==='routes')   renderRoutes();
 if (name==='prospects') renderProspects();
 if (name==='quotes')    renderQuotesList();
+if (name==='config')    renderConfig();
 // Registrar en el historial del navegador para el botón Atrás de Android
 if (!_fromPop) {
   _currentTab = name;
@@ -4069,7 +4040,7 @@ function renderGenChips(type) {
   const col  = type==='dept' ? '#10b981' : '#7c3aed';
   const bg   = type==='dept' ? '#0d1f0d' : '#0d0d1f';
   const bdr  = type==='dept' ? '#1a3a1a' : '#1a1a3a';
-  if (!list.length) { wrap.innerHTML='<span style="font-size:11px;color:#64748b">Sin '+(type==='dept'?'departamentos':'municipios')+' creados</span>'; return; }
+  if (!list.length) { wrap.innerHTML='<span style="font-size:11px;color:#64748b">Sin '+(type==='dept'?'departamentos':'sectores')+' creados</span>'; return; }
   // Mantener estado de checks existentes antes de re-render
   const checked = new Set([...document.querySelectorAll('.'+cls+':checked')].map(cb=>cb.value));
   const filtered = q ? list.filter(x=>x.name.toLowerCase().includes(q)) : list;
@@ -4111,14 +4082,262 @@ function generateRouteOrdersFromPanel() {
 // ── Gestión de Categorías ─────────────────────────────
 function addDept() {
   const inp = document.getElementById('new-dept-name');
+  const rutaSel = document.getElementById('new-dept-ruta');
   const name = inp.value.trim();
   if (!name) { toast('Escribe el nombre del departamento', '#ef4444'); return; }
+  const rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
   if (!S.depts) S.depts = [];
-  S.depts.push({ id: S.nextDeptId++, name });
+  if (S.depts.some(d => d.name.toLowerCase() === name.toLowerCase())) { toast('Ese departamento ya existe', '#f59e0b'); return; }
+  S.depts.push({ id: S.nextDeptId++, name, rutaId });
   inp.value = '';
-  save(); renderDeptList(); renderClients();
+  window._configAddOpen = null;
+  save(); renderDeptList(); renderClients(); renderConfig();
   toast('🏛️ Departamento agregado');
 }
+
+function addPriorityItem() {
+  const inp = document.getElementById('new-priority-name');
+  const name = inp.value.trim();
+  if (!name) { toast('Escribe el nombre de la prioridad', '#ef4444'); return; }
+  if (!S.priorityList) S.priorityList = [];
+  if (S.priorityList.some(p => p.toLowerCase() === name.toLowerCase())) { toast('Esa prioridad ya existe', '#f59e0b'); return; }
+  S.priorityList.push(name);
+  inp.value = '';
+  window._configAddOpen = null;
+  save(); renderConfig();
+  toast('⭐ Prioridad agregada');
+}
+
+function renderPriorityList() {
+  const wrap = document.getElementById('priority-list');
+  if (!wrap) return;
+  const list = S.priorityList || [];
+  if (!list.length) { wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin prioridades. Agrega una arriba.</div>'; return; }
+  wrap.innerHTML = list.map((name, idx) => {
+    const count = S.clients.filter(c => c.priority === name).length;
+    const isEditing = window._editingPriority === idx;
+    if (isEditing) {
+      return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-priority-${idx}" value="${name.replace(/"/g,'&quot;')}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box"/>
+        <div style="display:flex;gap:6px">
+          <button onclick="confirmSavePriorityItem(${idx})" style="flex:1;background:#10b981;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">💾 Guardar</button>
+          <button onclick="window._editingPriority=null;renderPriorityList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">✕</button>
+        </div>
+      </div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <button onclick="window._editingPriority=${idx};renderPriorityList()" style="background:none;border:none;color:#f59e0b;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+      <span style="flex:1;font-size:13px;color:#f1f5f9">⭐ ${name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deletePriorityItem(${idx})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function confirmSavePriorityItem(idx) {
+  const inp = document.getElementById('edit-priority-'+idx);
+  const newName = inp ? inp.value.trim() : '';
+  if (!newName) return toast('El nombre no puede estar vacío','#ef4444');
+  askConfirm('¿Guardar cambios en esta prioridad?', '', () => savePriorityItem(idx), '💾 Guardar', '#10b981', '💾');
+}
+
+function savePriorityItem(idx) {
+  const inp = document.getElementById('edit-priority-'+idx);
+  const newName = inp ? inp.value.trim() : '';
+  if (!newName) return toast('El nombre no puede estar vacío','#ef4444');
+  const oldName = S.priorityList[idx];
+  if (S.priorityList.some((p,i) => i!==idx && p.toLowerCase()===newName.toLowerCase())) return toast('Esa prioridad ya existe','#f59e0b');
+  S.priorityList[idx] = newName;
+  S.clients.forEach(c => { if (c.priority === oldName) c.priority = newName; });
+  window._editingPriority = null;
+  save(); renderConfig(); renderClients();
+  toast('✅ Prioridad actualizada','#10b981');
+}
+
+function deletePriorityItem(idx) {
+  const name = (S.priorityList||[])[idx];
+  if (!name) return;
+  const count = S.clients.filter(c => c.priority === name).length;
+  const msg = count ? `Esto quitará la prioridad "${name}" de ${count} cliente(s). ¿Continuar?` : `¿Eliminar "${name}"?`;
+  askConfirm('🗑 Eliminar prioridad', msg, () => {
+    S.clients.forEach(c => { if (c.priority === name) c.priority = ''; });
+    S.priorityList.splice(idx, 1);
+    save(); renderConfig(); renderClients();
+    toast('Prioridad eliminada');
+  });
+}
+
+function addFamilyItem() {
+  const inp = document.getElementById('new-family-name');
+  const name = inp.value.trim();
+  if (!name) { toast('Escribe el nombre de la familia', '#ef4444'); return; }
+  if (!S.familyList) S.familyList = [];
+  if (S.familyList.some(f => f.toLowerCase() === name.toLowerCase())) { toast('Esa familia ya existe', '#f59e0b'); return; }
+  S.familyList.push(name);
+  inp.value = '';
+  window._configAddOpen = null;
+  save(); renderConfig();
+  toast('🏷️ Familia agregada');
+}
+
+function renderFamilyList() {
+  const wrap = document.getElementById('family-list');
+  if (!wrap) return;
+  const list = S.familyList || [];
+  if (!list.length) { wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin familias. Agrega una arriba.</div>'; return; }
+  wrap.innerHTML = list.map((name, idx) => {
+    const count = S.products.filter(p => (p.family||'').trim() === name).length;
+    const isRestricted = (S.restrictedFamilies||[]).includes(name);
+    const isEditing = window._editingFamily === idx;
+    if (isEditing) {
+      return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-family-${idx}" value="${name.replace(/"/g,'&quot;')}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box"/>
+        <div style="display:flex;gap:6px">
+          <button onclick="confirmSaveFamilyItem(${idx})" style="flex:1;background:#10b981;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">💾 Guardar</button>
+          <button onclick="window._editingFamily=null;renderFamilyList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">✕</button>
+        </div>
+      </div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <button onclick="window._editingFamily=${idx};renderFamilyList()" style="background:none;border:none;color:#f59e0b;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🏷️ ${name}${isRestricted?' 🔒':''} <span style="color:#64748b;font-size:11px">(${count} producto${count!==1?'s':''})</span></span>
+      <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteFamilyItem(${idx})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function confirmSaveFamilyItem(idx) {
+  const inp = document.getElementById('edit-family-'+idx);
+  const newName = inp ? inp.value.trim() : '';
+  if (!newName) return toast('El nombre no puede estar vacío','#ef4444');
+  askConfirm('¿Guardar cambios en esta familia?', '', () => saveFamilyItem(idx), '💾 Guardar', '#10b981', '💾');
+}
+
+function saveFamilyItem(idx) {
+  const inp = document.getElementById('edit-family-'+idx);
+  const newName = inp ? inp.value.trim() : '';
+  if (!newName) return toast('El nombre no puede estar vacío','#ef4444');
+  const oldName = S.familyList[idx];
+  if (S.familyList.some((f,i) => i!==idx && f.toLowerCase()===newName.toLowerCase())) return toast('Esa familia ya existe','#f59e0b');
+  S.familyList[idx] = newName;
+  S.products.forEach(p => { if ((p.family||'').trim() === oldName) p.family = newName; });
+  if (S.restrictedFamilies) S.restrictedFamilies = S.restrictedFamilies.map(f => f === oldName ? newName : f);
+  window._editingFamily = null;
+  save(); renderConfig(); renderProducts();
+  toast('✅ Familia actualizada','#10b981');
+}
+
+function deleteFamilyItem(idx) {
+  const name = (S.familyList||[])[idx];
+  if (!name) return;
+  const count = S.products.filter(p => (p.family||'').trim() === name).length;
+  const msg = count ? `${count} producto(s) usan la familia "${name}". El campo Familia de esos productos quedará vacío. ¿Continuar?` : `¿Eliminar "${name}"?`;
+  askConfirm('🗑 Eliminar familia', msg, () => {
+    S.products.forEach(p => { if ((p.family||'').trim() === name) p.family = ''; });
+    if (S.restrictedFamilies) S.restrictedFamilies = S.restrictedFamilies.filter(f => f !== name);
+    S.familyList.splice(idx, 1);
+    save(); renderConfig(); renderProducts();
+    toast('Familia eliminada');
+  });
+}
+
+function renderConfig() {
+  const wrap = document.getElementById('config-list');
+  if (!wrap) return;
+  const openKey = window._configOpenKey || null;
+  const items = [
+    {key:'rutas',    icon:'🚚', label:'Rutas',              sub:'',                          count:(S.rutasCliente||[]).length},
+    {key:'depts',    icon:'🏛️', label:'Departamentos',       sub:'depende de Ruta',           count:(S.depts||[]).length},
+    {key:'muns',     icon:'🏘️', label:'Sectores',            sub:'depende de Departamento',   count:(S.municipios||[]).length},
+    {key:'priority', icon:'⭐', label:'Prioridad',           sub:'',                          count:(S.priorityList||[]).length},
+    {key:'families', icon:'🏷️', label:'Familia / Categoría', sub:'',                          count:(S.familyList||[]).length},
+  ];
+  wrap.innerHTML = items.map(it => {
+    const isOpen = it.key === openKey;
+    return `
+    <div class="card" style="margin-bottom:8px" id="config-card-${it.key}">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="event.stopPropagation();toggleConfigSection('${it.key}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">${it.icon}</span>
+          <div>
+            <div style="font-size:14px;color:#f1f5f9">${it.label}</div>
+            ${it.sub ? `<div style="font-size:11px;color:#64748b">${it.sub}</div>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:#64748b">${it.count}</span>
+          <span style="font-size:13px;color:#64748b">${isOpen?'▾':'▸'}</span>
+        </div>
+      </div>
+      ${isOpen ? `<div id="config-section-${it.key}" style="margin-top:10px;border-top:1px solid #2a3050;padding-top:10px" onclick="event.stopPropagation()">${configSectionInnerHTML(it.key)}</div>` : ''}
+    </div>
+  `;
+  }).join('');
+  renderRutaClienteList(); renderDeptList(); renderMunList(); renderPriorityList(); renderFamilyList();
+}
+
+function configAddFormHTML(key) {
+  if (key === 'rutas') return `
+    <input class="inp" id="new-ruta-cliente-name" placeholder="Nombre de la ruta"/>
+    <button class="bg" style="width:100%;margin-bottom:10px" onclick="addRutaCliente()">✔ Agregar Ruta</button>`;
+  if (key === 'depts') return `
+    <input class="inp" id="new-dept-name" placeholder="Nombre del departamento"/>
+    <select id="new-dept-ruta" class="sel" style="width:100%;margin-bottom:10px">
+      <option value="">— Sin ruta —</option>
+      ${(S.rutasCliente||[]).map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
+    </select>
+    <button class="bg" style="width:100%;margin-bottom:10px" onclick="addDept()">✔ Agregar Departamento</button>`;
+  if (key === 'muns') return `
+    <input class="inp" id="new-mun-name" placeholder="Nombre del sector"/>
+    <select id="new-mun-dept" class="sel" style="width:100%;margin-bottom:10px">
+      <option value="">— Sin departamento —</option>
+      ${(S.depts||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
+    </select>
+    <button class="bg" style="width:100%;margin-bottom:10px" onclick="addMun()">✔ Agregar Sector</button>`;
+  if (key === 'priority') return `
+    <input class="inp" id="new-priority-name" placeholder="Ej: Alta, VIP, 1..."/>
+    <button class="bg" style="width:100%;margin-bottom:10px" onclick="addPriorityItem()">✔ Agregar Prioridad</button>`;
+  if (key === 'families') return `
+    <input class="inp" id="new-family-name" placeholder="Ej: Thinner, Ácido..."/>
+    <button class="bg" style="width:100%;margin-bottom:10px" onclick="addFamilyItem()">✔ Agregar Familia</button>`;
+  return '';
+}
+
+function configListContainerId(key) {
+  return {rutas:'ruta-cliente-list', depts:'dept-list', muns:'mun-list', priority:'priority-list', families:'family-list'}[key];
+}
+
+function configAddLabel(key) {
+  return {rutas:'+ Nueva Ruta', depts:'+ Nuevo Departamento', muns:'+ Nuevo Sector', priority:'+ Nueva Prioridad', families:'+ Nueva Familia'}[key];
+}
+
+function toggleConfigAddForm(key) {
+  const opening = window._configAddOpen !== key;
+  window._configAddOpen = opening ? key : null;
+  renderConfig();
+}
+
+function configSectionInnerHTML(key) {
+  const addOpen = window._configAddOpen === key;
+  return `
+    <button class="bs" style="width:100%;margin-bottom:10px" onclick="toggleConfigAddForm('${key}')">${addOpen?'✕ Cancelar':configAddLabel(key)}</button>
+    ${addOpen ? `<div style="background:#0d1525;border:1px solid #2a3050;border-radius:10px;padding:10px;margin-bottom:10px">${configAddFormHTML(key)}</div>` : ''}
+    <div id="${configListContainerId(key)}"></div>`;
+}
+
+function toggleConfigSection(key) {
+  const opening = window._configOpenKey !== key;
+  window._configOpenKey = opening ? key : null;
+  renderConfig();
+}
+
+document.addEventListener('click', function(e) {
+  if (!window._configOpenKey) return;
+  const clickedInsideConfig = e.target.closest && e.target.closest('#config-list');
+  if (!clickedInsideConfig) {
+    window._configOpenKey = null;
+    renderConfig();
+  }
+});
 
 function renderDeptList() {
   const wrap = document.getElementById('dept-list');
@@ -4131,26 +4350,45 @@ function renderDeptList() {
   wrap.innerHTML = sorted.map(cat => {
     const count = S.clients.filter(c => c.deptId === cat.id).length;
     const isEditing = window._editingDept === cat.id;
+    const ruta = (S.rutasCliente||[]).find(r=>r.id===cat.rutaId);
     if (isEditing) {
-      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-        <input id="edit-dept-${cat.id}" value="${cat.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
-        <button onclick="saveDeptName(${cat.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
-        <button onclick="window._editingDept=null;renderDeptList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
+      const rutaOpts = '<option value="">— Sin ruta —</option>' + (S.rutasCliente||[]).map(r=>`<option value="${r.id}" ${cat.rutaId===r.id?'selected':''}>${r.name}</option>`).join('');
+      return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-dept-${cat.id}" value="${cat.name.replace(/"/g,'&quot;')}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box"/>
+        <select id="edit-dept-ruta-${cat.id}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box">${rutaOpts}</select>
+        <div style="display:flex;gap:6px">
+          <button onclick="confirmSaveDeptName(${cat.id})" style="flex:1;background:#10b981;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">💾 Guardar</button>
+          <button onclick="window._editingDept=null;renderDeptList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">✕</button>
+        </div>
       </div>`;
     }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <span onclick="window._editingDept=${cat.id};renderDeptList()" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button onclick="window._editingDept=${cat.id};renderDeptList()" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🏛️ ${cat.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span>${ruta?`<span style="display:block;font-size:11px;color:#10b981">🚚 ${ruta.name}</span>`:'<span style="display:block;font-size:11px;color:#f59e0b">⚠️ Sin ruta asignada</span>'}</span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteDept(${cat.id})">✕</button>
     </div>`;
   }).join('');
 }
 
-function saveDeptName(id) {
+function confirmSaveDeptName(id) {
   const inp = document.getElementById('edit-dept-'+id);
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
+  askConfirm('¿Guardar cambios en este departamento?', '', () => saveDeptName(id), '💾 Guardar', '#10b981', '💾');
+}
+
+function saveDeptName(id) {
+  const inp = document.getElementById('edit-dept-'+id);
+  const rutaSel = document.getElementById('edit-dept-ruta-'+id);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const dept = S.depts.find(d => d.id === id);
-  if (dept) { dept.name = name; save(); renderDeptList(); renderClients(); toast('✅ Departamento actualizado','#10b981'); }
+  if (dept) {
+    dept.name = name;
+    dept.rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
+    save(); renderDeptList(); renderClients(); renderConfig();
+    toast('✅ Departamento actualizado','#10b981');
+  }
   window._editingDept = null;
 }
 
@@ -4163,8 +4401,9 @@ function deleteDept(id) {
     : `¿Eliminar el departamento "${cat.name}"?`;
   askConfirm('🗑 Eliminar departamento', msg, () => {
     S.clients.forEach(c => { if (c.deptId===id) c.deptId=null; });
+    (S.municipios||[]).forEach(m => { if (m.deptId===id) m.deptId=null; });
     S.depts = S.depts.filter(c=>c.id!==id);
-    save(); renderDeptList(); renderClients();
+    save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
     toast('Departamento eliminado');
   });
 }
@@ -4175,9 +4414,11 @@ function addRutaCliente() {
   const name = inp.value.trim();
   if (!name) { toast('Escribe el nombre de la ruta', '#ef4444'); return; }
   if (!S.rutasCliente) S.rutasCliente = [];
+  if (S.rutasCliente.some(r => r.name.toLowerCase() === name.toLowerCase())) { toast('Esa ruta ya existe', '#f59e0b'); return; }
   S.rutasCliente.push({ id: S.nextRutaClienteId++, name });
   inp.value = '';
-  save(); renderRutaClienteList(); renderClients();
+  window._configAddOpen = null;
+  save(); renderRutaClienteList(); renderClients(); renderConfig();
   toast('🚚 Ruta agregada');
 }
 
@@ -4195,15 +4436,23 @@ function renderRutaClienteList() {
     if (isEditing) {
       return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
         <input id="edit-ruta-${r.id}" value="${r.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
-        <button onclick="saveRutaName(${r.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
+        <button onclick="confirmSaveRutaName(${r.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
         <button onclick="window._editingRuta=null;renderRutaClienteList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
       </div>`;
     }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <span onclick="window._editingRuta=${r.id};renderRutaClienteList()" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button onclick="window._editingRuta=${r.id};renderRutaClienteList()" style="background:none;border:none;color:#60a5fa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+      <span style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🚚 ${r.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteRutaCliente(${r.id})">✕</button>
     </div>`;
   }).join('');
+}
+
+function confirmSaveRutaName(id) {
+  const inp = document.getElementById('edit-ruta-'+id);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('El nombre no puede estar vacío','#ef4444');
+  askConfirm('¿Guardar cambios en esta ruta?', '', () => saveRutaName(id), '💾 Guardar', '#10b981', '💾');
 }
 
 function saveRutaName(id) {
@@ -4211,7 +4460,7 @@ function saveRutaName(id) {
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const r = S.rutasCliente.find(x => x.id === id);
-  if (r) { r.name = name; save(); renderRutaClienteList(); renderClients(); toast('✅ Ruta actualizada','#10b981'); }
+  if (r) { r.name = name; save(); renderRutaClienteList(); renderClients(); renderConfig(); toast('✅ Ruta actualizada','#10b981'); }
   window._editingRuta = null;
 }
 
@@ -4224,55 +4473,79 @@ function deleteRutaCliente(id) {
     : `¿Eliminar la ruta "${r.name}"?`;
   askConfirm('🗑 Eliminar ruta', msg, () => {
     S.clients.forEach(c => { if (c.rutaClienteId===id) c.rutaClienteId=null; });
+    (S.depts||[]).forEach(d => { if (d.rutaId===id) d.rutaId=null; });
     S.rutasCliente = S.rutasCliente.filter(x=>x.id!==id);
-    save(); renderRutaClienteList(); renderClients();
+    save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
     toast('Ruta eliminada');
   });
 }
 
-// ── Gestión de Municipios ──────────────────────────────
+// ── Gestión de Sectores ──────────────────────────────
 function addMun() {
   const inp = document.getElementById('new-mun-name');
+  const deptSel = document.getElementById('new-mun-dept');
   const name = inp.value.trim();
-  if (!name) { toast('Escribe el nombre del municipio', '#ef4444'); return; }
+  if (!name) { toast('Escribe el nombre del sector', '#ef4444'); return; }
+  const deptId = deptSel && deptSel.value ? Number(deptSel.value) : null;
   if (!S.municipios) S.municipios = [];
-  S.municipios.push({ id: S.nextMunId++, name });
+  if (S.municipios.some(m => m.name.toLowerCase() === name.toLowerCase())) { toast('Ese sector ya existe', '#f59e0b'); return; }
+  S.municipios.push({ id: S.nextMunId++, name, deptId });
   inp.value = '';
-  save(); renderMunList(); renderClients();
-  toast('🏘️ Municipio agregado');
+  window._configAddOpen = null;
+  save(); renderMunList(); renderClients(); renderConfig();
+  toast('🏘️ Sector agregado');
 }
 
 function renderMunList() {
   const wrap = document.getElementById('mun-list');
   if (!wrap) return;
   if (!S.municipios || !S.municipios.length) {
-    wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin municipios. Agrega uno arriba.</div>';
+    wrap.innerHTML = '<div style="font-size:12px;color:#64748b;padding:4px 0">Sin sectores. Agrega uno arriba.</div>';
     return;
   }
   const sorted = [...S.municipios].sort((a,b) => a.name.localeCompare(b.name,'es'));
   wrap.innerHTML = sorted.map(m => {
     const count = S.clients.filter(c => c.municipioId === m.id).length;
     const isEditing = window._editingMun === m.id;
+    const dept = (S.depts||[]).find(d=>d.id===m.deptId);
     if (isEditing) {
-      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-        <input id="edit-mun-${m.id}" value="${m.name.replace(/"/g,'&quot;')}" style="flex:1;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px"/>
-        <button onclick="saveMunName(${m.id})" style="background:#10b981;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">💾</button>
-        <button onclick="window._editingMun=null;renderMunList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
+      const deptOpts = '<option value="">— Sin departamento —</option>' + (S.depts||[]).map(d=>`<option value="${d.id}" ${m.deptId===d.id?'selected':''}>${d.name}</option>`).join('');
+      return `<div style="padding:6px 0;border-bottom:1px solid #1e2640">
+        <input id="edit-mun-${m.id}" value="${m.name.replace(/"/g,'&quot;')}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box"/>
+        <select id="edit-mun-dept-${m.id}" style="width:100%;background:#161929;border:1px solid #3b82f6;border-radius:6px;padding:5px 8px;color:#f1f5f9;font-size:13px;margin-bottom:6px;box-sizing:border-box">${deptOpts}</select>
+        <div style="display:flex;gap:6px">
+          <button onclick="confirmSaveMunName(${m.id})" style="flex:1;background:#10b981;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">💾 Guardar</button>
+          <button onclick="window._editingMun=null;renderMunList()" style="background:#475569;border:none;border-radius:6px;color:#fff;padding:6px 8px;cursor:pointer;font-size:12px">✕</button>
+        </div>
       </div>`;
     }
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
-      <span onclick="window._editingMun=${m.id};renderMunList()" style="flex:1;font-size:13px;color:#f1f5f9;cursor:pointer">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
+      <button onclick="window._editingMun=${m.id};renderMunList()" style="background:none;border:none;color:#a78bfa;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
+      <span style="flex:1;font-size:13px;color:#f1f5f9">🏘️ ${m.name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span>${dept?`<span style="display:block;font-size:11px;color:#10b981">🏛️ ${dept.name}</span>`:'<span style="display:block;font-size:11px;color:#f59e0b">⚠️ Sin departamento asignado</span>'}</span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteMun(${m.id})">✕</button>
     </div>`;
   }).join('');
 }
 
-function saveMunName(id) {
+function confirmSaveMunName(id) {
   const inp = document.getElementById('edit-mun-'+id);
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
+  askConfirm('¿Guardar cambios en este sector?', '', () => saveMunName(id), '💾 Guardar', '#10b981', '💾');
+}
+
+function saveMunName(id) {
+  const inp = document.getElementById('edit-mun-'+id);
+  const deptSel = document.getElementById('edit-mun-dept-'+id);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const m = S.municipios.find(x => x.id === id);
-  if (m) { m.name = name; save(); renderMunList(); renderClients(); toast('✅ Sector actualizado','#10b981'); }
+  if (m) {
+    m.name = name;
+    m.deptId = deptSel && deptSel.value ? Number(deptSel.value) : null;
+    save(); renderMunList(); renderClients(); renderConfig();
+    toast('✅ Sector actualizado','#10b981');
+  }
   window._editingMun = null;
 }
 
@@ -4281,13 +4554,13 @@ function deleteMun(id) {
   if (!m) return;
   const count = S.clients.filter(c=>c.municipioId===id).length;
   const msg = count
-    ? `Esto quitará el municipio "${m.name}" de ${count} cliente(s). ¿Continuar?`
-    : `¿Eliminar el municipio "${m.name}"?`;
-  askConfirm('🗑 Eliminar municipio', msg, () => {
+    ? `Esto quitará el sector "${m.name}" de ${count} cliente(s). ¿Continuar?`
+    : `¿Eliminar el sector "${m.name}"?`;
+  askConfirm('🗑 Eliminar sector', msg, () => {
     S.clients.forEach(c => { if (c.municipioId===id) c.municipioId=null; });
     S.municipios = S.municipios.filter(x=>x.id!==id);
-    save(); renderMunList(); renderClients();
-    toast('Municipio eliminado');
+    save(); renderMunList(); renderClients(); renderConfig();
+    toast('Sector eliminado');
   });
 }
 
@@ -4761,8 +5034,15 @@ let clientSortMode = 'order';
 
 function sortClients(mode) {
 clientSortMode = mode;
-if (mode==='alpha')  S.clients.sort((a,b) => a.name.localeCompare(b.name,'es'));
-if (mode==='recent') S.clients.reverse();
+if (mode==='alpha')    S.clients.sort((a,b) => a.name.localeCompare(b.name,'es'));
+if (mode==='recent')   S.clients.reverse();
+if (mode==='priority') S.clients.sort((a,b) => {
+  const pa = (a.priority||'').trim(), pb = (b.priority||'').trim();
+  if (!pa && !pb) return 0;
+  if (!pa) return 1;
+  if (!pb) return -1;
+  return pa.localeCompare(pb,'es',{numeric:true});
+});
 document.getElementById('cli-drag-hint').style.display = mode==='manual' ? 'block' : 'none';
 save(); renderClients();
 }
@@ -4789,15 +5069,27 @@ function collapseForm(bodyId) {
 
 function ncFieldSearch(type, q) {
   const isDept  = type === 'dept';
-  const list    = isDept ? (S.depts||[]) : (S.municipios||[]);
+  let list      = isDept ? (S.depts||[]) : (S.municipios||[]);
   const dropId  = isDept ? 'nc-dept-drop' : 'nc-mun-drop';
   const hiddenId= isDept ? 'nc-dept-id'   : 'nc-mun-id';
   const col     = isDept ? '#3b82f6' : '#7c3aed';
   const drop    = document.getElementById(dropId);
   if (!drop) return;
+  // Cascada: Departamento filtra por Ruta elegida; Sector filtra por Departamento elegido
+  if (isDept) {
+    const rutaSel = document.getElementById('nc-route-id');
+    const rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
+    if (rutaId) list = list.filter(d => d.rutaId === rutaId);
+    else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero una Ruta</div>'; return; }
+  } else {
+    const deptHidden = document.getElementById('nc-dept-id');
+    const deptId = deptHidden && deptHidden.value ? Number(deptHidden.value) : null;
+    if (deptId) list = list.filter(m => m.deptId === deptId);
+    else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero un Departamento</div>'; return; }
+  }
   const ql = (q||'').toLowerCase();
   const filtered = ql ? list.filter(x => x.name.toLowerCase().includes(ql)) : list;
-  if (!filtered.length) { drop.style.display = 'none'; return; }
+  if (!filtered.length) { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#64748b">Sin resultados</div>'; return; }
   drop.style.display = 'block';
   drop.innerHTML = filtered.map(x =>
     `<div onmousedown="event.preventDefault()" onclick="ncSelectField('${type}',${x.id},'${x.name.replace(/'/g,"\\'")}');event.stopPropagation()"
@@ -4813,6 +5105,24 @@ function ncSelectField(type, id, name) {
   document.getElementById(isDept ? 'nc-dept-lbl' : 'nc-mun-lbl').value = name;
   document.getElementById(isDept ? 'nc-dept-id'  : 'nc-mun-id').value  = id;
   document.getElementById(isDept ? 'nc-dept-drop' : 'nc-mun-drop').style.display = 'none';
+  // Cascada: si cambia el Departamento, limpiar el Sector elegido
+  if (isDept) {
+    const munLbl = document.getElementById('nc-mun-lbl');
+    const munHid = document.getElementById('nc-mun-id');
+    if (munLbl) munLbl.value = '';
+    if (munHid) munHid.value = '';
+  }
+}
+
+function clearNcDeptSector() {
+  const deptLbl = document.getElementById('nc-dept-lbl');
+  const deptHid = document.getElementById('nc-dept-id');
+  const munLbl  = document.getElementById('nc-mun-lbl');
+  const munHid  = document.getElementById('nc-mun-id');
+  if (deptLbl) deptLbl.value = '';
+  if (deptHid) deptHid.value = '';
+  if (munLbl) munLbl.value = '';
+  if (munHid) munHid.value = '';
 }
 
 function refreshNcRouteList() {
@@ -4827,7 +5137,7 @@ function refreshNcRouteList() {
 }
 
 function cancelNewClient() {
-  ['nc-n','nc-cid','nc-contact','nc-a','nc-p','nc-dept-lbl','nc-dept-id','nc-mun-lbl','nc-mun-id'].forEach(id => {
+  ['nc-n','nc-cid','nc-priority','nc-contact','nc-a','nc-p','nc-dept-lbl','nc-dept-id','nc-mun-lbl','nc-mun-id'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const sel = document.getElementById('nc-route-id'); if (sel) sel.value = '';
@@ -4847,6 +5157,7 @@ function addClient() {
     id,
     name,
     clientCode:  document.getElementById('nc-cid')?.value.trim() || '',
+    priority:    document.getElementById('nc-priority')?.value.trim() || '',
     contact:     document.getElementById('nc-contact')?.value.trim() || '',
     phone:       document.getElementById('nc-p').value.trim(),
     address:     document.getElementById('nc-a').value.trim(),
@@ -4860,7 +5171,7 @@ function addClient() {
   const init = {}; S.products.forEach(p => { init[p.id] = p.basePrice; });
   S.cp[id] = init;
   save();
-  ['nc-n','nc-cid','nc-contact','nc-p','nc-a','nc-dept-lbl','nc-mun-lbl','nc-dept-id','nc-mun-id'].forEach(i => {
+  ['nc-n','nc-cid','nc-priority','nc-contact','nc-p','nc-a','nc-dept-lbl','nc-mun-lbl','nc-dept-id','nc-mun-id'].forEach(i => {
     const el = document.getElementById(i); if (el) el.value = '';
   });
   const typeClientEl = document.getElementById('nc-type-client');
@@ -5108,6 +5419,13 @@ function toggleCliSec(id) {
 function renderClients() {
   // Recordar si hay ficha flotante activa
   const floatCid = window._floatCid || null;
+  // Actualizar selector de prioridad (Nuevo Cliente) desde la lista maestra de Configuración
+  const ncPrioSel = document.getElementById('nc-priority');
+  if (ncPrioSel) {
+    const curVal = ncPrioSel.value;
+    ncPrioSel.innerHTML = '<option value="">— Sin prioridad —</option>' + (S.priorityList||[]).map(p=>`<option value="${p}">${p}</option>`).join('');
+    ncPrioSel.value = curVal;
+  }
   _renderClientsInternal();
   if (floatCid) {
     setTimeout(() => restoreFloatingCard(floatCid), 50);
@@ -5177,7 +5495,7 @@ if (munSel) {
   const curMun = munSel.value;
   munSel.innerHTML = '<option value="">🏘️ Todos</option>' +
     [...(S.municipios||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(m=>`<option value="${m.id}" ${String(m.id)===curMun?'selected':''}>${m.name}</option>`).join('') +
-    `<option value="__none__" ${curMun==='__none__'?'selected':''}>— Sin municipio</option>`;
+    `<option value="__none__" ${curMun==='__none__'?'selected':''}>— Sin sector</option>`;
 }
 const routeFilter = rfSel ? rfSel.value : '';
 const munFilter   = munSel ? munSel.value : '';
@@ -5237,6 +5555,7 @@ ${dh}
 <div>
 <div style="font-weight:800;font-size:15px">${c.name}</div>
 ${c.clientCode ? `<div style="font-size:12px;color:#64748b">🆔 ${c.clientCode}</div>` : ''}
+${c.priority ? `<div style="font-size:12px;color:#f59e0b">⭐ ${c.priority}</div>` : ''}
 ${c.phone   ? `<div style="font-size:12px;color:#64748b">📞 ${c.phone}</div>` : ''}
 ${c.deptId ? (()=>{ const cat=(S.depts||[]).find(x=>x.id===c.deptId); return cat?`<div style="font-size:10px;display:inline-block;background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:8px;margin-top:2px">🏛️ ${cat.name}</div>`:''; })() : ''}
 ${c.municipioId ? (()=>{ const m=(S.municipios||[]).find(x=>x.id===c.municipioId); return m?`<div style="font-size:10px;display:inline-block;background:#1e1040;color:#a78bfa;padding:1px 8px;border-radius:8px;margin-top:2px;margin-left:3px">🏘️ ${m.name}</div>`:''; })() : ''}
@@ -8108,13 +8427,20 @@ const curMun  = (S.municipios||[]).find(m=>m.id===c.municipioId);
 document.getElementById("cc-"+id).innerHTML =
 '<label class="lbl">Nombre</label><input class="inp" id="ecn-'+id+'" value="'+c.name+'"/>' +
 '<label class="lbl">ID Cliente</label><input class="inp" id="eccid-'+id+'" value="'+(c.clientCode||'')+'" placeholder="Código de identificación"/>' +
-'<label class="lbl">Contacto</label><input class="inp" id="eccontact-'+id+'" value="'+(c.contact||'')+'" placeholder="Nombre de la persona de contacto"/>' +
+'<label class="lbl">⭐ Prioridad</label><select class="sel" id="ecpriority-'+id+'" style="width:100%;margin-bottom:12px"><option value="">— Sin prioridad —</option>'+(S.priorityList||[]).map(p=>'<option value="'+p+'" '+(c.priority===p?'selected':'')+'>'+p+'</option>').join('')+'</select>' +
 '<div id="restprod-wrap-'+id+'">' + buildRestrictedProdChecklist(c) + '</div>' +
+'<label class="lbl">Contacto</label><input class="inp" id="eccontact-'+id+'" value="'+(c.contact||'')+'" placeholder="Nombre de la persona de contacto"/>' +
+'<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'" />' +
+'<label class="lbl">Dirección</label><input class="inp" id="eca-'+id+'" value="'+(c.address||"")+'" />' +
 '<label class="lbl">🚚 Ruta</label>' +
-'<select id="ecr-'+id+'" class="sel" style="margin-bottom:12px;width:100%">' +
+'<select id="ecr-'+id+'" class="sel" style="margin-bottom:12px;width:100%" onchange="clearCliDeptSector('+id+')">' +
 '<option value="">— Sin ruta —</option>' +
 (S.rutasCliente||[]).map(r=>'<option value="'+r.id+'"'+(c.rutaClienteId===r.id?' selected':'')+'>'+r.name+'</option>').join('') +
 '</select>' +
+'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#f1f5f9;margin-bottom:10px;cursor:pointer">' +
+'<input type="checkbox" id="ecautoroute-'+id+'" '+(c.excludeFromAutoRoute?'':'checked')+' style="width:16px;height:16px;accent-color:#10b981"/>' +
+'🚚 Incluir en generación automática de rutas' +
+'</label>' +
 '<label class="lbl">🏛️ Departamento</label>' +
 '<div style="position:relative;margin-bottom:10px">' +
 '<input id="ecdl-'+id+'" class="inp" style="margin-bottom:0" placeholder="Buscar departamento..." value="'+(curDept?curDept.name:'')+'" autocomplete="off" oninput="cliFieldSearch(\'dept\','+id+',this.value)" onfocus="cliFieldSearch(\'dept\','+id+',this.value)"/>' +
@@ -8127,12 +8453,6 @@ document.getElementById("cc-"+id).innerHTML =
 '<input type="hidden" id="ecm-'+id+'" value="'+(c.municipioId||'')+'"/>' +
 '<div id="ecmdrop-'+id+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1e2040;border:1px solid #7c3aed;border-radius:8px;z-index:200;max-height:160px;overflow-y:auto"></div>' +
 '</div>' +
-'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#f1f5f9;margin-bottom:10px;cursor:pointer">' +
-'<input type="checkbox" id="ecautoroute-'+id+'" '+(c.excludeFromAutoRoute?'':'checked')+' style="width:16px;height:16px;accent-color:#10b981"/>' +
-'🚚 Incluir en generación automática de rutas' +
-'</label>' +
-'<label class="lbl">Dirección</label><input class="inp" id="eca-'+id+'" value="'+(c.address||"")+'" />' +
-'<label class="lbl">Teléfono</label><input class="inp" id="ecp-'+id+'" value="'+(c.phone||"")+'" />' +
 '<div class="two">' +
 '<button class="bg" onclick="saveCliForm('+id+')">✔ Guardar</button>' +
 '<button class="bs" onclick="cancelEditCliForm('+id+')">Cancelar</button>' +
@@ -8141,13 +8461,25 @@ document.getElementById("cc-"+id).innerHTML =
 
 function cliFieldSearch(type, cid, q) {
   const isDept = type==='dept';
-  const list   = isDept ? (S.depts||[]) : (S.municipios||[]);
+  let list = isDept ? (S.depts||[]) : (S.municipios||[]);
   const dropId = isDept ? 'ecdrop-'+cid : 'ecmdrop-'+cid;
   const drop   = document.getElementById(dropId);
   if (!drop) return;
+  // Cascada: Departamento filtra por Ruta elegida; Sector filtra por Departamento elegido
+  if (isDept) {
+    const rutaSel = document.getElementById('ecr-'+cid);
+    const rutaId = rutaSel && rutaSel.value ? Number(rutaSel.value) : null;
+    if (rutaId) list = list.filter(d => d.rutaId === rutaId);
+    else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero una Ruta</div>'; return; }
+  } else {
+    const deptHidden = document.getElementById('ecc-'+cid);
+    const deptId = deptHidden && deptHidden.value ? Number(deptHidden.value) : null;
+    if (deptId) list = list.filter(m => m.deptId === deptId);
+    else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero un Departamento</div>'; return; }
+  }
   const ql = q.toLowerCase();
   const filtered = ql ? list.filter(x=>x.name.toLowerCase().includes(ql)) : list;
-  if (!filtered.length) { drop.style.display='none'; return; }
+  if (!filtered.length) { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#64748b">Sin resultados</div>'; return; }
   drop.style.display='block';
   drop.innerHTML = filtered.map(x=>
     `<div onclick="selectCliField('${type}',${cid},${x.id},'${x.name.replace(/'/g,"\\'")}');event.stopPropagation()"
@@ -8171,6 +8503,24 @@ function selectCliField(type, cid, id, name) {
   if (lbl) lbl.value = name;
   if (hid) hid.value = id;
   if (drp) drp.style.display='none';
+  // Cascada: si cambia el Departamento, limpiar el Sector elegido (puede que ya no pertenezca)
+  if (isDept) {
+    const munLbl = document.getElementById('ecml-'+cid);
+    const munHid = document.getElementById('ecm-'+cid);
+    if (munLbl) munLbl.value = '';
+    if (munHid) munHid.value = '';
+  }
+}
+
+function clearCliDeptSector(cid) {
+  const deptLbl = document.getElementById('ecdl-'+cid);
+  const deptHid = document.getElementById('ecc-'+cid);
+  const munLbl  = document.getElementById('ecml-'+cid);
+  const munHid  = document.getElementById('ecm-'+cid);
+  if (deptLbl) deptLbl.value = '';
+  if (deptHid) deptHid.value = '';
+  if (munLbl) munLbl.value = '';
+  if (munHid) munHid.value = '';
 }
 
 function saveCliForm(id) {
@@ -8178,6 +8528,7 @@ const c = S.clients.find(x=>x.id===id);
 c.name       = document.getElementById("ecn-"+id).value.trim();
 c.clientCode = document.getElementById("eccid-"+id)?.value.trim() || '';
 c.contact    = document.getElementById("eccontact-"+id)?.value.trim() || '';
+c.priority   = document.getElementById("ecpriority-"+id)?.value.trim() || '';
 const restWrap = document.getElementById("restprod-wrap-"+id);
 c.authorizedProducts = restWrap ? [...restWrap.querySelectorAll('.restprod-chk:checked')].map(el=>Number(el.dataset.pid)) : (c.authorizedProducts||[]);
 delete c.authorizedRestricted;
@@ -8692,11 +9043,12 @@ if (!S.products.length) { body.innerHTML='<div style="text-align:center;color:#6
 body.innerHTML = '';
 const list = S.products; // ya ordenados por sortProds
 let lastFamHeader = null;
-// Actualizar datalist de familias
-const dl = document.getElementById('fam-list');
-if(dl){
-const knownFams = [...new Set(S.products.map(p=>p.family).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-dl.innerHTML = knownFams.map(f=>`<option value="${f}">`).join('');
+// Actualizar selector de familias (Nuevo Producto) desde la lista maestra de Configuración
+const npFamSel = document.getElementById('np-fam');
+if(npFamSel){
+const curVal = npFamSel.value;
+npFamSel.innerHTML = '<option value="">— Selecciona una familia —</option>' + (S.familyList||[]).map(f=>`<option value="${f}">${f}</option>`).join('');
+npFamSel.value = curVal;
 }
 list.forEach(p => {
 // Encabezado de categoría si modo es family
@@ -8746,7 +9098,10 @@ row.innerHTML = `
 <label class="lbl">Nombre</label>
 <input class="inp" id="epn-${id}" value="${p.name}"/>
 <label class="lbl">Familia / Categoría</label>
-<input class="inp" id="epfam-${id}" value="${p.family||''}" placeholder="Ej: Thinner, Ácido..." list="fam-list"/>
+<select class="sel" id="epfam-${id}" style="width:100%;margin-bottom:12px">
+<option value="">— Selecciona una familia —</option>
+${(S.familyList||[]).map(f=>`<option value="${f}" ${p.family===f?'selected':''}>${f}</option>`).join('')}
+</select>
 <label style="display:flex;align-items:center;gap:8px;background:#2a1f00;border:1px solid #f59e0b;border-radius:8px;padding:8px 10px;margin-bottom:12px;cursor:pointer">
 <input type="checkbox" id="epfamrestricted-${id}" ${p.family && (S.restrictedFamilies||[]).includes(p.family.trim()) ? 'checked' : ''} style="width:17px;height:17px;accent-color:#f59e0b"/>
 <span style="font-size:12px;color:#f59e0b;font-weight:700">🔒 Familia restringida (requiere permiso especial del cliente)</span>
@@ -8932,6 +9287,7 @@ const rows = S.clients.map(c => {
     'ID Sistema': 'GP-0' + c.id,
     'Nombre': c.name || '',
     'ID Cliente': c.clientCode || '',
+    'Prioridad': c.priority || '',
     'Contacto': c.contact || '',
     'Teléfono': c.phone || '',
     'Dirección': c.address || '',
@@ -8967,6 +9323,7 @@ reader.onload = function(ev) {
       if (!c && nombre) c = S.clients.find(x => x.name.toLowerCase() === nombre.toLowerCase());
       if (!c) { noEncontrados++; return; }
       if (row['ID Cliente'] !== undefined && row['ID Cliente'] !== '') c.clientCode = row['ID Cliente'].toString().trim();
+      if (row['Prioridad']  !== undefined && row['Prioridad']  !== '') c.priority   = row['Prioridad'].toString().trim();
       if (row['Contacto']   !== undefined && row['Contacto']   !== '') c.contact    = row['Contacto'].toString().trim();
       if (row['Teléfono']   !== undefined && row['Teléfono']   !== '') c.phone      = row['Teléfono'].toString().trim();
       if (row['Dirección']  !== undefined && row['Dirección']  !== '') c.address    = row['Dirección'].toString().trim();
