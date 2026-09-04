@@ -295,8 +295,6 @@ function fmtDDMMYYYY(d) {
 <button onclick="goTab('routes')">🚚 Rutas</button>
 <button onclick="goTab('prospects')">🧲 Prospectos</button>
 <button onclick="goTab('quotes')">📝 Cotizaciones</button>
-<button onclick="goTab('bizinfo')">🏢 Empresa</button>
-<button onclick="goTab('backup')">💾 Respaldo</button>
 </div>
 
 <div id="global-search-wrap" style="padding:6px 12px;background:#0f1629;border-bottom:1px solid #1e2640;display:none">
@@ -860,7 +858,30 @@ Selecciona un cliente para continuar.<br><br>
 </div>
 
 <!-- ══════════════════════ NEGOCIO ══════════════════════ -->
-<div id="page-bizinfo" class="page">
+
+
+<div id="page-config" class="page">
+<div class="sec">⚙️ Configuración</div>
+
+<div id="config-main-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+  <div onclick="event.stopPropagation();toggleConfigMain('lists')" class="card" style="text-align:center;padding:16px 8px;cursor:pointer;grid-column:1 / -1">
+    <div style="font-size:26px;margin-bottom:4px">📋</div>
+    <div style="font-size:13px;color:#f1f5f9;font-weight:700">Listas del sistema</div>
+  </div>
+  <div onclick="event.stopPropagation();toggleConfigMain('bizinfo')" class="card" style="text-align:center;padding:16px 8px;cursor:pointer">
+    <div style="font-size:26px;margin-bottom:4px">🏢</div>
+    <div style="font-size:13px;color:#f1f5f9;font-weight:700">Empresa</div>
+  </div>
+  <div onclick="event.stopPropagation();toggleConfigMain('backup')" class="card" style="text-align:center;padding:16px 8px;cursor:pointer">
+    <div style="font-size:26px;margin-bottom:4px">💾</div>
+    <div style="font-size:13px;color:#f1f5f9;font-weight:700">Respaldo</div>
+  </div>
+</div>
+
+<div id="config-lists-section" style="display:none">
+<div id="config-list"></div>
+</div>
+<div id="config-bizinfo-section" style="display:none">
 <div class="sec">🏢 Información del Negocio</div>
 <div class="card">
 <div style="font-weight:700;color:#f59e0b;margin-bottom:12px">Aparece en el encabezado y en las cotizaciones</div>
@@ -910,9 +931,7 @@ Selecciona un cliente para continuar.<br><br>
 <div id="activation-info" style="margin-top:6px;font-size:11px;color:#64748b;text-align:center"></div>
 </div>
 </div>
-
-<!-- ══════════════════════ RESPALDO ══════════════════════ -->
-<div id="page-backup" class="page">
+<div id="config-backup-section" style="display:none">
 <div class="sec">💾 Respaldo de Datos</div>
 
 <div class="bbx" style="border-color:#10b98166">
@@ -976,10 +995,6 @@ Selecciona un cliente para continuar.<br><br>
 • En el celular nuevo, abre la app y usa "Importar Respaldo"
 </div>
 </div>
-
-<div id="page-config" class="page">
-<div class="sec">⚙️ Configuración</div>
-<div id="config-list"></div>
 </div>
 
 <!-- ══════════════════════ MODAL COTIZACIÓN ══════════════════════ -->
@@ -1476,12 +1491,17 @@ function openNewProspectForm() {
 }
 
 function goTab(name, _fromPop) {
+// 'bizinfo' y 'backup' viven ahora dentro de Configuración: redirigir y abrir su tarjeta
+if (name === 'bizinfo' || name === 'backup') {
+  window._configMainOpenKey = name;
+  name = 'config';
+}
 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active'));
 const pageEl = document.getElementById('page-'+name);
 if (pageEl) pageEl.classList.add('active');
-// Nuevo orden del nav: list, clients, products, routes, prospects, quotes, bizinfo, backup
-const tabs = ['list','clients','products','routes','prospects','quotes','bizinfo','backup'];
+// Nuevo orden del nav: list, clients, products, routes, prospects, quotes
+const tabs = ['list','clients','products','routes','prospects','quotes'];
 const idx  = tabs.indexOf(name);
 if (idx >= 0) {
   const btns = document.querySelectorAll('#nav button');
@@ -1491,8 +1511,6 @@ if (name==='order')    renderOrderPage();
 if (name==='list')     renderList();
 if (name==='clients')  { renderClients(); renderDeptList(); renderMunList(); }
 if (name==='products') { renderProducts(); renderPriceLists(); }
-if (name==='bizinfo')  { loadBizForm(); setTimeout(refreshActivationInfo, 100); }
-if (name==='backup')   renderBackup();
 if (name==='routes')   renderRoutes();
 if (name==='prospects') renderProspects();
 if (name==='quotes')    renderQuotesList();
@@ -4103,7 +4121,7 @@ function addDept() {
   S.depts.push({ id: S.nextDeptId++, name, rutaId });
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderDeptList(); renderClients(); renderConfig();
+  save(); renderDeptList(); renderClients(); renderConfigLists();
   toast('🏛️ Departamento agregado');
 }
 
@@ -4116,7 +4134,7 @@ function addPriorityItem() {
   S.priorityList.push(name);
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderConfig();
+  save(); renderConfigLists();
   toast('⭐ Prioridad agregada');
 }
 
@@ -4154,7 +4172,7 @@ function movePriorityItem(idx, dir) {
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= list.length) return;
   [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
-  save(); renderConfig();
+  save(); renderConfigLists();
 }
 
 function confirmSavePriorityItem(idx) {
@@ -4173,7 +4191,7 @@ function savePriorityItem(idx) {
   S.priorityList[idx] = newName;
   S.clients.forEach(c => { if (c.priority === oldName) c.priority = newName; });
   window._editingPriority = null;
-  save(); renderConfig(); renderClients();
+  save(); renderConfigLists(); renderClients();
   toast('✅ Prioridad actualizada','#10b981');
 }
 
@@ -4185,7 +4203,7 @@ function deletePriorityItem(idx) {
   askConfirm('🗑 Eliminar prioridad', msg, () => {
     S.clients.forEach(c => { if (c.priority === name) c.priority = ''; });
     S.priorityList.splice(idx, 1);
-    save(); renderConfig(); renderClients();
+    save(); renderConfigLists(); renderClients();
     toast('Prioridad eliminada');
   });
 }
@@ -4199,7 +4217,7 @@ function addFamilyItem() {
   S.familyList.push(name);
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderConfig();
+  save(); renderConfigLists();
   toast('🏷️ Familia agregada');
 }
 
@@ -4238,7 +4256,7 @@ function moveFamilyItem(idx, dir) {
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= list.length) return;
   [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
-  save(); renderConfig(); renderProducts();
+  save(); renderConfigLists(); renderProducts();
 }
 
 function confirmSaveFamilyItem(idx) {
@@ -4258,7 +4276,7 @@ function saveFamilyItem(idx) {
   S.products.forEach(p => { if ((p.family||'').trim() === oldName) p.family = newName; });
   if (S.restrictedFamilies) S.restrictedFamilies = S.restrictedFamilies.map(f => f === oldName ? newName : f);
   window._editingFamily = null;
-  save(); renderConfig(); renderProducts();
+  save(); renderConfigLists(); renderProducts();
   toast('✅ Familia actualizada','#10b981');
 }
 
@@ -4271,12 +4289,32 @@ function deleteFamilyItem(idx) {
     S.products.forEach(p => { if ((p.family||'').trim() === name) p.family = ''; });
     if (S.restrictedFamilies) S.restrictedFamilies = S.restrictedFamilies.filter(f => f !== name);
     S.familyList.splice(idx, 1);
-    save(); renderConfig(); renderProducts();
+    save(); renderConfigLists(); renderProducts();
     toast('Familia eliminada');
   });
 }
 
 function renderConfig() {
+  // Punto de entrada al abrir la pestaña Configuración: dibuja las 3 tarjetas principales
+  const mainOpen = window._configMainOpenKey || null;
+  const mainWrap = document.getElementById('config-main-grid');
+  const listsSection = document.getElementById('config-lists-section');
+  const bizSection = document.getElementById('config-bizinfo-section');
+  const backupSection = document.getElementById('config-backup-section');
+  if (listsSection) listsSection.style.display = mainOpen === 'lists' ? 'block' : 'none';
+  if (bizSection) bizSection.style.display = mainOpen === 'bizinfo' ? 'block' : 'none';
+  if (backupSection) backupSection.style.display = mainOpen === 'backup' ? 'block' : 'none';
+  if (mainOpen === 'lists') renderConfigLists();
+  if (mainOpen === 'bizinfo') { loadBizForm(); setTimeout(refreshActivationInfo, 100); }
+  if (mainOpen === 'backup') renderBackup();
+}
+
+function toggleConfigMain(key) {
+  window._configMainOpenKey = window._configMainOpenKey === key ? null : key;
+  renderConfig();
+}
+
+function renderConfigLists() {
   const wrap = document.getElementById('config-list');
   if (!wrap) return;
   const openKey = window._configOpenKey || null;
@@ -4343,7 +4381,7 @@ function configAddLabel(key) {
 function toggleConfigAddForm(key) {
   const opening = window._configAddOpen !== key;
   window._configAddOpen = opening ? key : null;
-  renderConfig();
+  renderConfigLists();
 }
 
 function configSectionInnerHTML(key) {
@@ -4357,7 +4395,7 @@ function configSectionInnerHTML(key) {
 function toggleConfigSection(key) {
   const opening = window._configOpenKey !== key;
   window._configOpenKey = opening ? key : null;
-  renderConfig();
+  renderConfigLists();
 }
 
 document.addEventListener('click', function(e) {
@@ -4365,7 +4403,7 @@ document.addEventListener('click', function(e) {
   const clickedInsideConfig = e.target.closest && e.target.closest('#config-list');
   if (!clickedInsideConfig) {
     window._configOpenKey = null;
-    renderConfig();
+    renderConfigLists();
   }
 });
 
@@ -4481,7 +4519,7 @@ function moveMunToDept(munId, deptId) {
   const m = (S.municipios||[]).find(x => x.id === munId);
   if (!m) return;
   m.deptIds = [deptId];
-  save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
+  save(); renderDeptList(); renderMunList(); renderClients(); renderConfigLists();
   if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
   toast('🔀 Sector movido', '#10b981');
 }
@@ -4495,7 +4533,7 @@ function assignMunToDept(munId, deptId, checked) {
   } else {
     m.deptIds = m.deptIds.filter(id => id !== deptId);
   }
-  save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
+  save(); renderDeptList(); renderMunList(); renderClients(); renderConfigLists();
   if (window._expandedDept) renderDeptMunChecklist(window._expandedDept);
   toast(checked ? '✅ Sector asignado' : 'Sector desasignado', '#10b981');
 }
@@ -4514,7 +4552,7 @@ function saveDeptName(id) {
   const dept = S.depts.find(d => d.id === id);
   if (dept) {
     dept.name = name;
-    save(); renderDeptList(); renderClients(); renderConfig();
+    save(); renderDeptList(); renderClients(); renderConfigLists();
     toast('✅ Departamento actualizado','#10b981');
   }
   window._editingDept = null;
@@ -4531,7 +4569,7 @@ function deleteDept(id) {
     S.clients.forEach(c => { if (c.deptId===id) c.deptId=null; });
     (S.municipios||[]).forEach(m => { if (m.deptIds) m.deptIds = m.deptIds.filter(did => did !== id); });
     S.depts = S.depts.filter(c=>c.id!==id);
-    save(); renderDeptList(); renderMunList(); renderClients(); renderConfig();
+    save(); renderDeptList(); renderMunList(); renderClients(); renderConfigLists();
     toast('Departamento eliminado');
   });
 }
@@ -4546,7 +4584,7 @@ function addRutaCliente() {
   S.rutasCliente.push({ id: S.nextRutaClienteId++, name });
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderRutaClienteList(); renderClients(); renderConfig();
+  save(); renderRutaClienteList(); renderClients(); renderConfigLists();
   toast('🚚 Ruta agregada');
 }
 
@@ -4650,7 +4688,7 @@ function moveDeptToRuta(deptId, rutaId) {
   const dept = (S.depts||[]).find(d => d.id === deptId);
   if (!dept) return;
   dept.rutaIds = [rutaId];
-  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
+  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfigLists();
   if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
   toast('🔀 Departamento movido', '#10b981');
 }
@@ -4681,7 +4719,7 @@ function assignDeptToRuta(deptId, rutaId, checked) {
   } else {
     dept.rutaIds = dept.rutaIds.filter(id => id !== rutaId);
   }
-  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
+  save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfigLists();
   if (window._expandedRuta) renderRutaDeptChecklist(window._expandedRuta);
   toast(checked ? '✅ Departamento asignado' : 'Departamento desasignado', '#10b981');
 }
@@ -4698,7 +4736,7 @@ function saveRutaName(id) {
   const name = inp ? inp.value.trim() : '';
   if (!name) return toast('El nombre no puede estar vacío','#ef4444');
   const r = S.rutasCliente.find(x => x.id === id);
-  if (r) { r.name = name; save(); renderRutaClienteList(); renderClients(); renderConfig(); toast('✅ Ruta actualizada','#10b981'); }
+  if (r) { r.name = name; save(); renderRutaClienteList(); renderClients(); renderConfigLists(); toast('✅ Ruta actualizada','#10b981'); }
   window._editingRuta = null;
 }
 
@@ -4713,7 +4751,7 @@ function deleteRutaCliente(id) {
     S.clients.forEach(c => { if (c.rutaClienteId===id) c.rutaClienteId=null; });
     (S.depts||[]).forEach(d => { if (d.rutaIds) d.rutaIds = d.rutaIds.filter(rid => rid !== id); });
     S.rutasCliente = S.rutasCliente.filter(x=>x.id!==id);
-    save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfig();
+    save(); renderRutaClienteList(); renderDeptList(); renderClients(); renderConfigLists();
     toast('Ruta eliminada');
   });
 }
@@ -4729,7 +4767,7 @@ function addMun() {
   S.municipios.push({ id: S.nextMunId++, name, deptId });
   inp.value = '';
   window._configAddOpen = null;
-  save(); renderMunList(); renderClients(); renderConfig();
+  save(); renderMunList(); renderClients(); renderConfigLists();
   toast('🏘️ Sector agregado');
 }
 
@@ -4776,7 +4814,7 @@ function saveMunName(id) {
   const m = S.municipios.find(x => x.id === id);
   if (m) {
     m.name = name;
-    save(); renderMunList(); renderClients(); renderConfig();
+    save(); renderMunList(); renderClients(); renderConfigLists();
     toast('✅ Sector actualizado','#10b981');
   }
   window._editingMun = null;
@@ -4792,7 +4830,7 @@ function deleteMun(id) {
   askConfirm('🗑 Eliminar sector', msg, () => {
     S.clients.forEach(c => { if (c.municipioId===id) c.municipioId=null; });
     S.municipios = S.municipios.filter(x=>x.id!==id);
-    save(); renderMunList(); renderClients(); renderConfig();
+    save(); renderMunList(); renderClients(); renderConfigLists();
     toast('Sector eliminado');
   });
 }
