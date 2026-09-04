@@ -4137,12 +4137,24 @@ function renderPriorityList() {
         </div>
       </div>`;
     }
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+    return `<div style="display:flex;align-items:center;gap:4px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <button onclick="movePriorityItem(${idx},-1)" ${idx===0?'disabled':''} style="background:none;border:none;color:${idx===0?'#334155':'#94a3b8'};cursor:${idx===0?'default':'pointer'};font-size:12px;padding:0 4px;line-height:1">▲</button>
+        <button onclick="movePriorityItem(${idx},1)" ${idx===list.length-1?'disabled':''} style="background:none;border:none;color:${idx===list.length-1?'#334155':'#94a3b8'};cursor:${idx===list.length-1?'default':'pointer'};font-size:12px;padding:0 4px;line-height:1">▼</button>
+      </div>
       <button onclick="window._editingPriority=${idx};renderPriorityList()" style="background:none;border:none;color:#f59e0b;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
       <span style="flex:1;font-size:13px;color:#f1f5f9">⭐ ${name} <span style="color:#64748b;font-size:11px">(${count} cliente${count!==1?'s':''})</span></span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deletePriorityItem(${idx})">✕</button>
     </div>`;
   }).join('');
+}
+
+function movePriorityItem(idx, dir) {
+  const list = S.priorityList;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
+  save(); renderConfig();
 }
 
 function confirmSavePriorityItem(idx) {
@@ -4209,12 +4221,24 @@ function renderFamilyList() {
         </div>
       </div>`;
     }
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #1e2640">
+    return `<div style="display:flex;align-items:center;gap:4px;padding:6px 0;border-bottom:1px solid #1e2640">
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <button onclick="moveFamilyItem(${idx},-1)" ${idx===0?'disabled':''} style="background:none;border:none;color:${idx===0?'#334155':'#94a3b8'};cursor:${idx===0?'default':'pointer'};font-size:12px;padding:0 4px;line-height:1">▲</button>
+        <button onclick="moveFamilyItem(${idx},1)" ${idx===list.length-1?'disabled':''} style="background:none;border:none;color:${idx===list.length-1?'#334155':'#94a3b8'};cursor:${idx===list.length-1?'default':'pointer'};font-size:12px;padding:0 4px;line-height:1">▼</button>
+      </div>
       <button onclick="window._editingFamily=${idx};renderFamilyList()" style="background:none;border:none;color:#f59e0b;cursor:pointer;font-size:14px;padding:2px 4px">✏️</button>
       <span style="flex:1;font-size:13px;color:#f1f5f9">🏷️ ${name}${isRestricted?' 🔒':''} <span style="color:#64748b;font-size:11px">(${count} producto${count!==1?'s':''})</span></span>
       <button class="br" style="font-size:10px;padding:2px 8px" onclick="deleteFamilyItem(${idx})">✕</button>
     </div>`;
   }).join('');
+}
+
+function moveFamilyItem(idx, dir) {
+  const list = S.familyList;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
+  save(); renderConfig(); renderProducts();
 }
 
 function confirmSaveFamilyItem(idx) {
@@ -5297,7 +5321,8 @@ function ncFieldSearch(type, q) {
     else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero un Departamento</div>'; return; }
   }
   const ql = (q||'').toLowerCase();
-  const filtered = ql ? list.filter(x => x.name.toLowerCase().includes(ql)) : list;
+  let filtered = ql ? list.filter(x => x.name.toLowerCase().includes(ql)) : list;
+  filtered = [...filtered].sort((a,b)=>a.name.localeCompare(b.name,'es'));
   if (!filtered.length) { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#64748b">Sin resultados</div>'; return; }
   drop.style.display = 'block';
   drop.innerHTML = filtered.map(x =>
@@ -5338,7 +5363,7 @@ function refreshNcRouteList() {
   const sel = document.getElementById('nc-route-id');
   if (!sel) return;
   sel.innerHTML = '<option value="">— Sin ruta asignada —</option>';
-  (S.rutasCliente || []).forEach(r => {
+  [...(S.rutasCliente || [])].sort((a,b)=>a.name.localeCompare(b.name,'es')).forEach(r => {
     const o = document.createElement('option');
     o.value = r.id; o.textContent = r.name;
     sel.appendChild(o);
@@ -8644,7 +8669,7 @@ document.getElementById("cc-"+id).innerHTML =
 '<label class="lbl">🚚 Ruta</label>' +
 '<select id="ecr-'+id+'" class="sel" style="margin-bottom:12px;width:100%" onchange="clearCliDeptSector('+id+')">' +
 '<option value="">— Sin ruta —</option>' +
-(S.rutasCliente||[]).map(r=>'<option value="'+r.id+'"'+(c.rutaClienteId===r.id?' selected':'')+'>'+r.name+'</option>').join('') +
+[...(S.rutasCliente||[])].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(r=>'<option value="'+r.id+'"'+(c.rutaClienteId===r.id?' selected':'')+'>'+r.name+'</option>').join('') +
 '</select>' +
 '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#f1f5f9;margin-bottom:10px;cursor:pointer">' +
 '<input type="checkbox" id="ecautoroute-'+id+'" '+(c.excludeFromAutoRoute?'':'checked')+' style="width:16px;height:16px;accent-color:#10b981"/>' +
@@ -8687,7 +8712,8 @@ function cliFieldSearch(type, cid, q) {
     else { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#f59e0b">Selecciona primero un Departamento</div>'; return; }
   }
   const ql = q.toLowerCase();
-  const filtered = ql ? list.filter(x=>x.name.toLowerCase().includes(ql)) : list;
+  let filtered = ql ? list.filter(x=>x.name.toLowerCase().includes(ql)) : list;
+  filtered = [...filtered].sort((a,b)=>a.name.localeCompare(b.name,'es'));
   if (!filtered.length) { drop.style.display='block'; drop.innerHTML = '<div style="padding:9px 12px;font-size:12px;color:#64748b">Sin resultados</div>'; return; }
   drop.style.display='block';
   drop.innerHTML = filtered.map(x=>
@@ -9161,7 +9187,14 @@ function sortProds(mode) {
 prodSortMode = mode;
 if (mode==='alpha')      S.products.sort((a,b) => (a.name+a.presentation).localeCompare(b.name+b.presentation,'es'));
 if (mode==='alphaDesc')  S.products.sort((a,b) => (b.name+b.presentation).localeCompare(a.name+a.presentation,'es'));
-if (mode==='family')     S.products.sort((a,b) => (a.family||'').localeCompare(b.family||'','es') || (a.name+a.presentation).localeCompare(b.name+b.presentation,'es'));
+if (mode==='family')     S.products.sort((a,b) => {
+  const famList = S.familyList || [];
+  const ia = famList.indexOf((a.family||'').trim());
+  const ib = famList.indexOf((b.family||'').trim());
+  const posA = ia === -1 ? famList.length : ia; // sin familia (o no listada) va al final
+  const posB = ib === -1 ? famList.length : ib;
+  return posA - posB || (a.name+a.presentation).localeCompare(b.name+b.presentation,'es');
+});
 if (mode==='recent')     S.products.reverse();
 document.getElementById('prod-drag-hint').style.display = mode==='manual' ? 'block' : 'none';
 save(); renderProducts();
