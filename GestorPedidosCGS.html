@@ -381,7 +381,10 @@ function fmtDDMMYYYY(d) {
 <input class="inp" id="ord-delivery" placeholder="Dirección de entrega..." style="margin-bottom:4px" oninput="onDeliveryInputChange()"/>
 <button class="bs" id="ord-delivery-save-btn" style="display:none;font-size:11px;padding:4px 10px;margin-bottom:8px" onclick="saveDeliveryToClient()">💾 Guardar esta dirección en el cliente</button>
 <label class="lbl">📅 Fecha de entrega</label>
-<input class="inp" type="date" id="ord-quote-note" style="margin-bottom:8px"/>
+<div style="display:flex;gap:6px;margin-bottom:8px">
+<input class="inp" type="date" id="ord-quote-note" style="margin-bottom:0;flex:1"/>
+<button type="button" onclick="document.getElementById('ord-quote-note').value=''" style="background:#2a3050;border:none;border-radius:8px;color:#f1f5f9;padding:0 12px;cursor:pointer;font-size:16px" title="Quitar fecha">🗑</button>
+</div>
 </div>
 <label class="lbl">Comentarios</label>
 <div id="ord-comments-list"></div>
