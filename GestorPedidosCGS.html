@@ -9870,7 +9870,6 @@ function driveDisconnect() {
   localStorage.removeItem('gpgt_drive_file_id');
   localStorage.removeItem('gpgt_drive_refresh');
   localStorage.removeItem('gpgt_drive_expiry');
-  localStorage.removeItem('gpgt_drive_was_connected'); // desconexión manual: no mostrar alerta roja
   toast('Drive desconectado','#64748b');
   renderDriveStatus();
 }
